@@ -65,6 +65,11 @@ type BudgetCompleteForm = {
   partsNote: string;
 };
 
+type BudgetReturnForm = {
+  promisedDeliveryAt: string;
+  note: string;
+};
+
 type DeliveryForm = {
   deliveredOnTime: boolean;
   partsOrdered: boolean;
@@ -301,6 +306,7 @@ export default function FluxoPage() {
   const [startServiceVehicle, setStartServiceVehicle] = useState<VehicleFlow | null>(null);
   const [budgetRequestVehicle, setBudgetRequestVehicle] = useState<VehicleFlow | null>(null);
   const [budgetCompleteVehicle, setBudgetCompleteVehicle] = useState<VehicleFlow | null>(null);
+  const [budgetReturnVehicle, setBudgetReturnVehicle] = useState<VehicleFlow | null>(null);
   const [deliveryVehicle, setDeliveryVehicle] = useState<VehicleFlow | null>(null);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [receiveForm, setReceiveForm] = useState<ReceiveForm>({
@@ -318,6 +324,10 @@ export default function FluxoPage() {
     quotedBy: "",
     partAvailability: "sim",
     partsNote: "",
+  });
+  const [budgetReturnForm, setBudgetReturnForm] = useState<BudgetReturnForm>({
+    promisedDeliveryAt: "",
+    note: "",
   });
   const [deliveryForm, setDeliveryForm] = useState<DeliveryForm>({
     deliveredOnTime: true,
@@ -450,6 +460,19 @@ export default function FluxoPage() {
       quotedBy: profile?.name ?? "",
       partAvailability: vehicle.partAvailability ?? "sim",
       partsNote: vehicle.partsNote ?? "",
+    });
+  }
+
+  function openBudgetReturnModal(vehicle: VehicleFlow) {
+    if (vehicle.partAvailability !== "sim") {
+      setError("O retorno para Aguardando Serviço só é permitido quando as peças estiverem disponíveis.");
+      return;
+    }
+
+    setBudgetReturnVehicle(vehicle);
+    setBudgetReturnForm({
+      promisedDeliveryAt: "",
+      note: "",
     });
   }
 
@@ -668,6 +691,61 @@ export default function FluxoPage() {
       setBudgetCompleteVehicle(null);
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível concluir o orçamento.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
+  async function submitBudgetReturn(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!budgetReturnVehicle) return;
+
+    if (!budgetReturnForm.promisedDeliveryAt) {
+      setError("Informe a nova previsão de entrega para retornar o veículo ao serviço.");
+      return;
+    }
+
+    if (isEarlierThanCurrent(budgetReturnForm.promisedDeliveryAt, budgetReturnVehicle.promisedDeliveryAt)) {
+      setError("A nova previsão não pode ser menor que a previsão já prometida.");
+      return;
+    }
+
+    setMovingId(budgetReturnVehicle.id);
+    setError("");
+
+    const note = budgetReturnForm.note || "Orçamento realizado com peças em estoque. Retorno para Aguardando Serviço.";
+
+    try {
+      await moveVehicleFlow({
+        vehicleFlowId: budgetReturnVehicle.id,
+        fromLane: budgetReturnVehicle.currentLane,
+        toLane: "aguardando_servico",
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+        actionNote: note,
+        promisedDeliveryAt: budgetReturnForm.promisedDeliveryAt,
+      });
+
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === budgetReturnVehicle.id
+          ? {
+              ...vehicle,
+              currentLane: "aguardando_servico",
+              promisedDeliveryAt: budgetReturnForm.promisedDeliveryAt,
+              promiseHistory: [
+                ...(vehicle.promiseHistory ?? []),
+                {
+                  promisedDeliveryAt: budgetReturnForm.promisedDeliveryAt,
+                  changedAt: new Date().toISOString(),
+                  changedBy: profile?.name ?? user?.email ?? user?.uid,
+                  note,
+                },
+              ],
+            }
+          : vehicle
+      )));
+      setBudgetReturnVehicle(null);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível retornar o veículo ao serviço.");
     } finally {
       setMovingId("");
     }
@@ -920,7 +998,7 @@ export default function FluxoPage() {
                         <FlowChip
                           key={vehicle.id}
                           vehicle={vehicle}
-                          onAdvance={(item) => moveToLane(item, "aguardando_lavagem", "Orçamento realizado, aguardando lavagem")}
+                          onAdvance={vehicle.partAvailability === "sim" ? openBudgetReturnModal : undefined}
                           onDetails={openDetailModal}
                           now={now}
                         />
@@ -1219,6 +1297,56 @@ export default function FluxoPage() {
               </button>
               <button type="submit" className="primary-btn" disabled={movingId === budgetCompleteVehicle.id}>
                 {movingId === budgetCompleteVehicle.id ? "Salvando..." : "Marcar orçamento realizado"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {budgetReturnVehicle && (
+        <div className="modal-backdrop" role="presentation">
+          <form className="flow-modal" onSubmit={submitBudgetReturn}>
+            <div className="modal-head">
+              <div>
+                <strong>Retornar para Aguardando Serviço</strong>
+                <span>{budgetReturnVehicle.clientName} · {budgetReturnVehicle.plate}</span>
+              </div>
+              <button type="button" className="ghost-btn icon-btn" aria-label="Fechar" onClick={() => setBudgetReturnVehicle(null)}>
+                ×
+              </button>
+            </div>
+
+            <div className="detail-grid modal-detail-grid">
+              <div className="detail"><span>Peças</span>{partAvailabilityIcon(budgetReturnVehicle.partAvailability)} Disponíveis</div>
+              <div className="detail"><span>Previsão atual</span>{formatDateTime(budgetReturnVehicle.promisedDeliveryAt)}</div>
+            </div>
+
+            <label className="field">
+              <span>Nova previsão de entrega prometida</span>
+              <input
+                required
+                type="datetime-local"
+                min={toDateTimeLocal(budgetReturnVehicle.promisedDeliveryAt) || undefined}
+                value={budgetReturnForm.promisedDeliveryAt}
+                onChange={(event) => setBudgetReturnForm((current) => ({ ...current, promisedDeliveryAt: event.target.value }))}
+              />
+            </label>
+
+            <label className="field">
+              <span>Observação do retorno</span>
+              <textarea
+                value={budgetReturnForm.note}
+                onChange={(event) => setBudgetReturnForm((current) => ({ ...current, note: event.target.value }))}
+                placeholder="Ex.: Peças separadas pelo estoque, veículo liberado para execução."
+              />
+            </label>
+
+            <div className="modal-actions">
+              <button type="button" className="ghost-btn" onClick={() => setBudgetReturnVehicle(null)}>
+                Cancelar
+              </button>
+              <button type="submit" className="primary-btn" disabled={movingId === budgetReturnVehicle.id}>
+                {movingId === budgetReturnVehicle.id ? "Movendo..." : "Voltar para Aguardando Serviço"}
               </button>
             </div>
           </form>
