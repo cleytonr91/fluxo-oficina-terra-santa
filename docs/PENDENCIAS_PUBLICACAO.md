@@ -62,7 +62,7 @@ Esta lista controla o que ja foi concluido e o que ainda falta para transformar 
 
 ## Proximas prioridades
 
-- [ ] Publicar no GitHub.
+- [x] Publicar no GitHub.
 - [x] Publicar na Vercel.
 - [x] Configurar variaveis de ambiente na Vercel.
 - [ ] Testar fluxo completo publicado.
