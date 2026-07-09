@@ -11,6 +11,10 @@ const navigation = [
   { href: "/pos-servico", label: "Pós-serviço" },
 ];
 
+function todayDate() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
 function currentTime() {
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
@@ -30,7 +34,7 @@ export function AppHeader({
   const { profile, user, logout } = useAuth();
   const isPreparation = pathname === "/preparacao";
   const isFlow = pathname === "/fluxo";
-  const [flowDate, setFlowDate] = useState("2026-07-07");
+  const [flowDate, setFlowDate] = useState(todayDate);
   const [clock, setClock] = useState(currentTime);
 
   useEffect(() => {

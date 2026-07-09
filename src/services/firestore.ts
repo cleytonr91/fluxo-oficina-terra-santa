@@ -244,15 +244,21 @@ export async function savePreparedVehicle({
   });
 }
 
-export async function listActiveVehicleFlows() {
+export async function listActiveVehicleFlows({ includeDelivered = false } = {}) {
   const db = getFirebaseDb();
   const ref = collection(db, collections.vehiclesFlow);
-  const snapshot = await getDocs(query(ref, where("status", "==", "ativo")));
+  const snapshot = includeDelivered
+    ? await getDocs(ref)
+    : await getDocs(query(ref, where("status", "==", "ativo")));
 
-  return snapshot.docs.map((item) => ({
+  const vehicles = snapshot.docs.map((item) => ({
     id: item.id,
     ...item.data(),
   })) as VehicleFlow[];
+
+  return vehicles.filter((vehicle) => (
+    includeDelivered || vehicle.currentLane !== "entregue"
+  ));
 }
 
 export async function createWalkInVehicle({
@@ -591,6 +597,7 @@ export async function completeVehicleDelivery({
 
   batch.set(flowRef, {
     currentLane: "entregue",
+    status: "entregue",
     deliveredAt,
     deliveredOnTime,
     partsOrdered,

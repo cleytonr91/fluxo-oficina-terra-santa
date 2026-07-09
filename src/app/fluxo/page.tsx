@@ -789,6 +789,7 @@ export default function FluxoPage() {
           ? {
               ...vehicle,
               currentLane: "entregue",
+              status: "entregue",
               deliveredAt: new Date().toISOString(),
               deliveredOnTime: deliveryForm.deliveredOnTime,
               partsOrdered: deliveryForm.partsOrdered,

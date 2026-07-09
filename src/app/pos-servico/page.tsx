@@ -81,7 +81,7 @@ export default function PosServicoPage() {
       setError("");
 
       try {
-        const data = await listActiveVehicleFlows();
+        const data = await listActiveVehicleFlows({ includeDelivered: true });
         if (!active) return;
         setVehicles(data.filter((vehicle) => vehicle.currentLane === "entregue"));
       } catch (currentError) {
