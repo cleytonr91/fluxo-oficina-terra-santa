@@ -132,6 +132,7 @@ export interface VehicleFlow {
   priority?: PriorityLevel;
   importedNotes?: string;
   roadTestRequired?: boolean;
+  roadTestDone?: boolean;
   chiefPresenceRequired?: boolean;
   customerWaits: boolean;
   promisedDeliveryAt?: FirestoreTimestamp;

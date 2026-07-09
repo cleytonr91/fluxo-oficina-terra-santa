@@ -48,6 +48,7 @@ type ReceiveForm = {
   promisedDeliveryAt: string;
   washType: WashType;
   receiveNote: string;
+  roadTestDone: "" | "sim" | "nao";
 };
 
 type PromiseForm = {
@@ -250,6 +251,11 @@ function FlowChip({
         {vehicle.origin === "passante" && <span className="tag warn">Passante</span>}
         {vehicle.priority === "alta" && <span className="tag bad">Alta</span>}
         {vehicle.roadTestRequired && <span className="tag warn">Teste rodagem</span>}
+        {vehicle.roadTestRequired && typeof vehicle.roadTestDone === "boolean" && (
+          <span className={`tag ${vehicle.roadTestDone ? "" : "bad"}`}>
+            {vehicle.roadTestDone ? "Teste realizado" : "Teste pendente"}
+          </span>
+        )}
         {vehicle.customerWaits && <span className="tag bad">Cliente aguarda</span>}
         {vehicle.noShow && <span className="tag bad">NO-SHOW</span>}
         {vehicle.budgetStatus === "realizado" && <span className="tag">{partAvailabilityIcon(vehicle.partAvailability)} Peças</span>}
@@ -314,6 +320,7 @@ export default function FluxoPage() {
     promisedDeliveryAt: "",
     washType: "simples",
     receiveNote: "",
+    roadTestDone: "",
   });
   const [promiseForm, setPromiseForm] = useState<PromiseForm>({
     promisedDeliveryAt: "",
@@ -443,6 +450,7 @@ export default function FluxoPage() {
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
       washType: vehicle.washType ?? "simples",
       receiveNote: vehicle.receiveNote ?? "",
+      roadTestDone: typeof vehicle.roadTestDone === "boolean" ? (vehicle.roadTestDone ? "sim" : "nao") : "",
     });
   }
 
@@ -530,6 +538,11 @@ export default function FluxoPage() {
       return;
     }
 
+    if (receivingVehicle.roadTestRequired && !receiveForm.roadTestDone) {
+      setError("Informe se o teste de rodagem foi realizado antes de receber o veículo.");
+      return;
+    }
+
     setMovingId(receivingVehicle.id);
     setError("");
 
@@ -544,6 +557,7 @@ export default function FluxoPage() {
         promisedDeliveryAt: receiveForm.promisedDeliveryAt,
         washType: receiveForm.washType,
         receiveNote: receiveForm.receiveNote,
+        roadTestDone: receivingVehicle.roadTestRequired ? receiveForm.roadTestDone === "sim" : undefined,
       });
 
       setVehicles((current) => current.map((vehicle) => (
@@ -555,6 +569,7 @@ export default function FluxoPage() {
               promisedDeliveryAt: receiveForm.promisedDeliveryAt,
               washType: receiveForm.washType,
               receiveNote: receiveForm.receiveNote,
+              roadTestDone: receivingVehicle.roadTestRequired ? receiveForm.roadTestDone === "sim" : vehicle.roadTestDone,
             }
           : vehicle
       )));
@@ -1065,6 +1080,21 @@ export default function FluxoPage() {
               />
               O cliente irá aguardar na loja?
             </label>
+
+            {receivingVehicle.roadTestRequired && (
+              <label className="field">
+                <span>Teste de rodagem foi realizado?</span>
+                <select
+                  required
+                  value={receiveForm.roadTestDone}
+                  onChange={(event) => setReceiveForm((current) => ({ ...current, roadTestDone: event.target.value as ReceiveForm["roadTestDone"] }))}
+                >
+                  <option value="">Responder</option>
+                  <option value="sim">Sim, realizado</option>
+                  <option value="nao">Não realizado</option>
+                </select>
+              </label>
+            )}
 
             <label className="field">
               <span>Previsão de entrega prometida</span>
