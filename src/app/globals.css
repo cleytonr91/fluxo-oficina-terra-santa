@@ -312,25 +312,17 @@ textarea {
   grid-template-columns: 1fr auto;
   gap: 8px;
   align-items: center;
-  min-height: 52px;
+  min-height: 46px;
   border-bottom: 1px solid var(--line);
   background: #fbfcfa;
-  padding: 10px 12px;
+  padding: 11px 12px;
 }
 
 .flow-lane-head h2 {
   margin: 0;
   font-size: 15px;
   font-weight: 900;
-  line-height: 1.05;
-}
-
-.flow-lane-head span {
-  display: block;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: 700;
+  line-height: 1.15;
 }
 
 .flow-lane-head strong {

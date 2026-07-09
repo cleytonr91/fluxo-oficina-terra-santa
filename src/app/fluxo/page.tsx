@@ -987,10 +987,7 @@ export default function FluxoPage() {
             return (
               <section key={lane.id} className="flow-lane">
                 <div className="flow-lane-head">
-                  <div>
-                    <h2>{lane.label}</h2>
-                    <span>{lane.id === "orcamento_complementar" ? "Arraste para atualizar" : "Arraste para avançar"}</span>
-                  </div>
+                  <h2>{lane.label}</h2>
                   <strong>{laneVehicles.length}</strong>
                 </div>
 
