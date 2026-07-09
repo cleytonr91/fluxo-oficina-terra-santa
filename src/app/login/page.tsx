@@ -37,7 +37,7 @@ export default function LoginPage() {
   const [firstAccessAvailable, setFirstAccessAvailable] = useState(true);
 
   useEffect(() => {
-    if (!loading && user) router.replace("/");
+    if (!loading && user) router.replace("/fluxo");
   }, [loading, router, user]);
 
   useEffect(() => {
@@ -58,7 +58,7 @@ export default function LoginPage() {
         await createFirstAccess({ name, email, password, role });
         setFirstAccessAvailable(false);
       }
-      router.replace("/");
+      router.replace("/fluxo");
     } catch (currentError) {
       setError(authErrorMessage(currentError));
     } finally {
