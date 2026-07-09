@@ -718,6 +718,45 @@ textarea {
   padding: 12px;
 }
 
+.login-shell {
+  display: grid;
+  width: min(430px, 100%);
+  gap: 18px;
+}
+
+.login-brand {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  text-align: center;
+}
+
+.login-logo {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--green) 35%, var(--line));
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--green);
+  box-shadow: var(--shadow);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.login-brand h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 34px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.login-panel {
+  width: 100%;
+}
+
 .prep-page {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);

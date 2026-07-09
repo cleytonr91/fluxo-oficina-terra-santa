@@ -68,50 +68,27 @@ export default function LoginPage() {
 
   return (
     <main className="page-wrap grid min-h-screen place-items-center">
-      <section className="grid w-full max-w-5xl gap-4 lg:grid-cols-[1fr_390px]">
-        <div className="panel">
-          <div className="panel-head">
-            <div>
-              <p className="eyebrow">Terra Santa Hyundai</p>
-              <h1 className="panel-title text-2xl">Fluxo da Oficina</h1>
-            </div>
-            <span className="tag good">oficial</span>
-          </div>
-          <div className="panel-body">
-            <div className="kanban">
-              {["Preparação", "Fluxo", "Pós-serviço", "Farol"].map((lane, index) => (
-                <section key={lane} className="lane min-h-64">
-                  <div className="lane-head">
-                    <h2 className="lane-title">{lane}</h2>
-                    <span className="lane-count">{index === 1 ? 3 : index === 2 ? 2 : 1}</span>
-                  </div>
-                  <div className="lane-body">
-                    <article className={`chip ${index === 2 ? "atencao" : ""}`}>
-                      <div className="chip-top">
-                        <div>
-                          <h3 className="client">Sistema oficial</h3>
-                          <p className="model">Login, histórico e dados compartilhados</p>
-                        </div>
-                        <span className="plate">TS</span>
-                      </div>
-                    </article>
-                  </div>
-                </section>
-              ))}
-            </div>
-          </div>
+      <section className="login-shell">
+        <div className="login-brand">
+          <div className="login-logo" aria-hidden="true">⚙</div>
+          <p className="eyebrow">Terra Santa Hyundai</p>
+          <h1>Fluxo Oficina</h1>
         </div>
 
-        <section className="panel">
+        <section className="panel login-panel">
           <div className="panel-head">
             <h2 className="panel-title">Acesso</h2>
             <span className="tag">Firebase</span>
           </div>
           <div className="panel-body">
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => setMode("entrar")} className={mode === "entrar" ? "primary-btn" : "ghost-btn"}>Entrar</button>
+              <button type="button" onClick={() => setMode("entrar")} className={mode === "entrar" ? "primary-btn" : "ghost-btn"}>
+                Entrar
+              </button>
               {firstAccessAvailable && (
-                <button type="button" onClick={() => setMode("primeiro-acesso")} className={mode === "primeiro-acesso" ? "primary-btn" : "ghost-btn"}>Primeiro acesso</button>
+                <button type="button" onClick={() => setMode("primeiro-acesso")} className={mode === "primeiro-acesso" ? "primary-btn" : "ghost-btn"}>
+                  Primeiro acesso
+                </button>
               )}
             </div>
 
