@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fluxo-oficina-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fluxo_oficina
+      POSTGRES_USER: fluxo_user
+      POSTGRES_PASSWORD: fluxo_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - fluxo_oficina_pgdata:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  fluxo_oficina_pgdata:

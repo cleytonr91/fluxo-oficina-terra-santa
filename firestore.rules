@@ -1,0 +1,91 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function activeUser() {
+      return signedIn() && userProfile().data.active == true;
+    }
+
+    function hasRole(roles) {
+      return activeUser() && userProfile().data.role in roles;
+    }
+
+    function manager() {
+      return hasRole(['admin', 'gerente']);
+    }
+
+    function operations() {
+      return hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'tecnico', 'lider_lavagem', 'estoquista', 'qualidade']);
+    }
+
+    match /users/{userId} {
+      allow read: if activeUser();
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow update: if manager() || (signedIn() && request.auth.uid == userId);
+      allow delete: if false;
+    }
+
+    match /importBatches/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina']);
+    }
+
+    match /appointments/{document} {
+      allow read: if operations();
+      allow write: if operations();
+    }
+
+    match /preparations/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina']);
+    }
+
+    match /vehiclesFlow/{document} {
+      allow read: if operations();
+      allow write: if operations();
+    }
+
+    match /walkInCustomers/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'consultor', 'chefe_oficina']);
+    }
+
+    match /flowEvents/{document} {
+      allow read: if operations();
+      allow write: if operations();
+    }
+
+    match /complementaryBudgets/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'estoquista', 'tecnico', 'chefe_oficina']);
+    }
+
+    match /deliveries/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'consultor']);
+    }
+
+    match /postServiceCases/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'qualidade', 'consultor']);
+    }
+
+    match /hgsiRecords/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'qualidade']);
+    }
+
+    match /hgsiAnswers/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'qualidade']);
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "appointmentDate", "order": "ASCENDING" },
+        { "fieldPath": "appointmentTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "appointmentDate", "order": "ASCENDING" },
+        { "fieldPath": "consultantId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "vehiclesFlow",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "currentLane", "order": "ASCENDING" },
+        { "fieldPath": "promisedDeliveryAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "vehiclesFlow",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "origin", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "postServiceCases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hgsiRequestStatus", "order": "ASCENDING" },
+        { "fieldPath": "treatmentStatus", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "hgsiRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "chassi", "order": "ASCENDING" },
+        { "fieldPath": "isValidRecord", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "hgsiAnswers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "consultantId", "order": "ASCENDING" },
+        { "fieldPath": "answerDate", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
