@@ -10,7 +10,7 @@ const laneLabels: Array<{ id: FlowLane; label: string }> = [
   { id: "preparacao_confirmada", label: "Preparação Confirmada" },
   { id: "aguardando_servico", label: "Aguardando Serviço" },
   { id: "em_servico", label: "Em Serviço" },
-  { id: "orcamento_complementar", label: "Aguardando Orçamento Complementar" },
+  { id: "orcamento_complementar", label: "Orçamento Complementar" },
   { id: "aguardando_lavagem", label: "Aguardando Lavagem" },
   { id: "lavagem", label: "Lavagem" },
   { id: "preparacao_entrega", label: "Preparação de Entrega" },
