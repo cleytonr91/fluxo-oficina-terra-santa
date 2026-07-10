@@ -373,7 +373,7 @@ textarea {
   display: grid;
   gap: 5px;
   margin-top: 6px;
-  padding-right: 34px;
+  padding-right: 68px;
 }
 
 .time-bar-top {
@@ -423,9 +423,9 @@ textarea {
   color: #a52e25;
 }
 
-.chip-move-btn {
+.chip-move-btn,
+.chip-info-btn {
   position: absolute;
-  right: 8px;
   bottom: 8px;
   display: grid;
   width: 28px;
@@ -441,7 +441,23 @@ textarea {
   cursor: pointer;
 }
 
-.chip-move-btn:hover {
+.chip-move-btn {
+  right: 8px;
+  font-size: 18px;
+}
+
+.chip-info-btn {
+  right: 42px;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.chip-info-btn.alone {
+  right: 8px;
+}
+
+.chip-move-btn:hover,
+.chip-info-btn:hover {
   border-color: var(--ink);
   background: var(--soft);
 }
@@ -1361,16 +1377,18 @@ textarea {
 .detail-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 4px;
 }
 
 .tag {
   border-radius: 999px;
   background: var(--soft);
   color: var(--ink);
-  padding: 3px 7px;
-  font-size: 10px;
+  padding: 2px 6px;
+  font-size: 9px;
   font-weight: 900;
+  line-height: 1.25;
+  white-space: nowrap;
 }
 
 .tag.good {

@@ -251,13 +251,7 @@ function FlowChip({
         <span className="tag">{serviceText}</span>
         {vehicle.origin === "passante" && <span className="tag warn">Passante</span>}
         {vehicle.priority === "alta" && <span className="tag bad">Alta</span>}
-        {vehicle.roadTestRequired && <span className="tag warn">Teste rodagem</span>}
-        {vehicle.roadTestRequired && typeof vehicle.roadTestDone === "boolean" && (
-          <span className={`tag ${vehicle.roadTestDone ? "" : "bad"}`}>
-            {vehicle.roadTestDone ? "Teste realizado" : "Teste pendente"}
-          </span>
-        )}
-        {vehicle.customerWaits && <span className="tag bad">Cliente aguarda</span>}
+        {vehicle.roadTestRequired && <span className={`tag ${vehicle.roadTestDone ? "good" : "bad"}`}>Teste {vehicle.roadTestDone ? "👍" : "👎"}</span>}
         {vehicle.washingAdvanced && !vehicle.washDone && <span className="tag warn">Lavagem antecipada</span>}
         {vehicle.washingAdvanced && vehicle.washDone && !vehicle.serviceCompleted && <span className="tag warn">Lavagem feita</span>}
         {vehicle.noShow && <span className="tag bad">NO-SHOW</span>}
@@ -283,7 +277,15 @@ function FlowChip({
         </div>
       )}
 
-      {vehicle.importedNotes && <p className="comment">{vehicle.importedNotes}</p>}
+      <button
+        className={`chip-info-btn ${onAdvance ? "" : "alone"}`}
+        type="button"
+        aria-label={`Ver detalhes de ${vehicle.clientName ?? "veículo"}`}
+        title="Informações do veículo"
+        onClick={() => onDetails(vehicle)}
+      >
+        i
+      </button>
 
       {onAdvance && (
         <button
@@ -1177,12 +1179,24 @@ export default function FluxoPage() {
 
             <div className="detail-grid modal-detail-grid">
               <div className="detail"><span>Chassi</span>{detailVehicle.chassi ?? "-"}</div>
+              <div className="detail"><span>Telefone</span>{detailVehicle.phone ?? "-"}</div>
               <div className="detail"><span>Modelo</span>{detailVehicle.model ?? "-"}</div>
               <div className="detail"><span>Consultor</span>{detailVehicle.consultantName ?? "-"}</div>
               <div className="detail"><span>Técnico</span>{detailVehicle.technicianName ?? "-"}</div>
               <div className="detail"><span>Etapa</span>{laneLabels.find((lane) => lane.id === detailVehicle.currentLane)?.label ?? detailVehicle.currentLane}</div>
               <div className="detail"><span>Previsão atual</span>{formatDateTime(detailVehicle.promisedDeliveryAt)}</div>
+              <div className="detail"><span>Cliente aguarda</span>{detailVehicle.customerWaits ? "Sim" : "Não"}</div>
+              <div className="detail"><span>Lavagem</span>{detailVehicle.washDone ? "Realizada" : detailVehicle.washingAdvanced ? "Antecipada pendente" : "Pendente"}</div>
             </div>
+
+            {(detailVehicle.importedNotes || detailVehicle.receiveNote || detailVehicle.partsNote) && (
+              <section className="history-box">
+                <h3>Observações</h3>
+                {detailVehicle.importedNotes && <p><strong>Agenda:</strong> {detailVehicle.importedNotes}</p>}
+                {detailVehicle.receiveNote && <p><strong>Recebimento:</strong> {detailVehicle.receiveNote}</p>}
+                {detailVehicle.partsNote && <p><strong>Peças:</strong> {detailVehicle.partsNote}</p>}
+              </section>
+            )}
 
             <section className="history-box">
               <h3>Histórico de previsão</h3>
