@@ -17,6 +17,8 @@ const laneLabels: Array<{ id: FlowLane; label: string }> = [
   { id: "entregue", label: "Entregue" },
 ];
 
+const correctionLaneOptions = laneLabels.filter((lane) => lane.id !== "entregue");
+
 const washOptions: Array<{ value: WashType; label: string }> = [
   { value: "simples", label: "Lavagem Simples" },
   { value: "motor", label: "Lavagem de Motor" },
@@ -54,6 +56,11 @@ type ReceiveForm = {
 
 type PromiseForm = {
   promisedDeliveryAt: string;
+  note: string;
+};
+
+type StageCorrectionForm = {
+  toLane: FlowLane;
   note: string;
 };
 
@@ -333,6 +340,10 @@ export default function FluxoPage() {
     promisedDeliveryAt: "",
     note: "",
   });
+  const [stageCorrectionForm, setStageCorrectionForm] = useState<StageCorrectionForm>({
+    toLane: "aguardando_servico",
+    note: "",
+  });
   const [budgetRequestForm, setBudgetRequestForm] = useState<BudgetRequestForm>({ note: "" });
   const [budgetCompleteForm, setBudgetCompleteForm] = useState<BudgetCompleteForm>({
     quotedBy: "",
@@ -467,6 +478,10 @@ export default function FluxoPage() {
     setDetailVehicle(vehicle);
     setPromiseForm({
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
+      note: "",
+    });
+    setStageCorrectionForm({
+      toLane: vehicle.currentLane === "aguardando_servico" ? "em_servico" : "aguardando_servico",
       note: "",
     });
   }
@@ -955,6 +970,78 @@ export default function FluxoPage() {
     }
   }
 
+  function correctionOperationalState(toLane: FlowLane) {
+    if (toLane === "preparacao_confirmada" || toLane === "aguardando_servico" || toLane === "em_servico") {
+      return {
+        serviceCompleted: false,
+        washingAdvanced: false,
+        washDone: false,
+      };
+    }
+
+    if (toLane === "aguardando_lavagem" || toLane === "lavagem" || toLane === "preparacao_entrega") {
+      return {
+        serviceCompleted: true,
+        washingAdvanced: false,
+      };
+    }
+
+    return {};
+  }
+
+  async function submitStageCorrection() {
+    if (!detailVehicle) return;
+
+    const note = stageCorrectionForm.note.trim();
+    if (!note) {
+      setError("Informe o motivo da correção de etapa.");
+      return;
+    }
+
+    if (stageCorrectionForm.toLane === detailVehicle.currentLane) {
+      setError("Escolha uma etapa diferente da etapa atual.");
+      return;
+    }
+
+    const toLabel = laneLabels.find((lane) => lane.id === stageCorrectionForm.toLane)?.label ?? stageCorrectionForm.toLane;
+    const actionNote = `Correção de etapa para ${toLabel}: ${note}`;
+    const operationalState = correctionOperationalState(stageCorrectionForm.toLane);
+
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await moveVehicleFlow({
+        vehicleFlowId: detailVehicle.id,
+        fromLane: detailVehicle.currentLane,
+        toLane: stageCorrectionForm.toLane,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+        actionNote,
+        ...operationalState,
+      });
+
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === detailVehicle.id
+          ? {
+              ...vehicle,
+              currentLane: stageCorrectionForm.toLane,
+              ...operationalState,
+            }
+          : vehicle
+      )));
+      setDetailVehicle((current) => current ? {
+        ...current,
+        currentLane: stageCorrectionForm.toLane,
+        ...operationalState,
+      } : current);
+      setStageCorrectionForm((current) => ({ ...current, note: "" }));
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível corrigir a etapa.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   const consultants = useMemo(
     () => Array.from(new Set(vehicles.map((item) => item.consultantName).filter(Boolean))).sort() as string[],
     [vehicles],
@@ -1252,6 +1339,40 @@ export default function FluxoPage() {
                 onChange={(event) => setPromiseForm((current) => ({ ...current, note: event.target.value }))}
               />
             </label>
+
+            <section className="history-box correction-box">
+              <h3>Corrigir etapa</h3>
+              <div className="correction-grid">
+                <label className="field">
+                  <span>Enviar para</span>
+                  <select
+                    value={stageCorrectionForm.toLane}
+                    onChange={(event) => setStageCorrectionForm((current) => ({ ...current, toLane: event.target.value as FlowLane }))}
+                  >
+                    {correctionLaneOptions.map((lane) => (
+                      <option key={lane.id} value={lane.id}>{lane.label}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span>Motivo da correção</span>
+                  <textarea
+                    placeholder="Ex.: Movido para executado por engano."
+                    value={stageCorrectionForm.note}
+                    onChange={(event) => setStageCorrectionForm((current) => ({ ...current, note: event.target.value }))}
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className="ghost-btn"
+                disabled={movingId === detailVehicle.id}
+                onClick={submitStageCorrection}
+              >
+                {movingId === detailVehicle.id ? "Corrigindo..." : "Aplicar correção de etapa"}
+              </button>
+            </section>
 
             <div className="modal-actions">
               <button type="button" className="ghost-btn" onClick={() => setDetailVehicle(null)}>

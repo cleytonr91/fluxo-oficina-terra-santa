@@ -630,6 +630,16 @@ textarea {
   margin: 3px 0 0;
 }
 
+.correction-box {
+  background: #fffdf7;
+}
+
+.correction-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(240px, 1.3fr);
+  gap: 10px;
+}
+
 .budget-split {
   display: grid;
   grid-template-rows: 1fr 1fr;
