@@ -44,6 +44,7 @@ const walkInServices = [
 ];
 
 type ReceiveForm = {
+  consultantName: string;
   customerWaits: boolean;
   promisedDeliveryAt: string;
   washType: WashType;
@@ -321,6 +322,7 @@ export default function FluxoPage() {
   const [deliveryVehicle, setDeliveryVehicle] = useState<VehicleFlow | null>(null);
   const [walkInOpen, setWalkInOpen] = useState(false);
   const [receiveForm, setReceiveForm] = useState<ReceiveForm>({
+    consultantName: "",
     customerWaits: false,
     promisedDeliveryAt: "",
     washType: "simples",
@@ -449,8 +451,10 @@ export default function FluxoPage() {
   }, [profile?.name, user?.email, user?.uid, vehicles]);
 
   function openReceiveModal(vehicle: VehicleFlow) {
+    const loggedName = profile?.name ?? "";
     setReceivingVehicle(vehicle);
     setReceiveForm({
+      consultantName: loggedName || vehicle.consultantName || "",
       customerWaits: vehicle.customerWaits ?? false,
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
       washType: vehicle.washType ?? "simples",
@@ -561,6 +565,11 @@ export default function FluxoPage() {
     event.preventDefault();
     if (!receivingVehicle) return;
 
+    if (!receiveForm.consultantName.trim()) {
+      setError("Informe o consultor que recebeu o cliente.");
+      return;
+    }
+
     if (isEarlierThanCurrent(receiveForm.promisedDeliveryAt, receivingVehicle.promisedDeliveryAt)) {
       setError("A nova previsão não pode ser menor que a previsão já prometida.");
       return;
@@ -581,6 +590,7 @@ export default function FluxoPage() {
         toLane: "aguardando_servico",
         actionBy: profile?.name ?? user?.email ?? user?.uid,
         actionNote: receiveForm.receiveNote || "Veículo recebido pelo consultor",
+        consultantName: receiveForm.consultantName.trim(),
         customerWaits: receiveForm.customerWaits,
         promisedDeliveryAt: receiveForm.promisedDeliveryAt,
         washType: receiveForm.washType,
@@ -593,6 +603,7 @@ export default function FluxoPage() {
           ? {
               ...vehicle,
               currentLane: "aguardando_servico",
+              consultantName: receiveForm.consultantName.trim(),
               customerWaits: receiveForm.customerWaits,
               promisedDeliveryAt: receiveForm.promisedDeliveryAt,
               washType: receiveForm.washType,
@@ -1096,6 +1107,15 @@ export default function FluxoPage() {
                 ×
               </button>
             </div>
+
+            <label className="field">
+              <span>Consultor que recebeu</span>
+              <input
+                required
+                value={receiveForm.consultantName}
+                onChange={(event) => setReceiveForm((current) => ({ ...current, consultantName: event.target.value }))}
+              />
+            </label>
 
             <label className="check-line modal-check">
               <input

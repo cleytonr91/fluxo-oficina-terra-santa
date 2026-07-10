@@ -387,6 +387,7 @@ type MoveVehicleFlowInput = {
   actionNote?: string;
   customerWaits?: boolean;
   promisedDeliveryAt?: string;
+  consultantName?: string;
   technicianName?: string;
   washType?: WashType;
   receiveNote?: string;
@@ -413,6 +414,7 @@ export async function moveVehicleFlow({
   actionNote,
   customerWaits,
   promisedDeliveryAt,
+  consultantName,
   technicianName,
   washType,
   receiveNote,
@@ -432,6 +434,7 @@ export async function moveVehicleFlow({
     ...(typeof customerWaits === "boolean" ? { customerWaits } : {}),
     ...(promisedDate ? { promisedDeliveryAt: promisedDate } : {}),
     ...(promisedDeliveryAt ? { promiseHistory: arrayUnion(promiseHistoryEntry(promisedDeliveryAt, actionBy, actionNote)) } : {}),
+    ...(consultantName !== undefined ? { consultantName } : {}),
     ...(technicianName !== undefined ? { technicianName } : {}),
     ...(washType ? { washType } : {}),
     ...(receiveNote !== undefined ? { receiveNote } : {}),
