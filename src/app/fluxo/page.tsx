@@ -242,7 +242,8 @@ function FlowChip({
           <p className="model">{vehicle.model ?? "Modelo não informado"}</p>
         </div>
         <span className={`plate ${vehicle.customerWaits ? "wait-plate" : ""}`} title={vehicle.customerWaits ? "Cliente aguardando na loja" : "Placa"}>
-          {vehicle.customerWaits ? "⚠️" : vehicle.plate ?? "-"}
+          {vehicle.customerWaits && <span className="plate-alert" aria-hidden="true">⚠</span>}
+          <span>{vehicle.plate ?? "-"}</span>
         </span>
       </div>
 

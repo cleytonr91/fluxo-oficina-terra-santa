@@ -446,14 +446,6 @@ textarea {
   background: var(--soft);
 }
 
-.wait-plate {
-  min-width: 58px;
-  border-color: #f0b75a;
-  background: #fff6df;
-  color: #a26000;
-  font-size: 28px;
-}
-
 .chip-compact-details {
   display: grid;
   gap: 3px;
@@ -1341,6 +1333,20 @@ textarea {
   padding: 4px 7px;
   font-size: 11px;
   font-weight: 900;
+}
+
+.wait-plate {
+  grid-template-rows: auto auto;
+  gap: 1px;
+  border-color: #f0b75a;
+  background: #fff6df;
+  color: var(--ink);
+}
+
+.plate-alert {
+  color: #b46800;
+  font-size: 13px;
+  line-height: 1;
 }
 
 .model,
