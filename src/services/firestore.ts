@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -283,6 +284,20 @@ export function subscribeActiveVehicleFlows(
       includeDelivered || vehicle.currentLane !== "entregue"
     )));
   }, onError);
+}
+
+export async function listRecentFlowEvents(maxEvents = 150) {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(query(
+    collection(db, collections.flowEvents),
+    orderBy("createdAt", "desc"),
+    limit(maxEvents),
+  ));
+
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as FlowEvent[];
 }
 
 export async function createWalkInVehicle({

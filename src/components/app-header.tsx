@@ -116,6 +116,9 @@ export function AppHeader({
             {(profile?.role === "admin" || profile?.role === "gerente") && (
               <Link href="/admin">Admin</Link>
             )}
+            {(profile?.role === "admin" || profile?.role === "gerente" || profile?.role === "chefe_oficina") && (
+              <Link href="/admin/auditoria">Auditoria</Link>
+            )}
             <button type="button" onClick={logout}>
               Sair
             </button>
