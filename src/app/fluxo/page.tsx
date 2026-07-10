@@ -26,6 +26,8 @@ const washOptions: Array<{ value: WashType; label: string }> = [
   { value: "nao", label: "Não" },
 ];
 
+const washLabels = Object.fromEntries(washOptions.map((option) => [option.value, option.label])) as Record<WashType, string>;
+
 const workshopTechnicians = ["Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando"];
 
 const walkInServices = [
@@ -223,6 +225,13 @@ function timeProgress(vehicle: VehicleFlow, now: Date) {
 
 function isPreviousDayVehicle(vehicle: VehicleFlow, selectedDate?: string) {
   return Boolean(selectedDate && vehicle.appointmentDate && vehicle.appointmentDate < selectedDate);
+}
+
+function washStatusText(vehicle: VehicleFlow) {
+  if (vehicle.washType === "nao") return "Não solicitada";
+  if (vehicle.washDone) return "Realizada";
+  if (vehicle.washingAdvanced) return "Antecipada pendente";
+  return "Pendente";
 }
 
 function FlowChip({
@@ -1301,7 +1310,8 @@ export default function FluxoPage() {
               <div className="detail"><span>Etapa</span>{laneLabels.find((lane) => lane.id === detailVehicle.currentLane)?.label ?? detailVehicle.currentLane}</div>
               <div className="detail"><span>Previsão atual</span>{formatDateTime(detailVehicle.promisedDeliveryAt)}</div>
               <div className="detail"><span>Cliente aguarda</span>{detailVehicle.customerWaits ? "Sim" : "Não"}</div>
-              <div className="detail"><span>Lavagem</span>{detailVehicle.washDone ? "Realizada" : detailVehicle.washingAdvanced ? "Antecipada pendente" : "Pendente"}</div>
+              <div className="detail"><span>Tipo da lavagem</span>{washLabels[detailVehicle.washType] ?? "-"}</div>
+              <div className="detail"><span>Status da lavagem</span>{washStatusText(detailVehicle)}</div>
             </div>
 
             {(detailVehicle.importedNotes || detailVehicle.receiveNote || detailVehicle.partsNote) && (
