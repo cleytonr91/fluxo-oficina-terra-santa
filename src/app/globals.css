@@ -226,6 +226,38 @@ textarea {
   padding: 18px 16px 32px;
 }
 
+.realtime-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: -8px 0 8px;
+  color: #1f6a45;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.realtime-status::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #2f9d65;
+  content: "";
+}
+
+.realtime-status.offline {
+  color: var(--red);
+}
+
+.realtime-status.offline::before {
+  background: var(--red);
+}
+
+.realtime-status strong {
+  color: var(--muted);
+  font-size: 10px;
+}
+
 .flow-metrics {
   display: grid;
   grid-template-columns:

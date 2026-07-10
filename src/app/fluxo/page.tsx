@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, listActiveVehicleFlows, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, updatePromisedDelivery } from "@/services/firestore";
+import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, subscribeActiveVehicleFlows, updatePromisedDelivery } from "@/services/firestore";
 import type { FlowLane, PartAvailability, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -319,6 +319,7 @@ export default function FluxoPage() {
   const [technicianFilter, setTechnicianFilter] = useState("Todos");
   const [flowDate, setFlowDate] = useState("");
   const [now, setNow] = useState(() => new Date());
+  const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [receivingVehicle, setReceivingVehicle] = useState<VehicleFlow | null>(null);
   const [detailVehicle, setDetailVehicle] = useState<VehicleFlow | null>(null);
   const [sendVehicle, setSendVehicle] = useState<VehicleFlow | null>(null);
@@ -380,32 +381,22 @@ export default function FluxoPage() {
   const [movingId, setMovingId] = useState("");
 
   useEffect(() => {
-    let active = true;
     const savedDate = localStorage.getItem("selectedFlowDate");
     if (savedDate) {
       window.requestAnimationFrame(() => setFlowDate(savedDate));
     }
 
-    async function loadVehicles() {
-      setLoading(true);
+    const unsubscribe = subscribeActiveVehicleFlows((data) => {
+      setVehicles(data.sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`)));
       setError("");
+      setLastSyncAt(new Date());
+      setLoading(false);
+    }, (currentError) => {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível acompanhar o fluxo em tempo real.");
+      setLoading(false);
+    });
 
-      try {
-        const data = await listActiveVehicleFlows();
-        if (!active) return;
-        setVehicles(data.sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`)));
-      } catch (currentError) {
-        if (!active) return;
-        setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar o fluxo.");
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    loadVehicles();
-    return () => {
-      active = false;
-    };
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
@@ -1076,6 +1067,11 @@ export default function FluxoPage() {
       subtitle="Agenda, passantes, oficina, lavagem e entrega."
     >
       <main className="flow-page">
+        <div className={`realtime-status ${error ? "offline" : ""}`}>
+          <span>{error ? "Conexão do fluxo instável" : "Atualização em tempo real ativa"}</span>
+          <strong>{lastSyncAt ? `Atualizado ${lastSyncAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Conectando..."}</strong>
+        </div>
+
         <section className="flow-metrics">
           {metrics.map(([value, label, state]) => (
             <button key={label} className={`flow-metric ${state}`} type="button">

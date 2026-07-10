@@ -4,6 +4,7 @@ import {
   collection,
   doc,
   getDocs,
+  onSnapshot,
   orderBy,
   query,
   serverTimestamp,
@@ -259,6 +260,29 @@ export async function listActiveVehicleFlows({ includeDelivered = false } = {}) 
   return vehicles.filter((vehicle) => (
     includeDelivered || vehicle.currentLane !== "entregue"
   ));
+}
+
+export function subscribeActiveVehicleFlows(
+  onChange: (vehicles: VehicleFlow[]) => void,
+  onError?: (error: Error) => void,
+  { includeDelivered = false } = {},
+) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.vehiclesFlow);
+  const flowQuery = includeDelivered
+    ? query(ref)
+    : query(ref, where("status", "==", "ativo"));
+
+  return onSnapshot(flowQuery, (snapshot) => {
+    const vehicles = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as VehicleFlow[];
+
+    onChange(vehicles.filter((vehicle) => (
+      includeDelivered || vehicle.currentLane !== "entregue"
+    )));
+  }, onError);
 }
 
 export async function createWalkInVehicle({
