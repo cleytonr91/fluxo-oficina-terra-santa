@@ -28,7 +28,9 @@ const washOptions: Array<{ value: WashType; label: string }> = [
 
 const washLabels = Object.fromEntries(washOptions.map((option) => [option.value, option.label])) as Record<WashType, string>;
 
-const workshopTechnicians = ["Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando"];
+const fixedConsultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
+
+const workshopTechnicians = ["Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan"];
 
 const walkInServices = [
   "Revisão 01",
@@ -183,6 +185,22 @@ function firstName(name?: string) {
   return name?.trim().split(/\s+/)[0] || "-";
 }
 
+function normalizeName(name?: string) {
+  return (name ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function consultantDisplayName(name?: string) {
+  const normalized = normalizeName(name);
+  if (normalized.includes("cleverton")) return "Cleverton";
+  if (normalized.includes("rosangela")) return "Rosangela";
+  if (normalized.includes("eliane")) return "Eliane";
+  if (normalized.includes("luan")) return "Luan";
+  return firstName(name);
+}
+
 function priorityScore(vehicle: VehicleFlow) {
   const promised = toDate(vehicle.promisedDeliveryAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
   const waitScore = vehicle.customerWaits ? 0 : 1;
@@ -285,7 +303,7 @@ function FlowChip({
       </div>
 
       <div className="chip-compact-details">
-        <div><span>Consultor:</span> {firstName(vehicle.consultantName)}</div>
+        <div><span>Consultor:</span> {consultantDisplayName(vehicle.consultantName)}</div>
         <div><span>Técnico:</span> {firstName(vehicle.technicianName)}</div>
         {vehicle.appointmentTime && <div><span>Agenda:</span> {vehicle.appointmentTime}</div>}
       </div>
@@ -1050,22 +1068,16 @@ export default function FluxoPage() {
     }
   }
 
-  const consultants = useMemo(
-    () => Array.from(new Set(vehicles.map((item) => item.consultantName).filter(Boolean))).sort() as string[],
-    [vehicles],
-  );
-  const technicians = useMemo(
-    () => Array.from(new Set(vehicles.map((item) => item.technicianName).filter(Boolean))).sort() as string[],
-    [vehicles],
-  );
+  const consultants = fixedConsultants;
+  const technicians = workshopTechnicians;
 
   const filteredVehicles = useMemo(() => {
     return vehicles.filter((vehicle) => {
       const dateMatches = !flowDate || vehicle.appointmentDate === flowDate || (
         isPreviousDayVehicle(vehicle, flowDate) && vehicle.currentLane !== "preparacao_confirmada"
       );
-      const consultantMatches = consultantFilter === "Todos" || vehicle.consultantName === consultantFilter;
-      const technicianMatches = technicianFilter === "Todos" || vehicle.technicianName === technicianFilter;
+      const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
+      const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
       return dateMatches && consultantMatches && technicianMatches;
     });
   }, [consultantFilter, flowDate, technicianFilter, vehicles]);

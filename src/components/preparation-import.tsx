@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
 import { savePreparedVehicle } from "@/services/firestore";
 
-const technicians = ["Definir", "Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando"];
+const technicians = ["Definir", "Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan"];
 
 type Appointment = {
   id: string;
