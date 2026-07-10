@@ -221,20 +221,27 @@ function timeProgress(vehicle: VehicleFlow, now: Date) {
   return { percent, status: "ok", label: `No prazo ${timeText}` };
 }
 
+function isPreviousDayVehicle(vehicle: VehicleFlow, selectedDate?: string) {
+  return Boolean(selectedDate && vehicle.appointmentDate && vehicle.appointmentDate < selectedDate);
+}
+
 function FlowChip({
   vehicle,
   onAdvance,
   onDetails,
   now,
+  selectedDate,
 }: {
   vehicle: VehicleFlow;
   onAdvance?: (vehicle: VehicleFlow) => void;
   onDetails: (vehicle: VehicleFlow) => void;
   now: Date;
+  selectedDate?: string;
 }) {
   const serviceText = vehicle.serviceLabel ?? "Serviço não informado";
   const chipClass = isDiagnostic(vehicle) ? "diagnostico" : isGeneralRepair(vehicle) ? "reparo" : "";
   const progress = timeProgress(vehicle, now);
+  const previousDay = isPreviousDayVehicle(vehicle, selectedDate);
 
   return (
     <article className={`chip flow-chip ${chipClass}`} onDoubleClick={() => onDetails(vehicle)}>
@@ -257,6 +264,7 @@ function FlowChip({
 
       <div className="tag-row">
         <span className="tag">{serviceText}</span>
+        {previousDay && <span className="tag previous-day">Dia anterior</span>}
         {vehicle.origin === "passante" && <span className="tag warn">Passante</span>}
         {vehicle.priority === "alta" && <span className="tag bad">Alta</span>}
         {vehicle.roadTestRequired && <span className={`tag ${vehicle.roadTestDone ? "good" : "bad"}`}>Teste {vehicle.roadTestDone ? "👍" : "👎"}</span>}
@@ -1044,7 +1052,9 @@ export default function FluxoPage() {
 
   const filteredVehicles = useMemo(() => {
     return vehicles.filter((vehicle) => {
-      const dateMatches = !flowDate || vehicle.appointmentDate === flowDate;
+      const dateMatches = !flowDate || vehicle.appointmentDate === flowDate || (
+        isPreviousDayVehicle(vehicle, flowDate) && vehicle.currentLane !== "preparacao_confirmada"
+      );
       const consultantMatches = consultantFilter === "Todos" || vehicle.consultantName === consultantFilter;
       const technicianMatches = technicianFilter === "Todos" || vehicle.technicianName === technicianFilter;
       return dateMatches && consultantMatches && technicianMatches;
@@ -1123,6 +1133,7 @@ export default function FluxoPage() {
                           onAdvance={openBudgetCompleteModal}
                           onDetails={openDetailModal}
                           now={now}
+                          selectedDate={flowDate}
                         />
                       )) : <p>Sem orçamentos pendentes</p>}
                     </div>
@@ -1135,6 +1146,7 @@ export default function FluxoPage() {
                           onAdvance={vehicle.partAvailability === "sim" ? openBudgetReturnModal : undefined}
                           onDetails={openDetailModal}
                           now={now}
+                          selectedDate={flowDate}
                         />
                       )) : <p>Nenhum orçamento realizado</p>}
                     </div>
@@ -1149,6 +1161,7 @@ export default function FluxoPage() {
                           key={vehicle.id}
                           vehicle={vehicle}
                           now={now}
+                          selectedDate={flowDate}
                           onAdvance={
                             lane.id === "preparacao_confirmada"
                               ? openReceiveModal

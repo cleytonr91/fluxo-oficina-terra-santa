@@ -1485,6 +1485,12 @@ textarea {
   color: var(--red);
 }
 
+.tag.previous-day {
+  border: 1px solid #b8a36b;
+  background: #fff8dd;
+  color: #6f5416;
+}
+
 .detail {
   min-width: 86px;
   flex: 1 1 86px;
