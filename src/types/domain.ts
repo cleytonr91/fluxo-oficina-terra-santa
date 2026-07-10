@@ -139,6 +139,9 @@ export interface VehicleFlow {
   promiseHistory?: DeliveryPromiseHistory[];
   washType: WashType;
   receiveNote?: string;
+  serviceCompleted?: boolean;
+  washingAdvanced?: boolean;
+  washDone?: boolean;
   budgetStatus?: BudgetStatus;
   budgetRequestedBy?: string;
   budgetQuotedBy?: string;

@@ -258,6 +258,8 @@ function FlowChip({
           </span>
         )}
         {vehicle.customerWaits && <span className="tag bad">Cliente aguarda</span>}
+        {vehicle.washingAdvanced && !vehicle.washDone && <span className="tag warn">Lavagem antecipada</span>}
+        {vehicle.washingAdvanced && vehicle.washDone && !vehicle.serviceCompleted && <span className="tag warn">Lavagem feita</span>}
         {vehicle.noShow && <span className="tag bad">NO-SHOW</span>}
         {vehicle.budgetStatus === "realizado" && <span className="tag">{partAvailabilityIcon(vehicle.partAvailability)} Peças</span>}
         {vehicle.currentLane === "entregue" && typeof vehicle.internalNps === "number" && <span className="tag">NPS {vehicle.internalNps}</span>}
@@ -506,7 +508,12 @@ export default function FluxoPage() {
     });
   }
 
-  async function moveToLane(vehicle: VehicleFlow, toLane: FlowLane, actionNote: string) {
+  async function moveToLane(
+    vehicle: VehicleFlow,
+    toLane: FlowLane,
+    actionNote: string,
+    extra: Pick<VehicleFlow, "serviceCompleted" | "washingAdvanced" | "washDone"> = {},
+  ) {
     setMovingId(vehicle.id);
     setError("");
 
@@ -517,10 +524,13 @@ export default function FluxoPage() {
         toLane,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
         actionNote,
+        serviceCompleted: extra.serviceCompleted,
+        washingAdvanced: extra.washingAdvanced,
+        washDone: extra.washDone,
       });
 
       setVehicles((current) => current.map((item) => (
-        item.id === vehicle.id ? { ...item, currentLane: toLane } : item
+        item.id === vehicle.id ? { ...item, currentLane: toLane, ...extra } : item
       )));
       setSendVehicle(null);
     } catch (currentError) {
@@ -528,6 +538,21 @@ export default function FluxoPage() {
     } finally {
       setMovingId("");
     }
+  }
+
+  function completeWash(vehicle: VehicleFlow) {
+    if (vehicle.serviceCompleted) {
+      return moveToLane(vehicle, "preparacao_entrega", "Lavagem concluída", {
+        washDone: true,
+        washingAdvanced: false,
+      });
+    }
+
+    return moveToLane(vehicle, "aguardando_servico", "Lavagem antecipada concluída; retorno para Aguardando Serviço", {
+      serviceCompleted: false,
+      washingAdvanced: true,
+      washDone: true,
+    });
   }
 
   async function submitReceive(event: FormEvent<HTMLFormElement>) {
@@ -1033,13 +1058,13 @@ export default function FluxoPage() {
                             lane.id === "preparacao_confirmada"
                               ? openReceiveModal
                               : lane.id === "aguardando_servico"
-                                ? openStartServiceModal
+                                ? setSendVehicle
                                 : lane.id === "em_servico"
                                   ? setSendVehicle
                                   : lane.id === "aguardando_lavagem"
                                     ? (item) => moveToLane(item, "lavagem", "Lavagem iniciada")
                                     : lane.id === "lavagem"
-                                      ? (item) => moveToLane(item, "preparacao_entrega", "Lavagem concluída")
+                                      ? completeWash
                                       : lane.id === "preparacao_entrega"
                                         ? openDeliveryModal
                                         : undefined
@@ -1254,25 +1279,72 @@ export default function FluxoPage() {
             </div>
 
             <div className="send-options">
-              <button
-                type="button"
-                className="ghost-btn"
-                onClick={() => {
-                  setBudgetRequestVehicle(sendVehicle);
-                  setBudgetRequestForm({ note: "" });
-                  setSendVehicle(null);
-                }}
-              >
-                Orçamento complementar
-              </button>
-              <button
-                type="button"
-                className="primary-btn"
-                disabled={movingId === sendVehicle.id}
-                onClick={() => moveToLane(sendVehicle, "aguardando_lavagem", "Serviço concluído, aguardando lavagem")}
-              >
-                Aguardando lavagem
-              </button>
+              {sendVehicle.currentLane === "aguardando_servico" ? (
+                <>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => {
+                      openStartServiceModal(sendVehicle);
+                      setSendVehicle(null);
+                    }}
+                  >
+                    Iniciar serviço
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    disabled={movingId === sendVehicle.id}
+                    onClick={() => moveToLane(sendVehicle, "aguardando_lavagem", "Lavagem antecipada solicitada antes do serviço", {
+                      serviceCompleted: false,
+                      washingAdvanced: true,
+                      washDone: false,
+                    })}
+                  >
+                    Lavagem antecipada
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onClick={() => {
+                      setBudgetRequestVehicle(sendVehicle);
+                      setBudgetRequestForm({ note: "" });
+                      setSendVehicle(null);
+                    }}
+                  >
+                    Orçamento complementar
+                  </button>
+                  {sendVehicle.washDone ? (
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      disabled={movingId === sendVehicle.id}
+                      onClick={() => moveToLane(sendVehicle, "preparacao_entrega", "Serviço concluído; lavagem antecipada já realizada", {
+                        serviceCompleted: true,
+                        washingAdvanced: false,
+                      })}
+                    >
+                      Preparação de entrega
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      disabled={movingId === sendVehicle.id}
+                      onClick={() => moveToLane(sendVehicle, "aguardando_lavagem", "Serviço concluído, aguardando lavagem", {
+                        serviceCompleted: true,
+                        washingAdvanced: false,
+                        washDone: false,
+                      })}
+                    >
+                      Aguardando lavagem
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>

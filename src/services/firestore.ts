@@ -391,6 +391,9 @@ type MoveVehicleFlowInput = {
   washType?: WashType;
   receiveNote?: string;
   roadTestDone?: boolean;
+  serviceCompleted?: boolean;
+  washingAdvanced?: boolean;
+  washDone?: boolean;
 };
 
 function promiseHistoryEntry(promisedDeliveryAt: string, actionBy?: string, note?: string) {
@@ -414,6 +417,9 @@ export async function moveVehicleFlow({
   washType,
   receiveNote,
   roadTestDone,
+  serviceCompleted,
+  washingAdvanced,
+  washDone,
 }: MoveVehicleFlowInput) {
   const db = getFirebaseDb();
   const batch = writeBatch(db);
@@ -430,6 +436,9 @@ export async function moveVehicleFlow({
     ...(washType ? { washType } : {}),
     ...(receiveNote !== undefined ? { receiveNote } : {}),
     ...(typeof roadTestDone === "boolean" ? { roadTestDone } : {}),
+    ...(typeof serviceCompleted === "boolean" ? { serviceCompleted } : {}),
+    ...(typeof washingAdvanced === "boolean" ? { washingAdvanced } : {}),
+    ...(typeof washDone === "boolean" ? { washDone } : {}),
     updatedAt: serverTimestamp(),
   }, { merge: true });
 
