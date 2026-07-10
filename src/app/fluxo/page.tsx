@@ -970,7 +970,6 @@ export default function FluxoPage() {
     [filteredVehicles.filter((item) => item.origin === "passante").length, "passantes", ""],
     [filteredVehicles.filter((item) => item.noShow).length, "no-show", "danger"],
     [filteredVehicles.filter((item) => item.priority === "alta" || item.roadTestRequired || item.customerWaits).length, "em atenção", ""],
-    [filteredVehicles.filter((item) => item.currentLane === "entregue").length, "entregues", ""],
   ] as const;
 
   return (
