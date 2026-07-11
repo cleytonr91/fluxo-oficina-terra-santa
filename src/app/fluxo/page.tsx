@@ -109,6 +109,8 @@ type StartServiceForm = {
   note: string;
 };
 
+type MetricFilter = "todos" | "noShow";
+
 function EmptyLane({ text = "Sem veículos nesta etapa" }: { text?: string }) {
   return <p className="empty">{text}</p>;
 }
@@ -159,6 +161,13 @@ function formatDateTime(value: unknown) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatDateOnly(value?: string) {
+  if (!value) return "-";
+  const [year, month, day] = value.split("-");
+  if (!year || !month || !day) return value;
+  return `${day}/${month}/${year}`;
 }
 
 function isEarlierThanCurrent(nextValue: string, currentValue: unknown) {
@@ -352,6 +361,7 @@ export default function FluxoPage() {
   const [error, setError] = useState("");
   const [consultantFilter, setConsultantFilter] = useState("Todos");
   const [technicianFilter, setTechnicianFilter] = useState("Todos");
+  const [metricFilter, setMetricFilter] = useState<MetricFilter>("todos");
   const [flowDate, setFlowDate] = useState("");
   const [now, setNow] = useState(() => new Date());
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
@@ -1071,7 +1081,7 @@ export default function FluxoPage() {
   const consultants = fixedConsultants;
   const technicians = workshopTechnicians;
 
-  const filteredVehicles = useMemo(() => {
+  const dateScopedVehicles = useMemo(() => {
     return vehicles.filter((vehicle) => {
       const dateMatches = !flowDate || vehicle.appointmentDate === flowDate || (
         isPreviousDayVehicle(vehicle, flowDate) && vehicle.currentLane !== "preparacao_confirmada"
@@ -1082,14 +1092,30 @@ export default function FluxoPage() {
     });
   }, [consultantFilter, flowDate, technicianFilter, vehicles]);
 
+  const noShowVehicles = useMemo(() => {
+    return vehicles
+      .filter((vehicle) => {
+        const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
+        const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
+        return vehicle.noShow && consultantMatches && technicianMatches;
+      })
+      .sort((a, b) => `${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`.localeCompare(`${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`));
+  }, [consultantFilter, technicianFilter, vehicles]);
+
+  const filteredVehicles = metricFilter === "noShow"
+    ? noShowVehicles
+    : dateScopedVehicles.filter((vehicle) => !vehicle.noShow);
+
+  const operationalVehicles = dateScopedVehicles.filter((vehicle) => !vehicle.noShow);
+
   const metrics = [
-    [filteredVehicles.length, "veículos no fluxo", "active"],
-    [filteredVehicles.filter(isRevision).length, "revisões", ""],
-    [filteredVehicles.filter(isDiagnostic).length, "diagnósticos", ""],
-    [filteredVehicles.filter(isGeneralRepair).length, "reparos gerais", ""],
-    [filteredVehicles.filter((item) => item.origin === "passante").length, "passantes", ""],
-    [filteredVehicles.filter((item) => item.noShow).length, "no-show", "danger"],
-    [filteredVehicles.filter((item) => item.priority === "alta" || item.roadTestRequired || item.customerWaits).length, "em atenção", ""],
+    { value: operationalVehicles.length, label: "veículos no fluxo", state: "active", filter: "todos" as MetricFilter },
+    { value: operationalVehicles.filter(isRevision).length, label: "revisões", state: "", filter: "todos" as MetricFilter },
+    { value: operationalVehicles.filter(isDiagnostic).length, label: "diagnósticos", state: "", filter: "todos" as MetricFilter },
+    { value: operationalVehicles.filter(isGeneralRepair).length, label: "reparos gerais", state: "", filter: "todos" as MetricFilter },
+    { value: operationalVehicles.filter((item) => item.origin === "passante").length, label: "passantes", state: "", filter: "todos" as MetricFilter },
+    { value: noShowVehicles.length, label: "no-show", state: "danger", filter: "noShow" as MetricFilter },
+    { value: operationalVehicles.filter((item) => item.priority === "alta" || item.roadTestRequired || item.customerWaits).length, label: "em atenção", state: "", filter: "todos" as MetricFilter },
   ] as const;
 
   return (
@@ -1104,10 +1130,15 @@ export default function FluxoPage() {
         </div>
 
         <section className="flow-metrics">
-          {metrics.map(([value, label, state]) => (
-            <button key={label} className={`flow-metric ${state}`} type="button">
-              <strong>{value}</strong>
-              <span>{label}</span>
+          {metrics.map((item) => (
+            <button
+              key={item.label}
+              className={`flow-metric ${item.state} ${metricFilter === item.filter && item.filter !== "todos" ? "selected" : ""}`}
+              type="button"
+              onClick={() => setMetricFilter(item.filter === "noShow" && metricFilter !== "noShow" ? "noShow" : "todos")}
+            >
+              <strong>{item.value}</strong>
+              <span>{item.label}</span>
             </button>
           ))}
 
@@ -1130,6 +1161,31 @@ export default function FluxoPage() {
 
         {error && <div className="duplicate-alert"><strong>Erro no fluxo</strong><span>{error}</span></div>}
 
+        {metricFilter === "noShow" ? (
+          <section className="no-show-panel">
+            <div className="no-show-head">
+              <div>
+                <h2>Lista de no-show</h2>
+                <span>Veículos que tinham preparação confirmada e não evoluíram para atendimento.</span>
+              </div>
+              <strong>{noShowVehicles.length}</strong>
+            </div>
+
+            <div className="no-show-list">
+              {noShowVehicles.length ? noShowVehicles.map((vehicle) => (
+                <button key={vehicle.id} className="no-show-row" type="button" onClick={() => openDetailModal(vehicle)}>
+                  <strong>{vehicle.clientName ?? "Cliente não identificado"}</strong>
+                  <span>{vehicle.plate ?? "-"}</span>
+                  <span>{formatDateOnly(vehicle.appointmentDate)} {vehicle.appointmentTime ?? ""}</span>
+                  <span>{consultantDisplayName(vehicle.consultantName)}</span>
+                  <span>{vehicle.serviceLabel ?? "-"}</span>
+                </button>
+              )) : (
+                <EmptyLane text="Nenhum no-show encontrado." />
+              )}
+            </div>
+          </section>
+        ) : (
         <section className="flow-board">
           {laneLabels.map((lane) => {
             const laneVehicles = sortLaneVehicles(lane.id, filteredVehicles.filter((vehicle) => vehicle.currentLane === lane.id));
@@ -1210,6 +1266,7 @@ export default function FluxoPage() {
             );
           })}
         </section>
+        )}
       </main>
 
       {receivingVehicle && (
