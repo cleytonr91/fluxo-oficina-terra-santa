@@ -56,6 +56,7 @@ type WalkInVehicleInput = {
   service: string;
   consultant: string;
   technician?: string;
+  washType?: WashType;
   appointmentDate: string;
   appointmentTime?: string;
   createdBy?: string;
@@ -309,6 +310,7 @@ export async function createWalkInVehicle({
   service,
   consultant,
   technician,
+  washType,
   appointmentDate,
   appointmentTime,
   createdBy,
@@ -347,6 +349,7 @@ export async function createWalkInVehicle({
     serviceLabel: service,
     consultantName: consultant,
     technicianName: technician || "",
+    washType: washType ?? "simples",
     appointmentDate,
     appointmentTime: appointmentTime || "",
     note,
@@ -371,7 +374,7 @@ export async function createWalkInVehicle({
     priority: "normal",
     importedNotes: note,
     customerWaits: false,
-    washType: "nao",
+    washType: washType ?? "simples",
     status: "ativo",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),

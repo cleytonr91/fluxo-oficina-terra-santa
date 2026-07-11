@@ -99,6 +99,7 @@ type WalkInForm = {
   service: string;
   consultant: string;
   technician: string;
+  washType: WashType;
   note: string;
 };
 
@@ -415,6 +416,7 @@ export default function FluxoPage() {
     service: "Revisão 01",
     consultant: profile?.name ?? "",
     technician: "",
+    washType: "simples",
     note: "",
   });
   const [startServiceForm, setStartServiceForm] = useState<StartServiceForm>({
@@ -931,7 +933,7 @@ export default function FluxoPage() {
           priority: "normal",
           importedNotes: walkInForm.note,
           customerWaits: false,
-          washType: "nao",
+          washType: walkInForm.washType,
           status: "ativo",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -946,6 +948,7 @@ export default function FluxoPage() {
         service: "Revisão 01",
         consultant: profile?.name ?? "",
         technician: "",
+        washType: "simples",
         note: "",
       });
       setWalkInOpen(false);
@@ -1897,6 +1900,15 @@ export default function FluxoPage() {
                   value={walkInForm.technician}
                   onChange={(event) => setWalkInForm((current) => ({ ...current, technician: event.target.value }))}
                 />
+              </label>
+              <label className="field">
+                <span>Tipo da lavagem</span>
+                <select
+                  value={walkInForm.washType}
+                  onChange={(event) => setWalkInForm((current) => ({ ...current, washType: event.target.value as WashType }))}
+                >
+                  {washOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
               </label>
             </div>
 
