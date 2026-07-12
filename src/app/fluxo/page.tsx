@@ -500,10 +500,17 @@ export default function FluxoPage() {
   }, [profile?.name, user?.email, user?.uid, vehicles]);
 
   function openReceiveModal(vehicle: VehicleFlow) {
-    const loggedName = profile?.name ?? "";
+    const loggedConsultant = consultantDisplayName(profile?.name);
+    const importedConsultant = consultantDisplayName(vehicle.consultantName);
+    const selectedConsultant = fixedConsultants.includes(loggedConsultant)
+      ? loggedConsultant
+      : fixedConsultants.includes(importedConsultant)
+        ? importedConsultant
+        : "";
+
     setReceivingVehicle(vehicle);
     setReceiveForm({
-      consultantName: loggedName || vehicle.consultantName || "",
+      consultantName: selectedConsultant,
       customerWaits: vehicle.customerWaits ?? false,
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
       washType: vehicle.washType ?? "simples",
@@ -1287,11 +1294,16 @@ export default function FluxoPage() {
 
             <label className="field">
               <span>Consultor que recebeu</span>
-              <input
+              <select
                 required
                 value={receiveForm.consultantName}
                 onChange={(event) => setReceiveForm((current) => ({ ...current, consultantName: event.target.value }))}
-              />
+              >
+                <option value="">Selecionar consultor</option>
+                {fixedConsultants.map((consultant) => (
+                  <option key={consultant} value={consultant}>{consultant}</option>
+                ))}
+              </select>
             </label>
 
             <label className="check-line modal-check">
