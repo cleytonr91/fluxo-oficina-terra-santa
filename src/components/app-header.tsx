@@ -87,7 +87,15 @@ export function AppHeader({
             <span className="save-status">Salva ao confirmar</span>
           ) : isFlow ? (
             <>
-              <button className="ghost-btn icon-btn" type="button" aria-label="Atualizar">↻</button>
+              <button
+                className="ghost-btn icon-btn"
+                type="button"
+                aria-label="Atualizar página"
+                title="Atualizar página"
+                onClick={() => window.location.reload()}
+              >
+                ↻
+              </button>
               <button
                 className="primary-btn"
                 type="button"
