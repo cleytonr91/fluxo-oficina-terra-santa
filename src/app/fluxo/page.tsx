@@ -1528,16 +1528,6 @@ export default function FluxoPage() {
                 <>
                   <button
                     type="button"
-                    className="primary-btn"
-                    onClick={() => {
-                      openStartServiceModal(sendVehicle);
-                      setSendVehicle(null);
-                    }}
-                  >
-                    Iniciar serviço
-                  </button>
-                  <button
-                    type="button"
                     className="ghost-btn"
                     disabled={movingId === sendVehicle.id}
                     onClick={() => moveToLane(sendVehicle, "aguardando_lavagem", "Lavagem antecipada solicitada antes do serviço", {
@@ -1547,6 +1537,16 @@ export default function FluxoPage() {
                     })}
                   >
                     Lavagem antecipada
+                  </button>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => {
+                      openStartServiceModal(sendVehicle);
+                      setSendVehicle(null);
+                    }}
+                  >
+                    Iniciar serviço
                   </button>
                 </>
               ) : (

@@ -558,7 +558,10 @@ textarea {
 
 .chip-move-btn {
   right: 8px;
-  font-size: 18px;
+  width: 34px;
+  height: 34px;
+  border-color: #b7c7bf;
+  font-size: 24px;
 }
 
 .chip-info-btn {
@@ -657,7 +660,18 @@ textarea {
 .send-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
+}
+
+.send-options .primary-btn,
+.send-options .ghost-btn {
+  min-height: 74px;
+  justify-content: center;
+  padding: 14px 12px;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.15;
+  font-size: 15px;
 }
 
 .import-row {
