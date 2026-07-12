@@ -7,7 +7,7 @@ import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehic
 import type { FlowLane, PartAvailability, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
-  { id: "preparacao_confirmada", label: "Preparação Confirmada" },
+  { id: "preparacao_confirmada", label: "Agendamento do Dia" },
   { id: "aguardando_servico", label: "Aguardando Serviço" },
   { id: "em_servico", label: "Em Serviço" },
   { id: "orcamento_complementar", label: "Orçamento Complementar" },
