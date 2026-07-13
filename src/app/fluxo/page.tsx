@@ -154,6 +154,13 @@ function toDateTimeLocal(value: unknown) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+function toDateInputValue(value: unknown) {
+  const date = toDate(value);
+  if (!date) return "";
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
 function formatDateTime(value: unknown) {
   const date = toDate(value);
   if (!date) return "-";
@@ -443,7 +450,7 @@ export default function FluxoPage() {
     }, (currentError) => {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível acompanhar o fluxo em tempo real.");
       setLoading(false);
-    });
+    }, { includeDelivered: true });
 
     return unsubscribe;
   }, []);
@@ -1098,9 +1105,15 @@ export default function FluxoPage() {
 
   const dateScopedVehicles = useMemo(() => {
     return vehicles.filter((vehicle) => {
-      const dateMatches = !flowDate || vehicle.appointmentDate === flowDate || (
-        isPreviousDayVehicle(vehicle, flowDate) && vehicle.currentLane !== "preparacao_confirmada"
-      );
+      const deliveredDate = toDateInputValue(vehicle.deliveredAt);
+      const dateMatches = !flowDate
+        || (
+          vehicle.currentLane === "entregue"
+            ? (deliveredDate ? deliveredDate === flowDate : vehicle.appointmentDate === flowDate)
+            : vehicle.appointmentDate === flowDate || (
+              isPreviousDayVehicle(vehicle, flowDate) && vehicle.currentLane !== "preparacao_confirmada"
+            )
+        );
       const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
       const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
       return dateMatches && consultantMatches && technicianMatches;
