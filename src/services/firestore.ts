@@ -748,6 +748,40 @@ export async function updatePromisedDelivery({
   await batch.commit();
 }
 
+export async function updateVehiclePlate({
+  vehicleFlowId,
+  currentLane,
+  plate,
+  actionBy,
+}: {
+  vehicleFlowId: string;
+  currentLane: FlowLane;
+  plate: string;
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+  const normalizedPlate = plate.trim().toUpperCase();
+
+  batch.set(flowRef, {
+    plate: normalizedPlate,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(flowEventRef, {
+    vehicleFlowId,
+    fromLane: currentLane,
+    toLane: currentLane,
+    actionBy,
+    actionNote: `Placa atualizada para ${normalizedPlate}`,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
 export async function requestComplementaryBudget({
   vehicleFlowId,
   fromLane,

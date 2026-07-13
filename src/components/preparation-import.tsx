@@ -105,6 +105,10 @@ function shouldSuggestHighPriority(service: string, note: string) {
   return text.includes("diagn") || text.includes("cliente aguarda") || text.includes("retorno");
 }
 
+function isMissingPlate(plate: string) {
+  return !plate.trim() || plate.toUpperCase().startsWith("SEMPLACA");
+}
+
 function parseAgendaRows(rows: unknown[][]) {
   const appointments: Appointment[] = [];
   let currentConsultant = "";
@@ -425,7 +429,9 @@ export function PreparationImport() {
                           <h3 className="client">{item.client}</h3>
                           <p className="model">{item.model}</p>
                         </div>
-                        <span className="plate">{item.plate}</span>
+                        <span className={`plate ${isMissingPlate(item.plate) ? "missing-plate" : ""}`}>
+                          {isMissingPlate(item.plate) ? "Sem placa" : item.plate}
+                        </span>
                       </div>
 
                       <div className="tag-row">
@@ -436,6 +442,15 @@ export function PreparationImport() {
                       </div>
 
                       <div className="prep-inline">
+                        <label className="field">
+                          <span>Placa</span>
+                          <input
+                            value={isMissingPlate(item.plate) ? "" : item.plate}
+                            disabled={item.confirmed}
+                            placeholder="Adicionar placa"
+                            onChange={(event) => updateAppointment(item.id, { plate: event.target.value.toUpperCase() })}
+                          />
+                        </label>
                         <div className="detail"><span>Consultor</span>{item.consultant}</div>
                         <div className="detail"><span>Horário agenda</span>{item.time}</div>
                       </div>

@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, subscribeActiveVehicleFlows, updatePromisedDelivery } from "@/services/firestore";
+import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, subscribeActiveVehicleFlows, updatePromisedDelivery, updateVehiclePlate } from "@/services/firestore";
 import type { FlowLane, PartAvailability, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -66,6 +66,10 @@ type PromiseForm = {
 type StageCorrectionForm = {
   toLane: FlowLane;
   note: string;
+};
+
+type PlateForm = {
+  plate: string;
 };
 
 type BudgetRequestForm = {
@@ -203,6 +207,10 @@ function firstName(name?: string) {
   return name?.trim().split(/\s+/)[0] || "-";
 }
 
+function isMissingPlate(plate?: string) {
+  return !plate?.trim() || plate.toUpperCase().startsWith("SEMPLACA");
+}
+
 function normalizeName(name?: string) {
   return (name ?? "")
     .normalize("NFD")
@@ -301,9 +309,9 @@ function FlowChip({
           )}
           <p className="model">{vehicle.model ?? "Modelo não informado"}</p>
         </div>
-        <span className={`plate ${vehicle.customerWaits ? "wait-plate" : ""}`} title={vehicle.customerWaits ? "Cliente aguardando na loja" : "Placa"}>
+        <span className={`plate ${vehicle.customerWaits ? "wait-plate" : ""} ${isMissingPlate(vehicle.plate) ? "missing-plate" : ""}`} title={vehicle.customerWaits ? "Cliente aguardando na loja" : "Placa"}>
           {vehicle.customerWaits && <span className="plate-alert" aria-hidden="true">⚠</span>}
-          <span>{vehicle.plate ?? "-"}</span>
+          <span>{isMissingPlate(vehicle.plate) ? "Sem placa" : vehicle.plate}</span>
         </span>
       </div>
 
@@ -399,6 +407,7 @@ export default function FluxoPage() {
     toLane: "aguardando_servico",
     note: "",
   });
+  const [plateForm, setPlateForm] = useState<PlateForm>({ plate: "" });
   const [budgetRequestForm, setBudgetRequestForm] = useState<BudgetRequestForm>({ note: "" });
   const [budgetCompleteForm, setBudgetCompleteForm] = useState<BudgetCompleteForm>({
     quotedBy: "",
@@ -530,6 +539,7 @@ export default function FluxoPage() {
 
   function openDetailModal(vehicle: VehicleFlow) {
     setDetailVehicle(vehicle);
+    setPlateForm({ plate: vehicle.plate?.startsWith("SEMPLACA") ? "" : vehicle.plate ?? "" });
     setPromiseForm({
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
       note: "",
@@ -1100,6 +1110,38 @@ export default function FluxoPage() {
     }
   }
 
+  async function submitPlateUpdate() {
+    if (!detailVehicle) return;
+
+    const plate = plateForm.plate.trim().toUpperCase();
+    if (!plate) {
+      setError("Informe a placa antes de salvar.");
+      return;
+    }
+
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await updateVehiclePlate({
+        vehicleFlowId: detailVehicle.id,
+        currentLane: detailVehicle.currentLane,
+        plate,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === detailVehicle.id ? { ...vehicle, plate } : vehicle
+      )));
+      setDetailVehicle((current) => current ? { ...current, plate } : current);
+      setPlateForm({ plate });
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível atualizar a placa.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   const consultants = fixedConsultants;
   const technicians = workshopTechnicians;
 
@@ -1404,6 +1446,7 @@ export default function FluxoPage() {
             </div>
 
             <div className="detail-grid modal-detail-grid">
+              <div className="detail"><span>Placa</span>{detailVehicle.plate?.startsWith("SEMPLACA") ? "-" : detailVehicle.plate ?? "-"}</div>
               <div className="detail"><span>Chassi</span>{detailVehicle.chassi ?? "-"}</div>
               <div className="detail"><span>Telefone</span>{detailVehicle.phone ?? "-"}</div>
               <div className="detail"><span>Modelo</span>{detailVehicle.model ?? "-"}</div>
@@ -1415,6 +1458,28 @@ export default function FluxoPage() {
               <div className="detail"><span>Tipo da lavagem</span>{washLabels[detailVehicle.washType] ?? "-"}</div>
               <div className="detail"><span>Status da lavagem</span>{washStatusText(detailVehicle)}</div>
             </div>
+
+            <section className="history-box">
+              <h3>Placa do veículo</h3>
+              <div className="correction-grid">
+                <label className="field">
+                  <span>Placa</span>
+                  <input
+                    value={plateForm.plate}
+                    placeholder="Adicionar placa"
+                    onChange={(event) => setPlateForm({ plate: event.target.value.toUpperCase() })}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  disabled={movingId === detailVehicle.id || !plateForm.plate.trim()}
+                  onClick={submitPlateUpdate}
+                >
+                  {movingId === detailVehicle.id ? "Salvando..." : "Salvar placa"}
+                </button>
+              </div>
+            </section>
 
             {(detailVehicle.importedNotes || detailVehicle.receiveNote || detailVehicle.partsNote) && (
               <section className="history-box">

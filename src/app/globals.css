@@ -1524,6 +1524,12 @@ textarea {
   font-weight: 900;
 }
 
+.plate.missing-plate {
+  border-style: dashed;
+  color: var(--muted);
+  font-size: 10px;
+}
+
 .wait-plate {
   grid-template-rows: auto auto;
   gap: 1px;
