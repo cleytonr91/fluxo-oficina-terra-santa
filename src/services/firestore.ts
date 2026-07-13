@@ -782,6 +782,40 @@ export async function updateVehiclePlate({
   await batch.commit();
 }
 
+export async function updateVehicleTechnician({
+  vehicleFlowId,
+  currentLane,
+  technicianName,
+  actionBy,
+}: {
+  vehicleFlowId: string;
+  currentLane: FlowLane;
+  technicianName: string;
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+  const normalizedTechnician = technicianName.trim();
+
+  batch.set(flowRef, {
+    technicianName: normalizedTechnician,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(flowEventRef, {
+    vehicleFlowId,
+    fromLane: currentLane,
+    toLane: currentLane,
+    actionBy,
+    actionNote: `Técnico atualizado para ${normalizedTechnician}`,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
 export async function requestComplementaryBudget({
   vehicleFlowId,
   fromLane,

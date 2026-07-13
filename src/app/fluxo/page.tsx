@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, subscribeActiveVehicleFlows, updatePromisedDelivery, updateVehiclePlate } from "@/services/firestore";
+import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, subscribeActiveVehicleFlows, updatePromisedDelivery, updateVehiclePlate, updateVehicleTechnician } from "@/services/firestore";
 import type { FlowLane, PartAvailability, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -70,6 +70,10 @@ type StageCorrectionForm = {
 
 type PlateForm = {
   plate: string;
+};
+
+type TechnicianForm = {
+  technicianName: string;
 };
 
 type BudgetRequestForm = {
@@ -408,6 +412,7 @@ export default function FluxoPage() {
     note: "",
   });
   const [plateForm, setPlateForm] = useState<PlateForm>({ plate: "" });
+  const [technicianForm, setTechnicianForm] = useState<TechnicianForm>({ technicianName: "" });
   const [budgetRequestForm, setBudgetRequestForm] = useState<BudgetRequestForm>({ note: "" });
   const [budgetCompleteForm, setBudgetCompleteForm] = useState<BudgetCompleteForm>({
     quotedBy: "",
@@ -540,6 +545,7 @@ export default function FluxoPage() {
   function openDetailModal(vehicle: VehicleFlow) {
     setDetailVehicle(vehicle);
     setPlateForm({ plate: vehicle.plate?.startsWith("SEMPLACA") ? "" : vehicle.plate ?? "" });
+    setTechnicianForm({ technicianName: vehicle.technicianName ?? "" });
     setPromiseForm({
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
       note: "",
@@ -1142,6 +1148,38 @@ export default function FluxoPage() {
     }
   }
 
+  async function submitTechnicianUpdate() {
+    if (!detailVehicle) return;
+
+    const technicianName = technicianForm.technicianName.trim();
+    if (!technicianName) {
+      setError("Selecione o técnico antes de salvar.");
+      return;
+    }
+
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await updateVehicleTechnician({
+        vehicleFlowId: detailVehicle.id,
+        currentLane: detailVehicle.currentLane,
+        technicianName,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === detailVehicle.id ? { ...vehicle, technicianName } : vehicle
+      )));
+      setDetailVehicle((current) => current ? { ...current, technicianName } : current);
+      setTechnicianForm({ technicianName });
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível atualizar o técnico.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   const consultants = fixedConsultants;
   const technicians = workshopTechnicians;
 
@@ -1477,6 +1515,32 @@ export default function FluxoPage() {
                   onClick={submitPlateUpdate}
                 >
                   {movingId === detailVehicle.id ? "Salvando..." : "Salvar placa"}
+                </button>
+              </div>
+            </section>
+
+            <section className="history-box">
+              <h3>Técnico designado</h3>
+              <div className="correction-grid">
+                <label className="field">
+                  <span>Técnico</span>
+                  <select
+                    value={technicianForm.technicianName}
+                    onChange={(event) => setTechnicianForm({ technicianName: event.target.value })}
+                  >
+                    <option value="">Selecionar técnico</option>
+                    {workshopTechnicians.map((technician) => (
+                      <option key={technician} value={technician}>{technician}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  disabled={movingId === detailVehicle.id || !technicianForm.technicianName.trim()}
+                  onClick={submitTechnicianUpdate}
+                >
+                  {movingId === detailVehicle.id ? "Salvando..." : "Salvar técnico"}
                 </button>
               </div>
             </section>
