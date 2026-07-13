@@ -964,6 +964,41 @@ export async function updateVehicleTechnician({
   await batch.commit();
 }
 
+export async function updateVehicleService({
+  vehicleFlowId,
+  currentLane,
+  serviceLabel,
+  actionBy,
+}: {
+  vehicleFlowId: string;
+  currentLane: FlowLane;
+  serviceLabel: string;
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+  const normalizedService = serviceLabel.trim();
+
+  batch.set(flowRef, {
+    serviceLabel: normalizedService,
+    serviceType: serviceTypeFromLabel(normalizedService),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(flowEventRef, {
+    vehicleFlowId,
+    fromLane: currentLane,
+    toLane: currentLane,
+    actionBy,
+    actionNote: `Tipo de serviço atualizado para ${normalizedService}`,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
 export async function requestComplementaryBudget({
   vehicleFlowId,
   fromLane,

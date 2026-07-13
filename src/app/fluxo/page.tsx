@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, updatePromisedDelivery, updateVehiclePlate, updateVehicleTechnician } from "@/services/firestore";
+import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician } from "@/services/firestore";
 import type { FlowLane, PartAvailability, PartOrder, PartOrderItem, PartOrderStatus, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -83,6 +83,10 @@ type PlateForm = {
 
 type TechnicianForm = {
   technicianName: string;
+};
+
+type ServiceForm = {
+  serviceLabel: string;
 };
 
 type PartOrderForm = {
@@ -430,6 +434,7 @@ export default function FluxoPage() {
   });
   const [plateForm, setPlateForm] = useState<PlateForm>({ plate: "" });
   const [technicianForm, setTechnicianForm] = useState<TechnicianForm>({ technicianName: "" });
+  const [serviceForm, setServiceForm] = useState<ServiceForm>({ serviceLabel: "" });
   const [partOrderForm, setPartOrderForm] = useState<PartOrderForm>({
     customerId: "",
     parts: [{ id: "peca-1", partReference: "", partDescription: "" }],
@@ -581,6 +586,7 @@ export default function FluxoPage() {
     setDetailVehicle(vehicle);
     setPlateForm({ plate: vehicle.plate?.startsWith("SEMPLACA") ? "" : vehicle.plate ?? "" });
     setTechnicianForm({ technicianName: vehicle.technicianName ?? "" });
+    setServiceForm({ serviceLabel: vehicle.serviceLabel ?? "" });
     setPartOrderForm({
       customerId: existingPartOrder?.customerId ?? vehicle.chassi ?? "",
       parts: existingPartOrder?.parts?.length
@@ -1223,6 +1229,38 @@ export default function FluxoPage() {
     }
   }
 
+  async function submitServiceUpdate() {
+    if (!detailVehicle) return;
+
+    const serviceLabel = serviceForm.serviceLabel.trim();
+    if (!serviceLabel) {
+      setError("Selecione o tipo de serviço antes de salvar.");
+      return;
+    }
+
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await updateVehicleService({
+        vehicleFlowId: detailVehicle.id,
+        currentLane: detailVehicle.currentLane,
+        serviceLabel,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === detailVehicle.id ? { ...vehicle, serviceLabel } : vehicle
+      )));
+      setDetailVehicle((current) => current ? { ...current, serviceLabel } : current);
+      setServiceForm({ serviceLabel });
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível atualizar o tipo de serviço.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   function updatePartOrderItem(partId: string, patch: Partial<PartOrderItem>) {
     setPartOrderForm((current) => ({
       ...current,
@@ -1669,6 +1707,32 @@ export default function FluxoPage() {
                   onClick={submitTechnicianUpdate}
                 >
                   {movingId === detailVehicle.id ? "Salvando..." : "Salvar técnico"}
+                </button>
+              </div>
+            </section>
+
+            <section className="history-box">
+              <h3>Tipo de serviço</h3>
+              <div className="correction-grid">
+                <label className="field">
+                  <span>Serviço</span>
+                  <select
+                    value={serviceForm.serviceLabel}
+                    onChange={(event) => setServiceForm({ serviceLabel: event.target.value })}
+                  >
+                    <option value="">Selecionar serviço</option>
+                    {walkInServices.map((service) => (
+                      <option key={service} value={service}>{service}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  disabled={movingId === detailVehicle.id || !serviceForm.serviceLabel.trim()}
+                  onClick={submitServiceUpdate}
+                >
+                  {movingId === detailVehicle.id ? "Salvando..." : "Salvar serviço"}
                 </button>
               </div>
             </section>
