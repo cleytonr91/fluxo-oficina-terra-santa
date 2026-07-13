@@ -114,12 +114,16 @@ function orderParts(order: PartOrder) {
 
 export default function PecasPage() {
   const { profile, user } = useAuth();
+  const initialFocusedOrderId = typeof window === "undefined"
+    ? ""
+    : new URLSearchParams(window.location.search).get("pedido") ?? "";
   const [orders, setOrders] = useState<PartOrder[]>([]);
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [orderForms, setOrderForms] = useState<Record<string, Partial<PartOrderFormFields>>>({});
   const [openSections, setOpenSections] = useState<Record<string, PartEditSection | undefined>>({});
   const [savingId, setSavingId] = useState("");
-  const [statusFilter, setStatusFilter] = useState<PartsFilter>("pendentes");
+  const [statusFilter, setStatusFilter] = useState<PartsFilter>(initialFocusedOrderId ? "todos" : "pendentes");
+  const [focusedOrderId, setFocusedOrderId] = useState(initialFocusedOrderId);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -195,13 +199,14 @@ export default function PecasPage() {
   ), [mergedOrders]);
 
   const filteredOrders = useMemo(() => {
+    if (focusedOrderId) return mergedOrders.filter((order) => order.vehicleFlowId === focusedOrderId || order.id === focusedOrderId);
     if (statusFilter === "todos") return mergedOrders;
     if (statusFilter === "pendentes") return pendingOrders;
     if (statusFilter === "solicitado_oficina") {
       return mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas");
     }
     return mergedOrders.filter((order) => order.orderStatus === statusFilter);
-  }, [mergedOrders, pendingOrders, statusFilter]);
+  }, [focusedOrderId, mergedOrders, pendingOrders, statusFilter]);
 
   const availableImmobilized = availableOrders.filter((order) => order.vehicleImmobilized);
   const availableScheduling = availableOrders.filter((order) => !order.vehicleImmobilized);
@@ -379,6 +384,24 @@ export default function PecasPage() {
 
         {error && <div className="duplicate-alert"><strong>Erro em peças</strong><span>{error}</span></div>}
 
+        {focusedOrderId && (
+          <div className="duplicate-alert parts-focus-alert">
+            <strong>Pedido de peças selecionado</strong>
+            <span>Mostrando apenas o pedido vinculado ao chip imobilizado.</span>
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={() => {
+                window.history.replaceState(null, "", "/pecas");
+                setFocusedOrderId("");
+                setStatusFilter("pendentes");
+              }}
+            >
+              Ver pendências
+            </button>
+          </div>
+        )}
+
         {availableOrders.length > 0 && (
           <section className="panel parts-available-panel">
             <div className="panel-head">
@@ -424,7 +447,7 @@ export default function PecasPage() {
               const openSection = openSections[order.id];
 
               return (
-              <article key={order.id} className="parts-card">
+              <article key={order.id} className={`parts-card ${focusedOrderId && (order.vehicleFlowId === focusedOrderId || order.id === focusedOrderId) ? "focused" : ""}`}>
                 <div className="parts-table-row">
                   <div className="parts-cell parts-client-cell">
                     <span>Cliente</span>

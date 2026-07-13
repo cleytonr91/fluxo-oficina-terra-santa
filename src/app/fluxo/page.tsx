@@ -364,6 +364,16 @@ function FlowChip({
         {vehicle.washingAdvanced && vehicle.washDone && !vehicle.serviceCompleted && <span className="tag warn">Lavagem feita</span>}
         {vehicle.noShow && <span className="tag bad">NO-SHOW</span>}
         {immobilized && <span className="tag bad">Imobilizado</span>}
+        {immobilized && (
+          <a
+            className="tag parts-shortcut"
+            href={`/pecas?pedido=${encodeURIComponent(vehicle.id)}`}
+            onClick={(event) => event.stopPropagation()}
+            title="Ver andamento do pedido de peças"
+          >
+            Pedido de peças
+          </a>
+        )}
         {vehicle.budgetStatus === "realizado" && <span className="tag">{partAvailabilityIcon(vehicle.partAvailability)} Peças</span>}
         {vehicle.currentLane === "entregue" && typeof vehicle.internalNps === "number" && <span className="tag">NPS {vehicle.internalNps}</span>}
       </div>

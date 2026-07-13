@@ -1619,6 +1619,17 @@ textarea {
   color: var(--red);
 }
 
+.tag.parts-shortcut {
+  border: 1px solid #8bc5a4;
+  background: #e8f4ed;
+  color: #1f6a45;
+  text-decoration: none;
+}
+
+.tag.parts-shortcut:hover {
+  text-decoration: underline;
+}
+
 .tag.previous-day {
   border: 1px solid #b8a36b;
   background: #fff8dd;
@@ -2077,6 +2088,22 @@ textarea {
   border-radius: 8px;
   background: #fff;
   padding: 8px;
+}
+
+.parts-card.focused {
+  border-color: #2e8f60;
+  box-shadow: 0 0 0 2px rgba(46, 143, 96, 0.14);
+}
+
+.parts-focus-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.parts-focus-alert span {
+  flex: 1 1 260px;
 }
 
 .parts-table-row {
