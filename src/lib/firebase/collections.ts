@@ -7,6 +7,7 @@ export const collections = {
   walkInCustomers: "walkInCustomers",
   flowEvents: "flowEvents",
   complementaryBudgets: "complementaryBudgets",
+  partOrders: "partOrders",
   deliveries: "deliveries",
   postServiceCases: "postServiceCases",
   hgsiRecords: "hgsiRecords",

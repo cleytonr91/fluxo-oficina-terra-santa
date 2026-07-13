@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderStatus, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -105,6 +105,25 @@ type SavePostServiceTreatmentInput = {
   assignedTo?: string;
   hgsiRequestAllowed?: boolean;
   hgsiRequestStatus?: "nao_solicitada" | "solicitada" | "respondida" | "bloqueada";
+};
+
+type SavePartOrderInput = {
+  vehicle: VehicleFlow;
+  customerId?: string;
+  partReference?: string;
+  partDescription?: string;
+  orderStatus: PartOrderStatus;
+  expectedArrivalDate?: string;
+  actionBy?: string;
+};
+
+type UpdatePartOrderInput = {
+  orderId: string;
+  partReference?: string;
+  partDescription?: string;
+  orderStatus: PartOrderStatus;
+  expectedArrivalDate?: string;
+  updatedBy?: string;
 };
 
 function serviceTypeFromLabel(service: string): ServiceType {
@@ -500,6 +519,23 @@ export function subscribeActiveVehicleFlows(
   }, onError);
 }
 
+export function subscribePartOrders(
+  onChange: (orders: PartOrder[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.partOrders);
+
+  return onSnapshot(ref, (snapshot) => {
+    const orders = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as PartOrder[];
+
+    onChange(orders.sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))));
+  }, onError);
+}
+
 export async function listRecentFlowEvents(maxEvents = 150) {
   const db = getFirebaseDb();
   const snapshot = await getDocs(query(
@@ -512,6 +548,78 @@ export async function listRecentFlowEvents(maxEvents = 150) {
     id: item.id,
     ...item.data(),
   })) as FlowEvent[];
+}
+
+export async function savePartOrder({
+  vehicle,
+  customerId,
+  partReference,
+  partDescription,
+  orderStatus,
+  expectedArrivalDate,
+  actionBy,
+}: SavePartOrderInput) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const orderRef = doc(collection(db, collections.partOrders), vehicle.id);
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicle.id);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+  const normalizedReference = partReference?.trim().toUpperCase();
+  const normalizedDescription = partDescription?.trim();
+
+  batch.set(orderRef, withoutUndefined({
+    vehicleFlowId: vehicle.id,
+    plate: vehicle.plate,
+    customerId: customerId?.trim(),
+    clientName: vehicle.clientName,
+    consultantName: vehicle.consultantName,
+    technicianName: vehicle.technicianName,
+    partReference: normalizedReference,
+    partDescription: normalizedDescription,
+    orderStatus,
+    expectedArrivalDate: expectedArrivalDate || undefined,
+    requestedBy: actionBy,
+    updatedBy: actionBy,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+
+  batch.set(flowRef, {
+    partsOrdered: true,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(flowEventRef, {
+    vehicleFlowId: vehicle.id,
+    fromLane: vehicle.currentLane,
+    toLane: vehicle.currentLane,
+    actionBy,
+    actionNote: `Pedido de peças: ${normalizedReference || "sem referência"} - ${normalizedDescription || "sem descrição"}`,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
+export async function updatePartOrder({
+  orderId,
+  partReference,
+  partDescription,
+  orderStatus,
+  expectedArrivalDate,
+  updatedBy,
+}: UpdatePartOrderInput) {
+  const db = getFirebaseDb();
+  const ref = doc(collection(db, collections.partOrders), orderId);
+
+  await setDoc(ref, withoutUndefined({
+    partReference: partReference?.trim().toUpperCase(),
+    partDescription: partDescription?.trim(),
+    orderStatus,
+    expectedArrivalDate: expectedArrivalDate || undefined,
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
 }
 
 export async function createWalkInVehicle({

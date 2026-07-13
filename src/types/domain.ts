@@ -39,6 +39,14 @@ export type FlowLane =
 export type VehicleOrigin = "agendado" | "passante";
 export type WashType = "simples" | "motor" | "motor_bancos" | "nao";
 export type PartAvailability = "sim" | "nao" | "parcial";
+
+export type PartOrderStatus =
+  | "necessidade_identificada"
+  | "aguardando_pecas"
+  | "pedido_realizado"
+  | "em_transito"
+  | "recebido"
+  | "cancelado";
 export type BudgetStatus = "aguardando" | "realizado" | "cancelado";
 
 export type PostCaseType =
@@ -180,6 +188,24 @@ export interface ComplementaryBudget {
   status: BudgetStatus;
   createdAt: FirestoreTimestamp;
   completedAt?: FirestoreTimestamp;
+}
+
+export interface PartOrder {
+  id: string;
+  vehicleFlowId: string;
+  plate?: string;
+  customerId?: string;
+  clientName?: string;
+  consultantName?: string;
+  technicianName?: string;
+  partReference?: string;
+  partDescription?: string;
+  orderStatus: PartOrderStatus;
+  expectedArrivalDate?: string;
+  requestedBy?: string;
+  updatedBy?: string;
+  createdAt: FirestoreTimestamp;
+  updatedAt: FirestoreTimestamp;
 }
 
 export interface Delivery {

@@ -3,8 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, subscribeActiveVehicleFlows, updatePromisedDelivery, updateVehiclePlate, updateVehicleTechnician } from "@/services/firestore";
-import type { FlowLane, PartAvailability, VehicleFlow, WashType } from "@/types/domain";
+import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, updatePromisedDelivery, updateVehiclePlate, updateVehicleTechnician } from "@/services/firestore";
+import type { FlowLane, PartAvailability, PartOrder, PartOrderStatus, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
   { id: "preparacao_confirmada", label: "Agendamento do Dia" },
@@ -31,6 +31,15 @@ const washLabels = Object.fromEntries(washOptions.map((option) => [option.value,
 const fixedConsultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
 
 const workshopTechnicians = ["Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan"];
+
+const partOrderStatusLabels: Record<PartOrderStatus, string> = {
+  necessidade_identificada: "Necessidade identificada",
+  aguardando_pecas: "Aguardando peças",
+  pedido_realizado: "Pedido realizado",
+  em_transito: "Em trânsito",
+  recebido: "Recebido",
+  cancelado: "Cancelado",
+};
 
 const walkInServices = [
   "Revisão 01",
@@ -74,6 +83,14 @@ type PlateForm = {
 
 type TechnicianForm = {
   technicianName: string;
+};
+
+type PartOrderForm = {
+  customerId: string;
+  partReference: string;
+  partDescription: string;
+  orderStatus: PartOrderStatus;
+  expectedArrivalDate: string;
 };
 
 type BudgetRequestForm = {
@@ -378,6 +395,7 @@ function FlowChip({
 export default function FluxoPage() {
   const { profile, user } = useAuth();
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
+  const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [consultantFilter, setConsultantFilter] = useState("Todos");
@@ -413,6 +431,13 @@ export default function FluxoPage() {
   });
   const [plateForm, setPlateForm] = useState<PlateForm>({ plate: "" });
   const [technicianForm, setTechnicianForm] = useState<TechnicianForm>({ technicianName: "" });
+  const [partOrderForm, setPartOrderForm] = useState<PartOrderForm>({
+    customerId: "",
+    partReference: "",
+    partDescription: "",
+    orderStatus: "necessidade_identificada",
+    expectedArrivalDate: "",
+  });
   const [budgetRequestForm, setBudgetRequestForm] = useState<BudgetRequestForm>({ note: "" });
   const [budgetCompleteForm, setBudgetCompleteForm] = useState<BudgetCompleteForm>({
     quotedBy: "",
@@ -468,6 +493,17 @@ export default function FluxoPage() {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribePartOrders(setPartOrders, () => undefined);
+    return unsubscribe;
+  }, []);
+
+  const partOrdersByVehicle = useMemo(() => {
+    const mapped = new Map<string, PartOrder>();
+    partOrders.forEach((order) => mapped.set(order.vehicleFlowId, order));
+    return mapped;
+  }, [partOrders]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 60000);
@@ -543,9 +579,17 @@ export default function FluxoPage() {
   }
 
   function openDetailModal(vehicle: VehicleFlow) {
+    const existingPartOrder = partOrdersByVehicle.get(vehicle.id);
     setDetailVehicle(vehicle);
     setPlateForm({ plate: vehicle.plate?.startsWith("SEMPLACA") ? "" : vehicle.plate ?? "" });
     setTechnicianForm({ technicianName: vehicle.technicianName ?? "" });
+    setPartOrderForm({
+      customerId: existingPartOrder?.customerId ?? vehicle.chassi ?? "",
+      partReference: existingPartOrder?.partReference ?? "",
+      partDescription: existingPartOrder?.partDescription ?? "",
+      orderStatus: existingPartOrder?.orderStatus ?? "necessidade_identificada",
+      expectedArrivalDate: existingPartOrder?.expectedArrivalDate ?? "",
+    });
     setPromiseForm({
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
       note: "",
@@ -583,7 +627,7 @@ export default function FluxoPage() {
     setDeliveryVehicle(vehicle);
     setDeliveryForm({
       deliveredOnTime: promisedDate ? Date.now() <= promisedDate.getTime() : true,
-      partsOrdered: false,
+      partsOrdered: vehicle.partsOrdered ?? false,
       internalNps: 10,
       hasPendingIssue: false,
       futureNote: "",
@@ -1180,6 +1224,58 @@ export default function FluxoPage() {
     }
   }
 
+  async function submitPartOrderUpdate() {
+    if (!detailVehicle) return;
+
+    if (!partOrderForm.partReference.trim() && !partOrderForm.partDescription.trim()) {
+      setError("Informe ao menos a referência ou a descrição da peça.");
+      return;
+    }
+
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await savePartOrder({
+        vehicle: detailVehicle,
+        customerId: partOrderForm.customerId,
+        partReference: partOrderForm.partReference,
+        partDescription: partOrderForm.partDescription,
+        orderStatus: partOrderForm.orderStatus,
+        expectedArrivalDate: partOrderForm.expectedArrivalDate,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+
+      const nextOrder: PartOrder = {
+        id: detailVehicle.id,
+        vehicleFlowId: detailVehicle.id,
+        plate: detailVehicle.plate,
+        customerId: partOrderForm.customerId,
+        clientName: detailVehicle.clientName,
+        consultantName: detailVehicle.consultantName,
+        technicianName: detailVehicle.technicianName,
+        partReference: partOrderForm.partReference.trim().toUpperCase(),
+        partDescription: partOrderForm.partDescription.trim(),
+        orderStatus: partOrderForm.orderStatus,
+        expectedArrivalDate: partOrderForm.expectedArrivalDate,
+        requestedBy: profile?.name ?? user?.email ?? user?.uid,
+        updatedBy: profile?.name ?? user?.email ?? user?.uid,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      setPartOrders((current) => [...current.filter((order) => order.vehicleFlowId !== detailVehicle.id), nextOrder]);
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === detailVehicle.id ? { ...vehicle, partsOrdered: true } : vehicle
+      )));
+      setDetailVehicle((current) => current ? { ...current, partsOrdered: true } : current);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar o pedido de peças.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   const consultants = fixedConsultants;
   const technicians = workshopTechnicians;
 
@@ -1543,6 +1639,63 @@ export default function FluxoPage() {
                   {movingId === detailVehicle.id ? "Salvando..." : "Salvar técnico"}
                 </button>
               </div>
+            </section>
+
+            <section className="history-box">
+              <h3>Pedido de peças</h3>
+              <div className="correction-grid">
+                <label className="field">
+                  <span>ID Cliente</span>
+                  <input
+                    value={partOrderForm.customerId}
+                    placeholder="Chassi, código ou identificação"
+                    onChange={(event) => setPartOrderForm((current) => ({ ...current, customerId: event.target.value.toUpperCase() }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Status do pedido</span>
+                  <select
+                    value={partOrderForm.orderStatus}
+                    onChange={(event) => setPartOrderForm((current) => ({ ...current, orderStatus: event.target.value as PartOrderStatus }))}
+                  >
+                    {Object.entries(partOrderStatusLabels).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Referência da peça</span>
+                  <input
+                    value={partOrderForm.partReference}
+                    placeholder="Referência"
+                    onChange={(event) => setPartOrderForm((current) => ({ ...current, partReference: event.target.value.toUpperCase() }))}
+                  />
+                </label>
+                <label className="field">
+                  <span>Previsão de chegada</span>
+                  <input
+                    type="date"
+                    value={partOrderForm.expectedArrivalDate}
+                    onChange={(event) => setPartOrderForm((current) => ({ ...current, expectedArrivalDate: event.target.value }))}
+                  />
+                </label>
+              </div>
+              <label className="field">
+                <span>Descrição da peça</span>
+                <textarea
+                  value={partOrderForm.partDescription}
+                  placeholder="Descrição da peça solicitada"
+                  onChange={(event) => setPartOrderForm((current) => ({ ...current, partDescription: event.target.value }))}
+                />
+              </label>
+              <button
+                type="button"
+                className="ghost-btn"
+                disabled={movingId === detailVehicle.id}
+                onClick={submitPartOrderUpdate}
+              >
+                {movingId === detailVehicle.id ? "Salvando..." : "Salvar pedido de peças"}
+              </button>
             </section>
 
             {(detailVehicle.importedNotes || detailVehicle.receiveNote || detailVehicle.partsNote) && (
