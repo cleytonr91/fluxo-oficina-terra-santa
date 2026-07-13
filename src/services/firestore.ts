@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderStatus, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderStatus, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -110,6 +110,7 @@ type SavePostServiceTreatmentInput = {
 type SavePartOrderInput = {
   vehicle: VehicleFlow;
   customerId?: string;
+  parts: PartOrderItem[];
   partReference?: string;
   partDescription?: string;
   orderStatus: PartOrderStatus;
@@ -119,6 +120,7 @@ type SavePartOrderInput = {
 
 type UpdatePartOrderInput = {
   orderId: string;
+  parts: PartOrderItem[];
   partReference?: string;
   partDescription?: string;
   orderStatus: PartOrderStatus;
@@ -553,6 +555,7 @@ export async function listRecentFlowEvents(maxEvents = 150) {
 export async function savePartOrder({
   vehicle,
   customerId,
+  parts,
   partReference,
   partDescription,
   orderStatus,
@@ -564,8 +567,16 @@ export async function savePartOrder({
   const orderRef = doc(collection(db, collections.partOrders), vehicle.id);
   const flowRef = doc(collection(db, collections.vehiclesFlow), vehicle.id);
   const flowEventRef = doc(collection(db, collections.flowEvents));
-  const normalizedReference = partReference?.trim().toUpperCase();
-  const normalizedDescription = partDescription?.trim();
+  const normalizedParts = parts
+    .map((part, index) => ({
+      id: part.id || `peca-${index + 1}`,
+      partReference: part.partReference?.trim().toUpperCase(),
+      partDescription: part.partDescription?.trim(),
+    }))
+    .filter((part) => part.partReference || part.partDescription);
+  const firstPart = normalizedParts[0];
+  const normalizedReference = partReference?.trim().toUpperCase() || firstPart?.partReference;
+  const normalizedDescription = partDescription?.trim() || firstPart?.partDescription;
 
   batch.set(orderRef, withoutUndefined({
     vehicleFlowId: vehicle.id,
@@ -574,6 +585,7 @@ export async function savePartOrder({
     clientName: vehicle.clientName,
     consultantName: vehicle.consultantName,
     technicianName: vehicle.technicianName,
+    parts: normalizedParts,
     partReference: normalizedReference,
     partDescription: normalizedDescription,
     orderStatus,
@@ -603,6 +615,7 @@ export async function savePartOrder({
 
 export async function updatePartOrder({
   orderId,
+  parts,
   partReference,
   partDescription,
   orderStatus,
@@ -611,10 +624,19 @@ export async function updatePartOrder({
 }: UpdatePartOrderInput) {
   const db = getFirebaseDb();
   const ref = doc(collection(db, collections.partOrders), orderId);
+  const normalizedParts = parts
+    .map((part, index) => ({
+      id: part.id || `peca-${index + 1}`,
+      partReference: part.partReference?.trim().toUpperCase(),
+      partDescription: part.partDescription?.trim(),
+    }))
+    .filter((part) => part.partReference || part.partDescription);
+  const firstPart = normalizedParts[0];
 
   await setDoc(ref, withoutUndefined({
-    partReference: partReference?.trim().toUpperCase(),
-    partDescription: partDescription?.trim(),
+    parts: normalizedParts,
+    partReference: partReference?.trim().toUpperCase() || firstPart?.partReference,
+    partDescription: partDescription?.trim() || firstPart?.partDescription,
     orderStatus,
     expectedArrivalDate: expectedArrivalDate || undefined,
     updatedBy,

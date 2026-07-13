@@ -4,11 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { subscribePartOrders, updatePartOrder } from "@/services/firestore";
-import type { PartOrder, PartOrderStatus } from "@/types/domain";
+import type { PartOrder, PartOrderItem, PartOrderStatus } from "@/types/domain";
 
 type PartOrderFormFields = {
-  partReference: string;
-  partDescription: string;
+  parts: PartOrderItem[];
   orderStatus: PartOrderStatus;
   expectedArrivalDate: string;
 };
@@ -34,6 +33,11 @@ function statusTone(status: PartOrderStatus) {
   if (status === "cancelado") return "bad";
   if (status === "em_transito" || status === "pedido_realizado") return "warn";
   return "";
+}
+
+function orderParts(order: PartOrder) {
+  if (order.parts?.length) return order.parts;
+  return [{ id: "peca-1", partReference: order.partReference ?? "", partDescription: order.partDescription ?? "" }];
 }
 
 export default function PecasPage() {
@@ -68,8 +72,7 @@ export default function PecasPage() {
 
   function orderFormValues(order: PartOrder): PartOrderFormFields {
     return {
-      partReference: order.partReference ?? "",
-      partDescription: order.partDescription ?? "",
+      parts: orderParts(order),
       orderStatus: order.orderStatus,
       expectedArrivalDate: order.expectedArrivalDate ?? "",
       ...orderForms[order.id],
@@ -88,6 +91,7 @@ export default function PecasPage() {
 
   async function saveOrder(order: PartOrder) {
     const form = orderFormValues(order);
+    const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
 
     setSavingId(order.id);
     setError("");
@@ -95,8 +99,7 @@ export default function PecasPage() {
     try {
       await updatePartOrder({
         orderId: order.id,
-        partReference: form.partReference,
-        partDescription: form.partDescription,
+        parts: validParts,
         orderStatus: form.orderStatus,
         expectedArrivalDate: form.expectedArrivalDate,
         updatedBy: profile?.name ?? user?.email ?? user?.uid,
@@ -106,8 +109,13 @@ export default function PecasPage() {
         item.id === order.id
           ? {
               ...item,
-              partReference: form.partReference.trim().toUpperCase(),
-              partDescription: form.partDescription.trim(),
+              parts: validParts.map((part, index) => ({
+                id: part.id || `peca-${index + 1}`,
+                partReference: part.partReference?.trim().toUpperCase(),
+                partDescription: part.partDescription?.trim(),
+              })),
+              partReference: validParts[0]?.partReference?.trim().toUpperCase(),
+              partDescription: validParts[0]?.partDescription?.trim(),
               orderStatus: form.orderStatus,
               expectedArrivalDate: form.expectedArrivalDate,
               updatedBy: profile?.name ?? user?.email ?? user?.uid,
@@ -119,6 +127,30 @@ export default function PecasPage() {
     } finally {
       setSavingId("");
     }
+  }
+
+  function updatePartItem(order: PartOrder, partId: string, patch: Partial<PartOrderItem>) {
+    const form = orderFormValues(order);
+    updateOrderForm(order.id, {
+      parts: form.parts.map((part) => (
+        part.id === partId ? { ...part, ...patch } : part
+      )),
+    });
+  }
+
+  function addPartItem(order: PartOrder) {
+    const form = orderFormValues(order);
+    updateOrderForm(order.id, {
+      parts: [...form.parts, { id: `peca-${Date.now()}`, partReference: "", partDescription: "" }],
+    });
+  }
+
+  function removePartItem(order: PartOrder, partId: string) {
+    const form = orderFormValues(order);
+    if (form.parts.length <= 1) return;
+    updateOrderForm(order.id, {
+      parts: form.parts.filter((part) => part.id !== partId),
+    });
   }
 
   return (
@@ -167,13 +199,6 @@ export default function PecasPage() {
 
                 <div className="parts-edit-grid">
                   <label className="field">
-                    <span>Referência da Peça</span>
-                    <input
-                      value={form.partReference}
-                      onChange={(event) => updateOrderForm(order.id, { partReference: event.target.value.toUpperCase() })}
-                    />
-                  </label>
-                  <label className="field">
                     <span>Status do Pedido</span>
                     <select
                       value={form.orderStatus}
@@ -194,13 +219,38 @@ export default function PecasPage() {
                   </label>
                 </div>
 
-                <label className="field">
-                  <span>Descrição da Peça</span>
-                  <textarea
-                    value={form.partDescription}
-                    onChange={(event) => updateOrderForm(order.id, { partDescription: event.target.value })}
-                  />
-                </label>
+                <div className="parts-items">
+                  {form.parts.map((part, index) => (
+                    <div key={part.id} className="part-item-row">
+                      <label className="field">
+                        <span>Referência da Peça {index + 1}</span>
+                        <input
+                          value={part.partReference ?? ""}
+                          onChange={(event) => updatePartItem(order, part.id, { partReference: event.target.value.toUpperCase() })}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Descrição da Peça {index + 1}</span>
+                        <input
+                          value={part.partDescription ?? ""}
+                          onChange={(event) => updatePartItem(order, part.id, { partDescription: event.target.value })}
+                        />
+                      </label>
+                      <button
+                        className="ghost-btn"
+                        type="button"
+                        disabled={form.parts.length <= 1}
+                        onClick={() => removePartItem(order, part.id)}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button className="ghost-btn" type="button" onClick={() => addPartItem(order)}>
+                  + Adicionar peça
+                </button>
 
                 <div className="detail-grid">
                   <div className="detail"><span>Previsão atual</span>{formatDate(order.expectedArrivalDate)}</div>

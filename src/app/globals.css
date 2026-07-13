@@ -2071,8 +2071,20 @@ textarea {
 
 .parts-edit-grid {
   display: grid;
-  grid-template-columns: 1fr 180px 170px;
+  grid-template-columns: 220px 180px;
   gap: 8px;
+}
+
+.parts-items {
+  display: grid;
+  gap: 8px;
+}
+
+.part-item-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.7fr) minmax(220px, 1.3fr) auto;
+  gap: 8px;
+  align-items: end;
 }
 
 @media (max-width: 980px) {

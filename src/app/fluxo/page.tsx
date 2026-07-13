@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, updatePromisedDelivery, updateVehiclePlate, updateVehicleTechnician } from "@/services/firestore";
-import type { FlowLane, PartAvailability, PartOrder, PartOrderStatus, VehicleFlow, WashType } from "@/types/domain";
+import type { FlowLane, PartAvailability, PartOrder, PartOrderItem, PartOrderStatus, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
   { id: "preparacao_confirmada", label: "Agendamento do Dia" },
@@ -87,8 +87,7 @@ type TechnicianForm = {
 
 type PartOrderForm = {
   customerId: string;
-  partReference: string;
-  partDescription: string;
+  parts: PartOrderItem[];
   orderStatus: PartOrderStatus;
   expectedArrivalDate: string;
 };
@@ -433,8 +432,7 @@ export default function FluxoPage() {
   const [technicianForm, setTechnicianForm] = useState<TechnicianForm>({ technicianName: "" });
   const [partOrderForm, setPartOrderForm] = useState<PartOrderForm>({
     customerId: "",
-    partReference: "",
-    partDescription: "",
+    parts: [{ id: "peca-1", partReference: "", partDescription: "" }],
     orderStatus: "necessidade_identificada",
     expectedArrivalDate: "",
   });
@@ -585,8 +583,9 @@ export default function FluxoPage() {
     setTechnicianForm({ technicianName: vehicle.technicianName ?? "" });
     setPartOrderForm({
       customerId: existingPartOrder?.customerId ?? vehicle.chassi ?? "",
-      partReference: existingPartOrder?.partReference ?? "",
-      partDescription: existingPartOrder?.partDescription ?? "",
+      parts: existingPartOrder?.parts?.length
+        ? existingPartOrder.parts
+        : [{ id: "peca-1", partReference: existingPartOrder?.partReference ?? "", partDescription: existingPartOrder?.partDescription ?? "" }],
       orderStatus: existingPartOrder?.orderStatus ?? "necessidade_identificada",
       expectedArrivalDate: existingPartOrder?.expectedArrivalDate ?? "",
     });
@@ -1224,10 +1223,39 @@ export default function FluxoPage() {
     }
   }
 
+  function updatePartOrderItem(partId: string, patch: Partial<PartOrderItem>) {
+    setPartOrderForm((current) => ({
+      ...current,
+      parts: current.parts.map((part) => (
+        part.id === partId ? { ...part, ...patch } : part
+      )),
+    }));
+  }
+
+  function addPartOrderItem() {
+    setPartOrderForm((current) => ({
+      ...current,
+      parts: [
+        ...current.parts,
+        { id: `peca-${Date.now()}`, partReference: "", partDescription: "" },
+      ],
+    }));
+  }
+
+  function removePartOrderItem(partId: string) {
+    setPartOrderForm((current) => ({
+      ...current,
+      parts: current.parts.length > 1
+        ? current.parts.filter((part) => part.id !== partId)
+        : current.parts,
+    }));
+  }
+
   async function submitPartOrderUpdate() {
     if (!detailVehicle) return;
+    const validParts = partOrderForm.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
 
-    if (!partOrderForm.partReference.trim() && !partOrderForm.partDescription.trim()) {
+    if (!validParts.length) {
       setError("Informe ao menos a referência ou a descrição da peça.");
       return;
     }
@@ -1239,8 +1267,7 @@ export default function FluxoPage() {
       await savePartOrder({
         vehicle: detailVehicle,
         customerId: partOrderForm.customerId,
-        partReference: partOrderForm.partReference,
-        partDescription: partOrderForm.partDescription,
+        parts: validParts,
         orderStatus: partOrderForm.orderStatus,
         expectedArrivalDate: partOrderForm.expectedArrivalDate,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
@@ -1254,8 +1281,13 @@ export default function FluxoPage() {
         clientName: detailVehicle.clientName,
         consultantName: detailVehicle.consultantName,
         technicianName: detailVehicle.technicianName,
-        partReference: partOrderForm.partReference.trim().toUpperCase(),
-        partDescription: partOrderForm.partDescription.trim(),
+        parts: validParts.map((part, index) => ({
+          id: part.id || `peca-${index + 1}`,
+          partReference: part.partReference?.trim().toUpperCase(),
+          partDescription: part.partDescription?.trim(),
+        })),
+        partReference: validParts[0]?.partReference?.trim().toUpperCase(),
+        partDescription: validParts[0]?.partDescription?.trim(),
         orderStatus: partOrderForm.orderStatus,
         expectedArrivalDate: partOrderForm.expectedArrivalDate,
         requestedBy: profile?.name ?? user?.email ?? user?.uid,
@@ -1664,14 +1696,6 @@ export default function FluxoPage() {
                   </select>
                 </label>
                 <label className="field">
-                  <span>Referência da peça</span>
-                  <input
-                    value={partOrderForm.partReference}
-                    placeholder="Referência"
-                    onChange={(event) => setPartOrderForm((current) => ({ ...current, partReference: event.target.value.toUpperCase() }))}
-                  />
-                </label>
-                <label className="field">
                   <span>Previsão de chegada</span>
                   <input
                     type="date"
@@ -1680,14 +1704,39 @@ export default function FluxoPage() {
                   />
                 </label>
               </div>
-              <label className="field">
-                <span>Descrição da peça</span>
-                <textarea
-                  value={partOrderForm.partDescription}
-                  placeholder="Descrição da peça solicitada"
-                  onChange={(event) => setPartOrderForm((current) => ({ ...current, partDescription: event.target.value }))}
-                />
-              </label>
+              <div className="parts-items">
+                {partOrderForm.parts.map((part, index) => (
+                  <div key={part.id} className="part-item-row">
+                    <label className="field">
+                      <span>Referência da peça {index + 1}</span>
+                      <input
+                        value={part.partReference ?? ""}
+                        placeholder="Referência"
+                        onChange={(event) => updatePartOrderItem(part.id, { partReference: event.target.value.toUpperCase() })}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Descrição da peça {index + 1}</span>
+                      <input
+                        value={part.partDescription ?? ""}
+                        placeholder="Descrição"
+                        onChange={(event) => updatePartOrderItem(part.id, { partDescription: event.target.value })}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      disabled={partOrderForm.parts.length <= 1}
+                      onClick={() => removePartOrderItem(part.id)}
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="ghost-btn" onClick={addPartOrderItem}>
+                + Adicionar peça
+              </button>
               <button
                 type="button"
                 className="ghost-btn"

@@ -47,6 +47,12 @@ export type PartOrderStatus =
   | "em_transito"
   | "recebido"
   | "cancelado";
+
+export interface PartOrderItem {
+  id: string;
+  partReference?: string;
+  partDescription?: string;
+}
 export type BudgetStatus = "aguardando" | "realizado" | "cancelado";
 
 export type PostCaseType =
@@ -198,6 +204,7 @@ export interface PartOrder {
   clientName?: string;
   consultantName?: string;
   technicianName?: string;
+  parts?: PartOrderItem[];
   partReference?: string;
   partDescription?: string;
   orderStatus: PartOrderStatus;
