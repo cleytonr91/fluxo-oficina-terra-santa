@@ -308,6 +308,23 @@ function isPreviousDayVehicle(vehicle: VehicleFlow, selectedDate?: string) {
   return Boolean(selectedDate && vehicle.appointmentDate && vehicle.appointmentDate < selectedDate);
 }
 
+function matchesSelectedFlowDate(vehicle: VehicleFlow, selectedDate?: string) {
+  if (!selectedDate) return true;
+  const deliveredDate = toDateInputValue(vehicle.deliveredAt);
+
+  if (vehicle.currentLane === "entregue") {
+    return deliveredDate ? deliveredDate === selectedDate : vehicle.appointmentDate === selectedDate;
+  }
+
+  return vehicle.appointmentDate === selectedDate
+    || (isPreviousDayVehicle(vehicle, selectedDate) && vehicle.currentLane !== "preparacao_confirmada");
+}
+
+function matchesNoShowDate(vehicle: VehicleFlow, selectedDate?: string) {
+  if (!selectedDate) return true;
+  return vehicle.appointmentDate === selectedDate || toDateInputValue(vehicle.noShowAt) === selectedDate;
+}
+
 function washStatusText(vehicle: VehicleFlow) {
   if (vehicle.washType === "nao") return "Não solicitada";
   if (vehicle.washDone) return "Realizada";
@@ -1381,15 +1398,7 @@ export default function FluxoPage() {
 
   const dateScopedVehicles = useMemo(() => {
     return vehicles.filter((vehicle) => {
-      const deliveredDate = toDateInputValue(vehicle.deliveredAt);
-      const dateMatches = !flowDate
-        || (
-          vehicle.currentLane === "entregue"
-            ? (deliveredDate ? deliveredDate === flowDate : vehicle.appointmentDate === flowDate)
-            : vehicle.appointmentDate === flowDate || (
-              isPreviousDayVehicle(vehicle, flowDate) && vehicle.currentLane !== "preparacao_confirmada"
-            )
-        );
+      const dateMatches = matchesSelectedFlowDate(vehicle, flowDate);
       const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
       const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
       return dateMatches && consultantMatches && technicianMatches;
@@ -1399,12 +1408,13 @@ export default function FluxoPage() {
   const noShowVehicles = useMemo(() => {
     return vehicles
       .filter((vehicle) => {
+        const dateMatches = matchesNoShowDate(vehicle, flowDate);
         const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
         const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
-        return vehicle.noShow && consultantMatches && technicianMatches;
+        return vehicle.noShow && dateMatches && consultantMatches && technicianMatches;
       })
       .sort((a, b) => `${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`.localeCompare(`${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`));
-  }, [consultantFilter, technicianFilter, vehicles]);
+  }, [consultantFilter, flowDate, technicianFilter, vehicles]);
 
   const immobilizedVehicles = useMemo(() => {
     return vehicles
