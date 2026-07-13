@@ -13,6 +13,7 @@ type PartOrderFormFields = {
   orderStatus: PartOrderStatus;
   orderSource: PartOrderSource | "";
   orderNumber: string;
+  orderDate: string;
   invoiceNumber: string;
   expectedArrivalDate: string;
   cancellationReason: string;
@@ -224,6 +225,7 @@ export default function PecasPage() {
         : order.orderStatus,
       orderSource: order.orderSource ?? "",
       orderNumber: order.orderNumber ?? "",
+      orderDate: order.orderDate ?? "",
       invoiceNumber: order.invoiceNumber ?? "",
       expectedArrivalDate: order.expectedArrivalDate ?? "",
       cancellationReason: order.cancellationReason ?? "",
@@ -277,6 +279,7 @@ export default function PecasPage() {
         orderStatus: form.orderStatus,
         orderSource: form.orderSource || undefined,
         orderNumber: form.orderNumber,
+        orderDate: form.orderDate,
         invoiceNumber: form.invoiceNumber,
         expectedArrivalDate: form.expectedArrivalDate,
         cancellationReason: form.cancellationReason,
@@ -299,6 +302,7 @@ export default function PecasPage() {
               orderStatus: form.orderStatus,
               orderSource: form.orderSource || undefined,
               orderNumber: form.orderNumber,
+              orderDate: form.orderDate,
               invoiceNumber: form.invoiceNumber,
               expectedArrivalDate: form.expectedArrivalDate,
               cancellationReason: form.cancellationReason,
@@ -431,6 +435,7 @@ export default function PecasPage() {
                   <div className="parts-cell"><span>Status</span><strong className={`tag ${statusTone(order.orderStatus)}`}>{statusLabels[order.orderStatus]}</strong></div>
                   <div className="parts-cell"><span>Origem</span><strong>{sourceLabel(order.orderSource)}</strong></div>
                   <div className="parts-cell"><span>Pedido</span><strong>{order.orderNumber || "-"}</strong></div>
+                  <div className="parts-cell"><span>Data pedido</span><strong>{formatDate(order.orderDate)}</strong></div>
                   <div className="parts-cell"><span>NF</span><strong>{order.invoiceNumber || "-"}</strong></div>
                   <div className="parts-cell"><span>Previsão</span><strong>{formatDate(order.expectedArrivalDate)}</strong></div>
                   <div className="parts-cell"><span>Consultor</span><strong>{order.consultantName || "-"}</strong></div>
@@ -505,6 +510,14 @@ export default function PecasPage() {
                         value={form.orderNumber}
                         placeholder="Mobis ou externo"
                         onChange={(event) => updateOrderForm(order.id, { orderNumber: event.target.value.toUpperCase() })}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Data do Pedido</span>
+                      <input
+                        type="date"
+                        value={form.orderDate}
+                        onChange={(event) => updateOrderForm(order.id, { orderDate: event.target.value })}
                       />
                     </label>
                     <label className="field">

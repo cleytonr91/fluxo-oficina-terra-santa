@@ -222,6 +222,7 @@ export interface PartOrder {
   orderStatus: PartOrderStatus;
   orderSource?: PartOrderSource;
   orderNumber?: string;
+  orderDate?: string;
   invoiceNumber?: string;
   expectedArrivalDate?: string;
   cancellationReason?: string;
