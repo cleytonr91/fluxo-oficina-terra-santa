@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderStatus, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderSource, PartOrderStatus, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -129,6 +129,9 @@ type UpdatePartOrderInput = {
   partReference?: string;
   partDescription?: string;
   orderStatus: PartOrderStatus;
+  orderSource?: PartOrderSource;
+  orderNumber?: string;
+  invoiceNumber?: string;
   expectedArrivalDate?: string;
   updatedBy?: string;
 };
@@ -612,7 +615,7 @@ export async function savePartOrder({
     parts: normalizedParts,
     partReference: normalizedReference,
     partDescription: normalizedDescription,
-    orderStatus: "necessidade_identificada",
+    orderStatus: "solicitado_oficina",
     vehicleImmobilized: vehicleImmobilized ?? false,
     requestedBy: actionBy,
     updatedBy: actionBy,
@@ -649,6 +652,9 @@ export async function updatePartOrder({
   partReference,
   partDescription,
   orderStatus,
+  orderSource,
+  orderNumber,
+  invoiceNumber,
   expectedArrivalDate,
   updatedBy,
 }: UpdatePartOrderInput) {
@@ -674,6 +680,9 @@ export async function updatePartOrder({
     partReference: partReference?.trim().toUpperCase() || firstPart?.partReference,
     partDescription: partDescription?.trim() || firstPart?.partDescription,
     orderStatus,
+    orderSource,
+    orderNumber: orderNumber?.trim(),
+    invoiceNumber: invoiceNumber?.trim(),
     expectedArrivalDate: expectedArrivalDate || undefined,
     updatedBy,
     updatedAt: serverTimestamp(),

@@ -4,22 +4,44 @@ import { useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { subscribeActiveVehicleFlows, subscribePartOrders, updatePartOrder } from "@/services/firestore";
-import type { PartOrder, PartOrderItem, PartOrderStatus, VehicleFlow } from "@/types/domain";
+import type { PartOrder, PartOrderItem, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
 type PartOrderFormFields = {
   parts: PartOrderItem[];
   orderStatus: PartOrderStatus;
+  orderSource: PartOrderSource | "";
+  orderNumber: string;
+  invoiceNumber: string;
   expectedArrivalDate: string;
 };
 
 const statusLabels: Record<PartOrderStatus, string> = {
-  necessidade_identificada: "Necessidade identificada",
-  aguardando_pecas: "Aguardando peças",
+  solicitado_oficina: "Solicitado oficina",
+  necessidade_identificada: "Solicitado oficina",
+  aguardando_pecas: "Solicitado oficina",
   pedido_realizado: "Pedido realizado",
   em_transito: "Em trânsito",
   recebido: "Recebido",
+  disponivel: "Disponível",
   cancelado: "Cancelado",
 };
+
+const statusOptions: Array<{ value: PartOrderStatus; label: string }> = [
+  { value: "solicitado_oficina", label: "Solicitado oficina" },
+  { value: "pedido_realizado", label: "Pedido realizado" },
+  { value: "em_transito", label: "Em trânsito" },
+  { value: "recebido", label: "Recebido" },
+  { value: "disponivel", label: "Disponível" },
+  { value: "cancelado", label: "Cancelado" },
+];
+
+const sourceOptions: Array<{ value: PartOrderSource; label: string }> = [
+  { value: "mobis", label: "Mobis" },
+  { value: "natal", label: "Natal" },
+  { value: "mossoro", label: "Mossoró" },
+  { value: "juazeiro", label: "Juazeiro" },
+  { value: "rede_autorizada", label: "Rede Autorizada" },
+];
 
 function formatDate(value?: string) {
   if (!value) return "-";
@@ -29,10 +51,14 @@ function formatDate(value?: string) {
 }
 
 function statusTone(status: PartOrderStatus) {
-  if (status === "recebido") return "good";
+  if (status === "disponivel" || status === "recebido") return "good";
   if (status === "cancelado") return "bad";
   if (status === "em_transito" || status === "pedido_realizado") return "warn";
   return "";
+}
+
+function sourceLabel(value?: PartOrderSource) {
+  return sourceOptions.find((option) => option.value === value)?.label ?? "-";
 }
 
 function orderParts(order: PartOrder) {
@@ -81,7 +107,7 @@ export default function PecasPage() {
         consultantName: vehicle.consultantName,
         technicianName: vehicle.technicianName,
         parts: [{ id: "peca-1", partReference: "", partDescription: vehicle.partsNote ?? "" }],
-        orderStatus: "necessidade_identificada",
+        orderStatus: "solicitado_oficina",
         vehicleImmobilized: false,
         createdAt: vehicle.createdAt,
         updatedAt: vehicle.updatedAt,
@@ -94,17 +120,30 @@ export default function PecasPage() {
     statusFilter === "todos" ? mergedOrders : mergedOrders.filter((order) => order.orderStatus === statusFilter)
   ), [mergedOrders, statusFilter]);
 
+  const availableOrders = useMemo(() => (
+    mergedOrders.filter((order) => order.orderStatus === "disponivel")
+  ), [mergedOrders]);
+
+  const availableImmobilized = availableOrders.filter((order) => order.vehicleImmobilized);
+  const availableScheduling = availableOrders.filter((order) => !order.vehicleImmobilized);
+
   const metrics = [
     { label: "pedidos", value: mergedOrders.length },
-    { label: "aguardando peças", value: mergedOrders.filter((order) => order.orderStatus === "aguardando_pecas").length },
+    { label: "solicitado oficina", value: mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas").length },
+    { label: "pedido realizado", value: mergedOrders.filter((order) => order.orderStatus === "pedido_realizado").length },
     { label: "em trânsito", value: mergedOrders.filter((order) => order.orderStatus === "em_transito").length },
-    { label: "recebidos", value: mergedOrders.filter((order) => order.orderStatus === "recebido").length },
+    { label: "disponíveis", value: availableOrders.length },
   ];
 
   function orderFormValues(order: PartOrder): PartOrderFormFields {
     return {
       parts: orderParts(order),
-      orderStatus: order.orderStatus,
+      orderStatus: order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas"
+        ? "solicitado_oficina"
+        : order.orderStatus,
+      orderSource: order.orderSource ?? "",
+      orderNumber: order.orderNumber ?? "",
+      invoiceNumber: order.invoiceNumber ?? "",
       expectedArrivalDate: order.expectedArrivalDate ?? "",
       ...orderForms[order.id],
     };
@@ -124,6 +163,16 @@ export default function PecasPage() {
     const form = orderFormValues(order);
     const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
 
+    if (form.orderStatus === "pedido_realizado" && (!form.orderSource || !form.orderNumber.trim())) {
+      setError("Para marcar Pedido Realizado, informe a origem e o número do pedido.");
+      return;
+    }
+
+    if (form.orderStatus === "em_transito" && (!form.invoiceNumber.trim() || !form.expectedArrivalDate)) {
+      setError("Para marcar Em trânsito, informe a nota fiscal e confirme a previsão de chegada.");
+      return;
+    }
+
     setSavingId(order.id);
     setError("");
 
@@ -138,6 +187,9 @@ export default function PecasPage() {
         technicianName: order.technicianName,
         parts: validParts,
         orderStatus: form.orderStatus,
+        orderSource: form.orderSource || undefined,
+        orderNumber: form.orderNumber,
+        invoiceNumber: form.invoiceNumber,
         expectedArrivalDate: form.expectedArrivalDate,
         updatedBy: profile?.name ?? user?.email ?? user?.uid,
       });
@@ -154,6 +206,9 @@ export default function PecasPage() {
               partReference: validParts[0]?.partReference?.trim().toUpperCase(),
               partDescription: validParts[0]?.partDescription?.trim(),
               orderStatus: form.orderStatus,
+              orderSource: form.orderSource || undefined,
+              orderNumber: form.orderNumber,
+              invoiceNumber: form.invoiceNumber,
               expectedArrivalDate: form.expectedArrivalDate,
               updatedBy: profile?.name ?? user?.email ?? user?.uid,
             }
@@ -205,7 +260,7 @@ export default function PecasPage() {
             <span>Status</span>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
               <option value="todos">Todos</option>
-              {Object.entries(statusLabels).map(([value, label]) => (
+              {statusOptions.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
@@ -213,6 +268,39 @@ export default function PecasPage() {
         </section>
 
         {error && <div className="duplicate-alert"><strong>Erro em peças</strong><span>{error}</span></div>}
+
+        {availableOrders.length > 0 && (
+          <section className="panel parts-available-panel">
+            <div className="panel-head">
+              <h2 className="panel-title">Peças disponíveis para ação</h2>
+              <span className="panel-subtitle">{availableOrders.length} pedido(s) disponível(is).</span>
+            </div>
+
+            <div className="available-split">
+              <div className="available-box urgent">
+                <h3>Veículos imobilizados</h3>
+                {availableImmobilized.length ? availableImmobilized.map((order) => (
+                  <div key={order.id} className="available-row">
+                    <strong>{order.plate ?? "Sem placa"}</strong>
+                    <span>{order.clientName ?? "Cliente sem nome"}</span>
+                    <small>Chefe de oficina deve programar execução.</small>
+                  </div>
+                )) : <p className="empty">Nenhum imobilizado disponível.</p>}
+              </div>
+
+              <div className="available-box">
+                <h3>Agendamento / retorno</h3>
+                {availableScheduling.length ? availableScheduling.map((order) => (
+                  <div key={order.id} className="available-row">
+                    <strong>{order.plate ?? "Sem placa"}</strong>
+                    <span>{order.clientName ?? "Cliente sem nome"}</span>
+                    <small>Agendamento deve dar sequência ao atendimento.</small>
+                  </div>
+                )) : <p className="empty">Nenhum retorno pendente.</p>}
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="panel">
           <div className="panel-head">
@@ -244,13 +332,40 @@ export default function PecasPage() {
                       value={form.orderStatus}
                       onChange={(event) => updateOrderForm(order.id, { orderStatus: event.target.value as PartOrderStatus })}
                     >
-                      {Object.entries(statusLabels).map(([value, label]) => (
+                      {statusOptions.map(({ value, label }) => (
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
                   </label>
                   <label className="field">
-                    <span>Previsão de Chegada</span>
+                    <span>Origem</span>
+                    <select
+                      value={form.orderSource}
+                      onChange={(event) => updateOrderForm(order.id, { orderSource: event.target.value as PartOrderSource | "" })}
+                    >
+                      <option value="">Selecionar origem</option>
+                      {sourceOptions.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span>Número do Pedido</span>
+                    <input
+                      value={form.orderNumber}
+                      placeholder="Mobis ou externo"
+                      onChange={(event) => updateOrderForm(order.id, { orderNumber: event.target.value.toUpperCase() })}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Nota Fiscal</span>
+                    <input
+                      value={form.invoiceNumber}
+                      onChange={(event) => updateOrderForm(order.id, { invoiceNumber: event.target.value.toUpperCase() })}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Previsão de chegada</span>
                     <input
                       type="date"
                       value={form.expectedArrivalDate}
@@ -293,6 +408,9 @@ export default function PecasPage() {
                 </button>
 
                 <div className="detail-grid">
+                  <div className="detail"><span>Origem</span>{sourceLabel(order.orderSource)}</div>
+                  <div className="detail"><span>Pedido</span>{order.orderNumber || "-"}</div>
+                  <div className="detail"><span>Nota fiscal</span>{order.invoiceNumber || "-"}</div>
                   <div className="detail"><span>Previsão atual</span>{formatDate(order.expectedArrivalDate)}</div>
                   <div className="detail"><span>Consultor</span>{order.consultantName || "-"}</div>
                   <div className="detail"><span>Técnico</span>{order.technicianName || "-"}</div>

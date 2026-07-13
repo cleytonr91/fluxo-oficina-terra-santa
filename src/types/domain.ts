@@ -41,12 +41,21 @@ export type WashType = "simples" | "motor" | "motor_bancos" | "nao";
 export type PartAvailability = "sim" | "nao" | "parcial";
 
 export type PartOrderStatus =
+  | "solicitado_oficina"
   | "necessidade_identificada"
   | "aguardando_pecas"
   | "pedido_realizado"
   | "em_transito"
   | "recebido"
+  | "disponivel"
   | "cancelado";
+
+export type PartOrderSource =
+  | "mobis"
+  | "natal"
+  | "mossoro"
+  | "juazeiro"
+  | "rede_autorizada";
 
 export interface PartOrderItem {
   id: string;
@@ -208,6 +217,9 @@ export interface PartOrder {
   partReference?: string;
   partDescription?: string;
   orderStatus: PartOrderStatus;
+  orderSource?: PartOrderSource;
+  orderNumber?: string;
+  invoiceNumber?: string;
   expectedArrivalDate?: string;
   vehicleImmobilized?: boolean;
   requestedBy?: string;

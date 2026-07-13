@@ -1346,7 +1346,7 @@ export default function FluxoPage() {
         })),
         partReference: validParts[0]?.partReference?.trim().toUpperCase(),
         partDescription: validParts[0]?.partDescription?.trim(),
-        orderStatus: "necessidade_identificada",
+        orderStatus: "solicitado_oficina",
         vehicleImmobilized: partOrderForm.vehicleImmobilized,
         requestedBy: profile?.name ?? user?.email ?? user?.uid,
         updatedBy: profile?.name ?? user?.email ?? user?.uid,
