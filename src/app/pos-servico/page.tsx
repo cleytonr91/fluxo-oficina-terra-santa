@@ -7,7 +7,7 @@ import { useAuth } from "@/context/auth-context";
 import { listActiveVehicleFlows, listHgsiAnswers, listHgsiRecords, listPostServiceCases, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
 import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from "@/types/domain";
 
-const consultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
+const consultants = ["Cleverton", "Rosangela", "Eliane"];
 const surveyGoal = 15;
 
 type HgsiRecordImport = {
@@ -569,6 +569,15 @@ export default function PosServicoPage() {
         .filter((item) => item.score !== undefined)
         .sort((first, second) => (first.score ?? 0) - (second.score ?? 0))
         .slice(0, 3);
+      const answeredClients = answered
+        .map((answer, index) => ({
+          id: `${answer.chassi || answer.osNumber || answer.clientName || consultant}-${index}`,
+          clientName: answer.clientName || "Cliente sem nome",
+          plate: answer.plate || "-",
+          answerDate: answer.answerDate,
+          score: hgsiValue(answer),
+        }))
+        .sort((first, second) => String(second.answerDate ?? "").localeCompare(String(first.answerDate ?? "")));
 
       return {
         consultant,
@@ -583,6 +592,7 @@ export default function PosServicoPage() {
         redFlags,
         indicatorRows,
         criticalComments,
+        answeredClients,
       };
     });
   }, [hgsiAnswers]);
@@ -936,6 +946,21 @@ export default function PosServicoPage() {
                       <strong>-</strong>
                       <span>Sem comentários críticos</span>
                     </div>
+                  )}
+                </div>
+
+                <div className="answered-client-list">
+                  <div className="answered-client-head">
+                    <strong>Clientes que responderam</strong>
+                    <span>{item.answeredClients.length}</span>
+                  </div>
+                  {item.answeredClients.length ? item.answeredClients.map((client) => (
+                    <div key={client.id} className="answered-client-row">
+                      <span>{client.clientName}</span>
+                      <small>{client.plate} · {formatDate(client.answerDate)} · {client.score === undefined ? "-" : Math.round(client.score)}</small>
+                    </div>
+                  )) : (
+                    <p className="empty answered-empty">Nenhum cliente respondeu ainda.</p>
                   )}
                 </div>
               </article>
