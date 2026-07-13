@@ -220,6 +220,15 @@ function formatDateOnly(value?: string) {
   return `${day}/${month}/${year}`;
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function isEarlierThanCurrent(nextValue: string, currentValue: unknown) {
   const currentDate = toDate(currentValue);
   if (!currentDate) return false;
@@ -1454,6 +1463,113 @@ export default function FluxoPage() {
     { value: visibleOperationalVehicles.filter((item) => item.priority === "alta" || item.roadTestRequired || item.customerWaits).length, label: "em atenção", state: "", filter: "todos" as MetricFilter },
   ] as const;
 
+  function generateNoShowPdf() {
+    if (!noShowVehicles.length) {
+      setError("Não há clientes no-show para gerar o PDF.");
+      return;
+    }
+
+    const reportDate = flowDate ? formatDateOnly(flowDate) : "Todos os dias";
+    const generatedAt = new Date().toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const rows = noShowVehicles.map((vehicle, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td><strong>${escapeHtml(vehicle.clientName || "Cliente não identificado")}</strong></td>
+        <td>${escapeHtml(vehicle.plate || "-")}</td>
+        <td>${escapeHtml(formatDateOnly(vehicle.appointmentDate))}</td>
+        <td>${escapeHtml(vehicle.appointmentTime || "-")}</td>
+        <td>${escapeHtml(consultantDisplayName(vehicle.consultantName))}</td>
+        <td>${escapeHtml(firstName(vehicle.technicianName))}</td>
+        <td>${escapeHtml(vehicle.serviceLabel || "-")}</td>
+        <td>${escapeHtml(vehicle.phone || "-")}</td>
+      </tr>
+    `).join("");
+
+    const reportWindow = window.open("", "_blank", "width=1100,height=800");
+    if (!reportWindow) {
+      setError("O navegador bloqueou a janela do relatório. Libere pop-ups para gerar o PDF.");
+      return;
+    }
+
+    reportWindow.document.write(`
+      <!doctype html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8" />
+          <title>No-show ${escapeHtml(reportDate)}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body { margin: 28px; color: #1d2925; font-family: Arial, sans-serif; }
+            header { display: flex; justify-content: space-between; gap: 18px; border-bottom: 2px solid #1d2925; padding-bottom: 14px; margin-bottom: 18px; }
+            h1 { margin: 0; font-size: 22px; text-transform: uppercase; }
+            .meta { color: #5b6863; font-size: 12px; line-height: 1.5; text-align: right; }
+            .summary { display: flex; gap: 10px; margin-bottom: 14px; }
+            .summary div { border: 1px solid #d7ded9; border-radius: 6px; padding: 8px 10px; }
+            .summary strong { display: block; font-size: 20px; }
+            .summary span { color: #5b6863; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            th, td { border: 1px solid #d7ded9; padding: 7px 8px; text-align: left; vertical-align: top; }
+            th { background: #eef3ef; font-size: 10px; text-transform: uppercase; }
+            tr:nth-child(even) td { background: #fafcfa; }
+            @media print {
+              body { margin: 12mm; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <header>
+            <div>
+              <h1>Clientes no-show</h1>
+              <p>Veículos com preparação confirmada que não evoluíram para atendimento.</p>
+            </div>
+            <div class="meta">
+              <strong>Fluxo da Oficina</strong><br />
+              Data do filtro: ${escapeHtml(reportDate)}<br />
+              Gerado em: ${escapeHtml(generatedAt)}
+            </div>
+          </header>
+
+          <section class="summary">
+            <div><strong>${noShowVehicles.length}</strong><span>No-show</span></div>
+            <div><strong>${escapeHtml(consultantFilter)}</strong><span>Consultor</span></div>
+            <div><strong>${escapeHtml(technicianFilter)}</strong><span>Técnico</span></div>
+          </section>
+
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Cliente</th>
+                <th>Placa</th>
+                <th>Data</th>
+                <th>Hora</th>
+                <th>Consultor</th>
+                <th>Técnico</th>
+                <th>Serviço</th>
+                <th>Telefone</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+
+          <script>
+            window.onload = function () {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    reportWindow.document.close();
+  }
+
   return (
     <ProtectedPage
       title="Fluxo da Oficina"
@@ -1504,7 +1620,12 @@ export default function FluxoPage() {
                 <h2>Lista de no-show</h2>
                 <span>Veículos que tinham preparação confirmada e não evoluíram para atendimento.</span>
               </div>
-              <strong>{noShowVehicles.length}</strong>
+              <div className="no-show-actions">
+                <button className="ghost-btn" type="button" onClick={generateNoShowPdf}>
+                  Gerar PDF
+                </button>
+                <strong>{noShowVehicles.length}</strong>
+              </div>
             </div>
 
             <div className="no-show-list">
