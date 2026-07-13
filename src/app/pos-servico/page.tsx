@@ -94,7 +94,28 @@ function parseRows(file: File) {
   return file.arrayBuffer().then((buffer) => {
     const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-    return XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, { header: 1, defval: "" });
+    const headerIndex = matrix.findIndex((row) => {
+      const normalizedCells = row.map(normalizeText);
+      const hasChassi = normalizedCells.some((cell) => cell.includes("chassi") || cell.includes("vin"));
+      const hasStatusOrAnswer = normalizedCells.some((cell) => (
+        cell.includes("status")
+        || cell.includes("registro")
+        || cell.includes("nota")
+        || cell.includes("nps")
+      ));
+      return hasChassi && hasStatusOrAnswer;
+    });
+
+    if (headerIndex < 0) {
+      return XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
+    }
+
+    const headers = matrix[headerIndex].map((header, index) => String(header || `COLUNA_${index}`).trim() || `COLUNA_${index}`);
+
+    return matrix.slice(headerIndex + 1)
+      .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])))
+      .filter((row) => Object.values(row).some((value) => String(value ?? "").trim()));
   });
 }
 
