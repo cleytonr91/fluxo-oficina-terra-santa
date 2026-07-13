@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { subscribePartOrders, updatePartOrder } from "@/services/firestore";
-import type { PartOrder, PartOrderItem, PartOrderStatus } from "@/types/domain";
+import { subscribeActiveVehicleFlows, subscribePartOrders, updatePartOrder } from "@/services/firestore";
+import type { PartOrder, PartOrderItem, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
 type PartOrderFormFields = {
   parts: PartOrderItem[];
@@ -43,6 +43,7 @@ function orderParts(order: PartOrder) {
 export default function PecasPage() {
   const { profile, user } = useAuth();
   const [orders, setOrders] = useState<PartOrder[]>([]);
+  const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [orderForms, setOrderForms] = useState<Record<string, Partial<PartOrderFormFields>>>({});
   const [savingId, setSavingId] = useState("");
   const [statusFilter, setStatusFilter] = useState<"todos" | PartOrderStatus>("todos");
@@ -59,15 +60,44 @@ export default function PecasPage() {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = subscribeActiveVehicleFlows((items) => {
+      setVehicles(items);
+    }, () => undefined, { includeDelivered: true });
+
+    return unsubscribe;
+  }, []);
+
+  const mergedOrders = useMemo(() => {
+    const orderByVehicle = new Map(orders.map((order) => [order.vehicleFlowId, order]));
+    const syntheticOrders = vehicles
+      .filter((vehicle) => vehicle.partsOrdered && !orderByVehicle.has(vehicle.id))
+      .map((vehicle): PartOrder => ({
+        id: vehicle.id,
+        vehicleFlowId: vehicle.id,
+        plate: vehicle.plate,
+        customerId: vehicle.chassi,
+        clientName: vehicle.clientName,
+        consultantName: vehicle.consultantName,
+        technicianName: vehicle.technicianName,
+        parts: [{ id: "peca-1", partReference: "", partDescription: vehicle.partsNote ?? "" }],
+        orderStatus: "necessidade_identificada",
+        createdAt: vehicle.createdAt,
+        updatedAt: vehicle.updatedAt,
+      }));
+
+    return [...orders, ...syntheticOrders];
+  }, [orders, vehicles]);
+
   const filteredOrders = useMemo(() => (
-    statusFilter === "todos" ? orders : orders.filter((order) => order.orderStatus === statusFilter)
-  ), [orders, statusFilter]);
+    statusFilter === "todos" ? mergedOrders : mergedOrders.filter((order) => order.orderStatus === statusFilter)
+  ), [mergedOrders, statusFilter]);
 
   const metrics = [
-    { label: "pedidos", value: orders.length },
-    { label: "aguardando peças", value: orders.filter((order) => order.orderStatus === "aguardando_pecas").length },
-    { label: "em trânsito", value: orders.filter((order) => order.orderStatus === "em_transito").length },
-    { label: "recebidos", value: orders.filter((order) => order.orderStatus === "recebido").length },
+    { label: "pedidos", value: mergedOrders.length },
+    { label: "aguardando peças", value: mergedOrders.filter((order) => order.orderStatus === "aguardando_pecas").length },
+    { label: "em trânsito", value: mergedOrders.filter((order) => order.orderStatus === "em_transito").length },
+    { label: "recebidos", value: mergedOrders.filter((order) => order.orderStatus === "recebido").length },
   ];
 
   function orderFormValues(order: PartOrder): PartOrderFormFields {
@@ -99,6 +129,12 @@ export default function PecasPage() {
     try {
       await updatePartOrder({
         orderId: order.id,
+        vehicleFlowId: order.vehicleFlowId,
+        plate: order.plate,
+        customerId: order.customerId,
+        clientName: order.clientName,
+        consultantName: order.consultantName,
+        technicianName: order.technicianName,
         parts: validParts,
         orderStatus: form.orderStatus,
         expectedArrivalDate: form.expectedArrivalDate,

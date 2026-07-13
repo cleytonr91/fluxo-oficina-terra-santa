@@ -120,6 +120,12 @@ type SavePartOrderInput = {
 
 type UpdatePartOrderInput = {
   orderId: string;
+  vehicleFlowId?: string;
+  plate?: string;
+  customerId?: string;
+  clientName?: string;
+  consultantName?: string;
+  technicianName?: string;
   parts: PartOrderItem[];
   partReference?: string;
   partDescription?: string;
@@ -615,6 +621,12 @@ export async function savePartOrder({
 
 export async function updatePartOrder({
   orderId,
+  vehicleFlowId,
+  plate,
+  customerId,
+  clientName,
+  consultantName,
+  technicianName,
   parts,
   partReference,
   partDescription,
@@ -634,6 +646,12 @@ export async function updatePartOrder({
   const firstPart = normalizedParts[0];
 
   await setDoc(ref, withoutUndefined({
+    vehicleFlowId,
+    plate,
+    customerId,
+    clientName,
+    consultantName,
+    technicianName,
     parts: normalizedParts,
     partReference: partReference?.trim().toUpperCase() || firstPart?.partReference,
     partDescription: partDescription?.trim() || firstPart?.partDescription,
