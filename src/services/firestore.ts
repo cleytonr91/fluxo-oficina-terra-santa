@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, FlowEvent, FlowLane, PartAvailability, Preparation, ServiceType, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, Preparation, ServiceType, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -63,6 +63,28 @@ type WalkInVehicleInput = {
   note?: string;
 };
 
+type SaveHgsiRecordInput = {
+  chassi: string;
+  osNumber: string;
+  status: string;
+  valid: boolean;
+  rawPayload?: Record<string, unknown>;
+};
+
+type SaveHgsiAnswerInput = {
+  chassi: string;
+  osNumber: string;
+  nps?: number;
+  installationScore?: number;
+  consultantScore?: number;
+  deadlineScore?: number;
+  serviceQualityScore?: number;
+  priceAlignmentScore?: number;
+  washScore?: number;
+  correctService?: boolean;
+  rawPayload?: Record<string, unknown>;
+};
+
 function serviceTypeFromLabel(service: string): ServiceType {
   const text = service.toLowerCase();
   const revision = text.match(/revis[aã]o\s*0?(\d+)/);
@@ -78,6 +100,21 @@ function serviceTypeFromLabel(service: string): ServiceType {
   if (text.includes("reparo")) return "reparo_geral";
   if (text.includes("recall") || text.includes("campanha")) return "recall";
   return "combinado";
+}
+
+function documentKey(...parts: string[]) {
+  return parts
+    .join("-")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase() || `registro-${Date.now()}`;
+}
+
+function withoutUndefined<T extends Record<string, unknown>>(value: T) {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
 }
 
 export async function listAppointmentsByDate(appointmentDate: string) {
@@ -99,6 +136,110 @@ export async function listUserProfiles() {
     id: item.id,
     ...item.data(),
   })) as UserProfile[];
+}
+
+export async function listHgsiRecords() {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(collection(db, collections.hgsiRecords));
+
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as HgsiRecord[];
+}
+
+export async function listHgsiAnswers() {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(collection(db, collections.hgsiAnswers));
+
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as HgsiAnswer[];
+}
+
+export async function saveHgsiRecords({
+  sourceFileName,
+  importedBy,
+  records,
+}: {
+  sourceFileName: string;
+  importedBy?: string;
+  records: SaveHgsiRecordInput[];
+}) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const importBatchId = `hgsi-records-${Date.now()}`;
+  const importBatchRef = doc(collection(db, collections.importBatches), importBatchId);
+
+  batch.set(importBatchRef, {
+    sourceFileName,
+    sourceKind: "hgsi_records",
+    importedBy,
+    importedAt: serverTimestamp(),
+    totalRows: records.length,
+    notes: "Importacao de status de registros Route/HGSI",
+  });
+
+  records.forEach((record, index) => {
+    const ref = doc(collection(db, collections.hgsiRecords), documentKey(record.chassi || "sem-chassi", record.osNumber || `linha-${index}`));
+    batch.set(ref, withoutUndefined({
+      importBatchId,
+      chassi: record.chassi,
+      osNumber: record.osNumber,
+      recordStatus: record.status,
+      isValidRecord: record.valid,
+      rawPayload: record.rawPayload,
+      importedAt: serverTimestamp(),
+    }), { merge: true });
+  });
+
+  await batch.commit();
+}
+
+export async function saveHgsiAnswers({
+  sourceFileName,
+  importedBy,
+  answers,
+}: {
+  sourceFileName: string;
+  importedBy?: string;
+  answers: SaveHgsiAnswerInput[];
+}) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const importBatchId = `hgsi-answers-${Date.now()}`;
+  const importBatchRef = doc(collection(db, collections.importBatches), importBatchId);
+
+  batch.set(importBatchRef, {
+    sourceFileName,
+    sourceKind: "hgsi_answers",
+    importedBy,
+    importedAt: serverTimestamp(),
+    totalRows: answers.length,
+    notes: "Importacao de respostas HGSI",
+  });
+
+  answers.forEach((answer, index) => {
+    const ref = doc(collection(db, collections.hgsiAnswers), documentKey(answer.chassi || "sem-chassi", answer.osNumber || `linha-${index}`));
+    batch.set(ref, withoutUndefined({
+      importBatchId,
+      chassi: answer.chassi,
+      osNumber: answer.osNumber,
+      nps: answer.nps,
+      installationScore: answer.installationScore,
+      consultantScore: answer.consultantScore,
+      deadlineScore: answer.deadlineScore,
+      serviceQualityScore: answer.serviceQualityScore,
+      priceAlignmentScore: answer.priceAlignmentScore,
+      washScore: answer.washScore,
+      correctService: answer.correctService,
+      rawPayload: answer.rawPayload,
+      importedAt: serverTimestamp(),
+    }), { merge: true });
+  });
+
+  await batch.commit();
 }
 
 export async function updateUserProfile({

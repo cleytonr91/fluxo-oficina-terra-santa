@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ProtectedPage } from "@/components/protected-page";
-import { listActiveVehicleFlows } from "@/services/firestore";
+import { useAuth } from "@/context/auth-context";
+import { listActiveVehicleFlows, listHgsiAnswers, listHgsiRecords, saveHgsiAnswers, saveHgsiRecords } from "@/services/firestore";
 import type { VehicleFlow } from "@/types/domain";
 
 const consultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
@@ -172,6 +173,7 @@ function VehicleCard({
 }
 
 export default function PosServicoPage() {
+  const { profile, user } = useAuth();
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [hgsiRecords, setHgsiRecords] = useState<HgsiRecordImport[]>([]);
   const [hgsiAnswers, setHgsiAnswers] = useState<HgsiAnswerImport[]>([]);
@@ -182,14 +184,37 @@ export default function PosServicoPage() {
   useEffect(() => {
     let active = true;
 
-    async function loadDelivered() {
+    async function loadPostServiceData() {
       setLoading(true);
       setError("");
 
       try {
-        const data = await listActiveVehicleFlows({ includeDelivered: true });
+        const [flowData, savedRecords, savedAnswers] = await Promise.all([
+          listActiveVehicleFlows({ includeDelivered: true }),
+          listHgsiRecords(),
+          listHgsiAnswers(),
+        ]);
         if (!active) return;
-        setVehicles(data.filter((vehicle) => vehicle.currentLane === "entregue"));
+        setVehicles(flowData.filter((vehicle) => vehicle.currentLane === "entregue"));
+        setHgsiRecords(savedRecords.map((record) => ({
+          chassi: normalizeChassi(record.chassi),
+          osNumber: record.osNumber,
+          status: record.recordStatus,
+          valid: record.isValidRecord,
+        })));
+        setHgsiAnswers(savedAnswers.map((answer) => ({
+          chassi: normalizeChassi(answer.chassi),
+          osNumber: answer.osNumber ?? "",
+          nps: answer.nps,
+          installationScore: answer.installationScore,
+          consultantScore: (answer as { consultantScore?: number }).consultantScore,
+          deadlineScore: answer.deadlineScore,
+          serviceQualityScore: answer.serviceQualityScore,
+          priceAlignmentScore: answer.priceAlignmentScore,
+          washScore: answer.washScore,
+          correctService: answer.correctService,
+          raw: answer.rawPayload ?? {},
+        })));
       } catch (currentError) {
         if (!active) return;
         setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar o pós-serviço.");
@@ -198,7 +223,7 @@ export default function PosServicoPage() {
       }
     }
 
-    loadDelivered();
+    loadPostServiceData();
     return () => {
       active = false;
     };
@@ -267,7 +292,7 @@ export default function PosServicoPage() {
 
     try {
       const rows = await parseRows(file);
-      setHgsiRecords(rows.map((row) => {
+      const records = rows.map((row) => {
         const status = String(findColumn(row, ["status", "registro"]));
         const chassi = String(findColumn(row, ["chassi", "vin"])).trim().toUpperCase();
         const osNumber = String(findColumn(row, ["o.s", "os", "ordem"])).trim();
@@ -277,8 +302,17 @@ export default function PosServicoPage() {
           osNumber,
           status,
           valid: normalizeText(status).includes("valido"),
+          rawPayload: row,
         };
-      }));
+      });
+
+      await saveHgsiRecords({
+        sourceFileName: file.name,
+        importedBy: profile?.name ?? user?.email ?? user?.uid,
+        records,
+      });
+
+      setHgsiRecords(records);
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível ler a planilha de status HGSI.");
     }
@@ -289,7 +323,7 @@ export default function PosServicoPage() {
 
     try {
       const rows = await parseRows(file);
-      setHgsiAnswers(rows.map((row) => {
+      const answers = rows.map((row) => {
         const chassi = String(findColumn(row, ["chassi", "vin"])).trim().toUpperCase();
         const osNumber = String(findColumn(row, ["o.s", "os", "ordem"])).trim();
 
@@ -304,9 +338,20 @@ export default function PosServicoPage() {
           priceAlignmentScore: numberFrom(row, ["preco", "precos", "alinhamento"]),
           washScore: numberFrom(row, ["lavagem"]),
           correctService: boolFrom(row, ["servico correto", "servico realizado", "servico"]),
-          raw: row,
+          rawPayload: row,
         };
-      }));
+      });
+
+      await saveHgsiAnswers({
+        sourceFileName: file.name,
+        importedBy: profile?.name ?? user?.email ?? user?.uid,
+        answers,
+      });
+
+      setHgsiAnswers(answers.map((answer) => ({
+        ...answer,
+        raw: answer.rawPayload ?? {},
+      })));
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível ler a planilha de respostas HGSI.");
     }
