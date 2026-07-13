@@ -98,6 +98,12 @@ function kindLabel(value?: PartOrderKind) {
   return kindOptions.find((option) => option.value === value)?.label ?? "-";
 }
 
+function whatsappUrl(phone?: string) {
+  const digits = phone?.replace(/\D/g, "");
+  if (!digits || digits.length < 10) return "";
+  return `https://wa.me/55${digits.length > 11 ? digits.slice(-11) : digits}`;
+}
+
 function orderParts(order: PartOrder) {
   if (order.parts?.length) return order.parts;
   return [{ id: "peca-1", partReference: order.partReference ?? "", partDescription: order.partDescription ?? "" }];
@@ -152,6 +158,25 @@ export default function PecasPage() {
 
     return [...orders, ...syntheticOrders];
   }, [orders, vehicles]);
+
+  const vehiclesById = useMemo(() => {
+    const mapped = new Map<string, VehicleFlow>();
+    vehicles.forEach((vehicle) => mapped.set(vehicle.id, vehicle));
+    return mapped;
+  }, [vehicles]);
+
+  function customerNameContent(order: PartOrder) {
+    const name = order.clientName ?? "Cliente sem nome";
+    const url = whatsappUrl(vehiclesById.get(order.vehicleFlowId)?.phone);
+
+    if (!url) return <strong>{name}</strong>;
+
+    return (
+      <a className="client-link" href={url} target="_blank" rel="noreferrer">
+        <strong>{name}</strong>
+      </a>
+    );
+  }
 
   const availableOrders = useMemo(() => (
     mergedOrders.filter((order) => order.orderStatus === "disponivel")
@@ -345,7 +370,7 @@ export default function PecasPage() {
                 {availableImmobilized.length ? availableImmobilized.map((order) => (
                   <div key={order.id} className="available-row">
                     <strong>{order.plate ?? "Sem placa"}</strong>
-                    <span>{order.clientName ?? "Cliente sem nome"}</span>
+                    {customerNameContent(order)}
                     <small>Chefe de oficina deve programar execução.</small>
                   </div>
                 )) : <p className="empty">Nenhum imobilizado disponível.</p>}
@@ -356,7 +381,7 @@ export default function PecasPage() {
                 {availableScheduling.length ? availableScheduling.map((order) => (
                   <div key={order.id} className="available-row">
                     <strong>{order.plate ?? "Sem placa"}</strong>
-                    <span>{order.clientName ?? "Cliente sem nome"}</span>
+                    {customerNameContent(order)}
                     <small>Agendamento deve dar sequência ao atendimento.</small>
                   </div>
                 )) : <p className="empty">Nenhum retorno pendente.</p>}
@@ -379,7 +404,7 @@ export default function PecasPage() {
               <article key={order.id} className="parts-card">
                 <div className="parts-card-main">
                   <div>
-                    <strong>{order.clientName ?? "Cliente sem nome"}</strong>
+                    {customerNameContent(order)}
                     <span>{order.plate ?? "Sem placa"} · ID Cliente: {order.customerId || "-"}</span>
                   </div>
                   <span className={`tag ${statusTone(order.orderStatus)}`}>{statusLabels[order.orderStatus]}</span>
