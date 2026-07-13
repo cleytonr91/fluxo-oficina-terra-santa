@@ -6,13 +6,8 @@ import { ProtectedPage } from "@/components/protected-page";
 import { listActiveVehicleFlows } from "@/services/firestore";
 import type { VehicleFlow } from "@/types/domain";
 
-const lanes = [
-  "Solicitar resposta da pesquisa HGSI",
-  "Tratar antes da pesquisa",
-  "Pendência acordada",
-  "Não solicitar pesquisa",
-  "Clientes que já responderam",
-];
+const consultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
+const surveyGoal = 15;
 
 type HgsiRecordImport = {
   chassi: string;
@@ -25,6 +20,13 @@ type HgsiAnswerImport = {
   chassi: string;
   osNumber: string;
   nps?: number;
+  installationScore?: number;
+  consultantScore?: number;
+  deadlineScore?: number;
+  serviceQualityScore?: number;
+  priceAlignmentScore?: number;
+  washScore?: number;
+  correctService?: boolean;
   raw: Record<string, unknown>;
 };
 
@@ -41,6 +43,21 @@ function findColumn(row: Record<string, unknown>, terms: string[]) {
   return entry?.[1] ?? "";
 }
 
+function numberFrom(row: Record<string, unknown>, terms: string[]) {
+  const value = findColumn(row, terms);
+  const normalized = String(value ?? "").replace(",", ".").replace(/[^\d.-]/g, "");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function boolFrom(row: Record<string, unknown>, terms: string[]) {
+  const value = normalizeText(findColumn(row, terms));
+  if (!value) return undefined;
+  if (["sim", "s", "yes", "correto", "1"].some((term) => value === term || value.includes(term))) return true;
+  if (["nao", "n", "no", "incorreto", "0"].some((term) => value === term || value.includes(term))) return false;
+  return undefined;
+}
+
 function parseRows(file: File) {
   return file.arrayBuffer().then((buffer) => {
     const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
@@ -49,14 +66,40 @@ function parseRows(file: File) {
   });
 }
 
-function postLane(vehicle: VehicleFlow) {
-  if (typeof vehicle.internalNps === "number" && vehicle.internalNps >= 9 && vehicle.deliveredOnTime && !vehicle.partsOrdered && !vehicle.futureNote) {
-    return "Solicitar resposta da pesquisa HGSI";
-  }
+function normalizeChassi(value?: string) {
+  return (value ?? "").trim().toUpperCase();
+}
 
-  if (vehicle.partsOrdered || vehicle.futureNote) return "Pendência acordada";
-  if (vehicle.deliveredOnTime === false || (typeof vehicle.internalNps === "number" && vehicle.internalNps <= 7)) return "Tratar antes da pesquisa";
-  return "Solicitar resposta da pesquisa HGSI";
+function consultantDisplayName(name?: string) {
+  const normalized = normalizeText(name);
+  if (normalized.includes("cleverton")) return "Cleverton";
+  if (normalized.includes("rosangela")) return "Rosangela";
+  if (normalized.includes("eliane")) return "Eliane";
+  if (normalized.includes("luan")) return "Luan";
+  return name?.trim().split(/\s+/)[0] || "Sem consultor";
+}
+
+function toDate(value: unknown) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "string") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+    return value.toDate() as Date;
+  }
+  return null;
+}
+
+function formatDate(value: unknown) {
+  const date = toDate(value);
+  if (!date) return "-";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(date);
 }
 
 function whatsappUrl(phone?: string) {
@@ -66,10 +109,73 @@ function whatsappUrl(phone?: string) {
   return `https://wa.me/${withCountry}`;
 }
 
+function needsTreatment(vehicle: VehicleFlow) {
+  return Boolean(
+    vehicle.partsOrdered
+    || vehicle.futureNote
+    || vehicle.deliveredOnTime === false
+    || (typeof vehicle.internalNps === "number" && vehicle.internalNps <= 7),
+  );
+}
+
+function average(values: Array<number | undefined>) {
+  const valid = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  if (!valid.length) return "-";
+  return (valid.reduce((sum, value) => sum + value, 0) / valid.length).toFixed(1);
+}
+
+function VehicleCard({
+  vehicle,
+  answer,
+  validRecord,
+}: {
+  vehicle: VehicleFlow;
+  answer?: HgsiAnswerImport;
+  validRecord?: boolean;
+}) {
+  const attention = needsTreatment(vehicle);
+  const phoneLink = whatsappUrl(vehicle.phone);
+
+  return (
+    <article className={`post-card ${attention ? "attention" : ""}`}>
+      <div className="post-card-top">
+        <div>
+          {phoneLink ? (
+            <a className="client client-link" href={phoneLink} target="_blank" rel="noreferrer">
+              {vehicle.clientName ?? "Cliente sem nome"}
+            </a>
+          ) : (
+            <h3 className="client">{vehicle.clientName ?? "Cliente sem nome"}</h3>
+          )}
+          <p className="model">{vehicle.chassi ?? "Chassi não informado"}</p>
+        </div>
+        <span className="plate">{vehicle.plate ?? "-"}</span>
+      </div>
+
+      <div className="detail-grid">
+        <div className="detail"><span>Consultor</span>{consultantDisplayName(vehicle.consultantName)}</div>
+        <div className="detail"><span>Passagem</span>{formatDate(vehicle.deliveredAt)}</div>
+        <div className="detail"><span>NPS interno</span>{vehicle.internalNps ?? "-"}</div>
+        <div className="detail"><span>Prazo</span>{vehicle.deliveredOnTime ? "No prazo" : "Fora do prazo"}</div>
+      </div>
+
+      <div className="tag-row">
+        {validRecord && <span className="tag good">Registro válido</span>}
+        {answer && <span className="tag">Respondido HGSI</span>}
+        {answer?.nps !== undefined && <span className={`tag ${answer.nps <= 7 ? "bad" : "good"}`}>NPS {answer.nps}</span>}
+        {vehicle.partsOrdered && <span className="tag warn">Pedido de peça</span>}
+        {vehicle.futureNote && <span className="tag bad">Pendência/observação</span>}
+        {!attention && <span className="tag good">Sem pendência</span>}
+      </div>
+    </article>
+  );
+}
+
 export default function PosServicoPage() {
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [hgsiRecords, setHgsiRecords] = useState<HgsiRecordImport[]>([]);
   const [hgsiAnswers, setHgsiAnswers] = useState<HgsiAnswerImport[]>([]);
+  const [consultantFilter, setConsultantFilter] = useState("Todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -98,34 +204,63 @@ export default function PosServicoPage() {
     };
   }, []);
 
-  const consultantStats = useMemo(() => {
-    const grouped = new Map<string, VehicleFlow[]>();
-    vehicles.forEach((vehicle) => {
-      const consultant = vehicle.consultantName || "Sem consultor";
-      grouped.set(consultant, [...(grouped.get(consultant) ?? []), vehicle]);
-    });
-
-    return Array.from(grouped.entries()).map(([consultant, items]) => {
-      const npsValues = items.map((item) => item.internalNps).filter((value): value is number => typeof value === "number");
-      const nps = npsValues.length ? Math.round(npsValues.reduce((sum, value) => sum + value, 0) / npsValues.length) : 0;
-      const onTime = items.filter((item) => item.deliveredOnTime).length;
-
-      return {
-        consultant,
-        answered: items.length,
-        nps,
-        onTime,
-      };
-    });
-  }, [vehicles]);
-
   const validChassis = useMemo(() => {
     return new Set(hgsiRecords.filter((record) => record.valid).map((record) => record.chassi).filter(Boolean));
   }, [hgsiRecords]);
 
-  const answeredChassis = useMemo(() => {
-    return new Set(hgsiAnswers.map((answer) => answer.chassi).filter(Boolean));
+  const answersByChassi = useMemo(() => {
+    const mapped = new Map<string, HgsiAnswerImport>();
+    hgsiAnswers.forEach((answer) => {
+      if (answer.chassi) mapped.set(answer.chassi, answer);
+    });
+    return mapped;
   }, [hgsiAnswers]);
+
+  const filteredVehicles = useMemo(() => {
+    return vehicles.filter((vehicle) => (
+      consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter
+    ));
+  }, [consultantFilter, vehicles]);
+
+  const deliveredVehicles = filteredVehicles;
+  const validRecordVehicles = filteredVehicles.filter((vehicle) => validChassis.has(normalizeChassi(vehicle.chassi)));
+  const answeredVehicles = filteredVehicles.filter((vehicle) => answersByChassi.has(normalizeChassi(vehicle.chassi)));
+  const pendingValidVehicles = validRecordVehicles.filter((vehicle) => !answersByChassi.has(normalizeChassi(vehicle.chassi)));
+  const treatmentVehicles = pendingValidVehicles.filter(needsTreatment);
+  const requestReadyVehicles = pendingValidVehicles.filter((vehicle) => !needsTreatment(vehicle));
+
+  const consultantStats = useMemo(() => {
+    return consultants.map((consultant) => {
+      const consultantVehicles = vehicles.filter((vehicle) => consultantDisplayName(vehicle.consultantName) === consultant);
+      const answered = consultantVehicles
+        .map((vehicle) => answersByChassi.get(normalizeChassi(vehicle.chassi)))
+        .filter((answer): answer is HgsiAnswerImport => Boolean(answer));
+
+      return {
+        consultant,
+        answered: answered.length,
+        goalPercent: Math.min(100, Math.round((answered.length / surveyGoal) * 100)),
+        nps: average(answered.map((answer) => answer.nps)),
+        installation: average(answered.map((answer) => answer.installationScore)),
+        consultantScore: average(answered.map((answer) => answer.consultantScore)),
+        deadline: average(answered.map((answer) => answer.deadlineScore)),
+        serviceQuality: average(answered.map((answer) => answer.serviceQualityScore)),
+        priceAlignment: average(answered.map((answer) => answer.priceAlignmentScore)),
+        wash: average(answered.map((answer) => answer.washScore)),
+        correctService: answered.length
+          ? `${Math.round((answered.filter((answer) => answer.correctService === true).length / answered.length) * 100)}%`
+          : "-",
+      };
+    });
+  }, [answersByChassi, vehicles]);
+
+  const metrics = [
+    { label: "Veículos entregues", value: deliveredVehicles.length },
+    { label: "Registro válido Route", value: validRecordVehicles.length },
+    { label: "Solicitar resposta HGSI", value: requestReadyVehicles.length },
+    { label: "Tratar antes", value: treatmentVehicles.length },
+    { label: "Clientes responderam", value: answeredVehicles.length },
+  ];
 
   async function importHgsiRecords(file?: File) {
     if (!file) return;
@@ -157,12 +292,18 @@ export default function PosServicoPage() {
       setHgsiAnswers(rows.map((row) => {
         const chassi = String(findColumn(row, ["chassi", "vin"])).trim().toUpperCase();
         const osNumber = String(findColumn(row, ["o.s", "os", "ordem"])).trim();
-        const npsValue = Number(findColumn(row, ["nps", "nota"]));
 
         return {
           chassi,
           osNumber,
-          nps: Number.isFinite(npsValue) ? npsValue : undefined,
+          nps: numberFrom(row, ["nps", "nota"]),
+          installationScore: numberFrom(row, ["instalacao", "instalacoes"]),
+          consultantScore: numberFrom(row, ["consultor"]),
+          deadlineScore: numberFrom(row, ["prazo", "prazos"]),
+          serviceQualityScore: numberFrom(row, ["qualidade"]),
+          priceAlignmentScore: numberFrom(row, ["preco", "precos", "alinhamento"]),
+          washScore: numberFrom(row, ["lavagem"]),
+          correctService: boolFrom(row, ["servico correto", "servico realizado", "servico"]),
           raw: row,
         };
       }));
@@ -173,29 +314,36 @@ export default function PosServicoPage() {
 
   return (
     <ProtectedPage
-      title="Pós-serviço HGSI"
-      subtitle="Clientes entregues, tratativas, pendências e preparação para pesquisa."
+      title="Funil HGSI"
+      subtitle="Veículos entregues, registros válidos Route, clientes respondidos e indicadores por consultor."
     >
-      <main className="page-wrap">
-        <section className="metrics-grid">
-          <div className="metric"><strong>{vehicles.length}</strong><span>veículos entregues</span></div>
-          <div className="metric"><strong>{vehicles.filter((item) => postLane(item) === "Solicitar resposta da pesquisa HGSI").length}</strong><span>solicitar HGSI</span></div>
-          <div className="metric"><strong>{vehicles.filter((item) => postLane(item) === "Tratar antes da pesquisa").length}</strong><span>tratar antes</span></div>
-          <div className="metric"><strong>15</strong><span>meta por consultor</span></div>
-        </section>
-
-        <section className="panel">
-          <div className="panel-head">
-            <h2 className="panel-title">Importações HGSI</h2>
-            <span className="tag">{hgsiRecords.length + hgsiAnswers.length}</span>
+      <main className="page-wrap post-funnel-page">
+        <section className="post-toolbar">
+          <div className="metrics-grid post-metrics">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="metric">
+                <strong>{metric.value}</strong>
+                <span>{metric.label}</span>
+              </div>
+            ))}
           </div>
-          <div className="panel-body import-row">
-            <label className="file-button">
+
+          <div className="post-controls">
+            <label className="flow-filter">
+              <span>Consultor</span>
+              <select value={consultantFilter} onChange={(event) => setConsultantFilter(event.target.value)}>
+                <option>Todos</option>
+                {consultants.map((consultant) => <option key={consultant}>{consultant}</option>)}
+              </select>
+            </label>
+
+            <label className="file-button compact-file">
               <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiRecords(event.target.files?.[0])} />
-              <strong>Status de registros HGSI</strong>
+              <strong>Status Route</strong>
               <span>{hgsiRecords.length} registro(s)</span>
             </label>
-            <label className="file-button">
+
+            <label className="file-button compact-file">
               <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiAnswers(event.target.files?.[0])} />
               <strong>Respostas HGSI</strong>
               <span>{hgsiAnswers.length} resposta(s)</span>
@@ -205,88 +353,107 @@ export default function PosServicoPage() {
 
         {error && <div className="duplicate-alert"><strong>Erro no pós-serviço</strong><span>{error}</span></div>}
 
-        <section className="grid gap-3 xl:grid-cols-[1fr_380px]">
-          <div className="kanban">
-            {lanes.map((lane) => {
-              const laneVehicles = vehicles.filter((vehicle) => {
-                const chassi = (vehicle.chassi ?? "").toUpperCase();
-                const answered = answeredChassis.has(chassi);
-                if (lane === "Clientes que já responderam") return answered;
-                if (answered) return false;
-                if (lane === "Não solicitar pesquisa") return hgsiRecords.length > 0 && !validChassis.has(chassi);
-                return postLane(vehicle) === lane;
-              });
-
-              return (
-                <section key={lane} className="lane">
-                  <div className="lane-head">
-                    <h2 className="lane-title">{lane}</h2>
-                    <span className="lane-count">{laneVehicles.length}</span>
-                  </div>
-                  <div className="lane-body">
-                    {loading ? (
-                      <p className="empty">Carregando clientes...</p>
-                    ) : laneVehicles.length ? laneVehicles.map((vehicle) => (
-                      <article key={vehicle.id} className={`chip ${postLane(vehicle) === "Tratar antes da pesquisa" ? "atencao" : ""}`}>
-                        <div className="chip-top">
-                          <div>
-                            {whatsappUrl(vehicle.phone) ? (
-                              <a className="client client-link" href={whatsappUrl(vehicle.phone)} target="_blank" rel="noreferrer">
-                                {vehicle.clientName ?? "Cliente sem nome"}
-                              </a>
-                            ) : (
-                              <h3 className="client">{vehicle.clientName ?? "Cliente sem nome"}</h3>
-                            )}
-                            <p className="model">{vehicle.chassi ?? "Chassi não informado"}</p>
-                          </div>
-                          <span className="plate">{vehicle.plate ?? "-"}</span>
-                        </div>
-                        <div className="detail-grid">
-                          <div className="detail"><span>Consultor</span>{vehicle.consultantName ?? "-"}</div>
-                          <div className="detail"><span>Serviço</span>{vehicle.serviceLabel ?? "-"}</div>
-                          <div className="detail"><span>NPS interno</span>{vehicle.internalNps ?? "-"}</div>
-                          <div className="detail"><span>Prazo</span>{vehicle.deliveredOnTime ? "No prazo" : "Fora do prazo"}</div>
-                        </div>
-                        <div className="tag-row">
-                          {vehicle.partsOrdered && <span className="tag warn">Pedido de peça</span>}
-                          {vehicle.futureNote && <span className="tag bad">Observação futura</span>}
-                          {validChassis.has((vehicle.chassi ?? "").toUpperCase()) && <span className="tag good">Registro válido</span>}
-                          {answeredChassis.has((vehicle.chassi ?? "").toUpperCase()) && <span className="tag">Respondido HGSI</span>}
-                          {!vehicle.partsOrdered && !vehicle.futureNote && <span className="tag good">Sem pendência</span>}
-                        </div>
-                      </article>
-                    )) : (
-                      <p className="empty">Sem clientes neste bolsão</p>
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-
-          <aside className="panel">
-            <div className="panel-head">
-              <h2 className="panel-title">Pesquisas respondidas por consultor</h2>
+        <section className="funnel-grid" aria-label="Funil pós-venda HGSI">
+          <section className="funnel-stage">
+            <div className="funnel-stage-head">
+              <span>Área 01</span>
+              <h2>Veículos entregues</h2>
+              <strong>{deliveredVehicles.length}</strong>
             </div>
-            <div className="panel-body stack">
-              {consultantStats.length ? consultantStats.map((item) => (
-                <article key={item.consultant} className="chip">
-                  <div className="chip-top">
-                    <h3 className="client">{item.consultant}</h3>
-                    <span className="plate">{item.answered}/15</span>
-                  </div>
-                  <div className="detail-grid">
-                    <div className="detail"><span>NPS</span>{item.nps}</div>
-                    <div className="detail"><span>Prazos</span>{item.onTime}/{item.answered}</div>
-                    <div className="detail"><span>Serviço correto</span>-</div>
-                    <div className="detail"><span>Lavagem</span>-</div>
-                  </div>
-                </article>
+            <div className="funnel-stage-body">
+              {loading ? (
+                <p className="empty">Carregando clientes...</p>
+              ) : deliveredVehicles.length ? deliveredVehicles.map((vehicle) => (
+                <VehicleCard
+                  key={vehicle.id}
+                  vehicle={vehicle}
+                  validRecord={validChassis.has(normalizeChassi(vehicle.chassi))}
+                  answer={answersByChassi.get(normalizeChassi(vehicle.chassi))}
+                />
               )) : (
-                <p className="empty">Sem entregas registradas.</p>
+                <p className="empty">Sem veículos entregues.</p>
               )}
             </div>
-          </aside>
+          </section>
+
+          <section className="funnel-stage">
+            <div className="funnel-stage-head">
+              <span>Área 02</span>
+              <h2>Aptos HGSI</h2>
+              <strong>{validRecordVehicles.length}</strong>
+            </div>
+            <div className="funnel-subhead">
+              <span>{requestReadyVehicles.length} solicitar resposta</span>
+              <span>{treatmentVehicles.length} tratar antes</span>
+            </div>
+            <div className="funnel-stage-body">
+              {hgsiRecords.length === 0 ? (
+                <p className="empty">Importe o Status Route para identificar registros válidos.</p>
+              ) : pendingValidVehicles.length ? pendingValidVehicles.map((vehicle) => (
+                <VehicleCard
+                  key={vehicle.id}
+                  vehicle={vehicle}
+                  validRecord
+                />
+              )) : (
+                <p className="empty">Nenhum cliente pendente com registro válido.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="funnel-stage">
+            <div className="funnel-stage-head">
+              <span>Área 03</span>
+              <h2>Clientes que responderam</h2>
+              <strong>{answeredVehicles.length}</strong>
+            </div>
+            <div className="funnel-stage-body">
+              {hgsiAnswers.length === 0 ? (
+                <p className="empty">Importe a planilha de respostas HGSI.</p>
+              ) : answeredVehicles.length ? answeredVehicles.map((vehicle) => (
+                <VehicleCard
+                  key={vehicle.id}
+                  vehicle={vehicle}
+                  validRecord={validChassis.has(normalizeChassi(vehicle.chassi))}
+                  answer={answersByChassi.get(normalizeChassi(vehicle.chassi))}
+                />
+              )) : (
+                <p className="empty">Nenhuma resposta vinculada aos veículos filtrados.</p>
+              )}
+            </div>
+          </section>
+        </section>
+
+        <section className="panel consultant-scoreboard">
+          <div className="panel-head">
+            <div>
+              <h2 className="panel-title">Indicadores por consultor</h2>
+              <span className="panel-subtitle">Meta de {surveyGoal} pesquisas respondidas por consultor.</span>
+            </div>
+          </div>
+          <div className="consultant-score-grid">
+            {consultantStats.map((item) => (
+              <article key={item.consultant} className="consultant-score-card">
+                <div className="consultant-score-head">
+                  <strong>{item.consultant}</strong>
+                  <span>{item.answered}/{surveyGoal}</span>
+                </div>
+                <div className="goal-track">
+                  <span style={{ width: `${item.goalPercent}%` }} />
+                </div>
+                <div className="score-grid">
+                  <div><span>NPS</span><strong>{item.nps}</strong></div>
+                  <div><span>Instalações</span><strong>{item.installation}</strong></div>
+                  <div><span>Consultor</span><strong>{item.consultantScore}</strong></div>
+                  <div><span>Prazos</span><strong>{item.deadline}</strong></div>
+                  <div><span>Qualidade</span><strong>{item.serviceQuality}</strong></div>
+                  <div><span>Preços</span><strong>{item.priceAlignment}</strong></div>
+                  <div><span>Lavagem</span><strong>{item.wash}</strong></div>
+                  <div><span>Serviço correto</span><strong>{item.correctService}</strong></div>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
       </main>
     </ProtectedPage>
