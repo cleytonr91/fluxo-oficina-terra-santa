@@ -2071,42 +2071,105 @@ textarea {
 
 .parts-card {
   display: grid;
-  gap: 10px;
+  gap: 7px;
   border: 1px solid var(--line);
   border-left: 4px solid var(--green);
   border-radius: 8px;
   background: #fff;
-  padding: 12px;
+  padding: 8px;
 }
 
-.parts-card-main {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+.parts-table-row {
+  display: grid;
+  grid-template-columns:
+    minmax(210px, 1.8fr)
+    minmax(78px, 0.7fr)
+    minmax(120px, 0.9fr)
+    minmax(82px, 0.75fr)
+    minmax(90px, 0.8fr)
+    minmax(80px, 0.7fr)
+    minmax(86px, 0.75fr)
+    minmax(90px, 0.8fr)
+    minmax(82px, 0.75fr)
+    minmax(80px, 0.7fr)
+    minmax(118px, 1fr);
+  gap: 4px;
+  align-items: stretch;
 }
 
-.parts-card-main strong,
-.parts-card-main span {
+.parts-cell {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  border-radius: 6px;
+  background: #f6f8f6;
+  padding: 5px 6px;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.parts-cell span,
+.parts-cell strong,
+.parts-cell small {
   display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.parts-card-main strong {
-  font-size: 15px;
+.parts-cell span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
   text-transform: uppercase;
 }
 
-.parts-card-main span {
+.parts-cell strong {
   margin-top: 2px;
-  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.parts-client-cell strong {
   font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.parts-cell small,
+.parts-note {
+  color: var(--muted);
+  font-size: 10px;
   font-weight: 700;
+}
+
+.parts-note {
+  margin: 0;
+  border-radius: 6px;
+  background: #fff8f6;
+  padding: 6px 8px;
+}
+
+.parts-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.parts-actions-row .ghost-btn {
+  min-height: 26px;
+  padding: 4px 8px;
+  font-size: 11px;
 }
 
 .parts-edit-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(150px, 1fr));
   gap: 8px;
+}
+
+.parts-edit-grid.compact {
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
 }
 
 .parts-available-panel {
@@ -2239,6 +2302,10 @@ textarea {
   .available-split {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
   }
+
+  .parts-table-row {
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -2275,6 +2342,11 @@ textarea {
 
   .parts-edit-grid,
   .available-split {
+    grid-template-columns: 1fr;
+  }
+
+  .parts-edit-grid.compact,
+  .parts-table-row {
     grid-template-columns: 1fr;
   }
 

@@ -52,6 +52,7 @@ const kindOptions: Array<{ value: PartOrderKind; label: string }> = [
 ];
 
 type PartsFilter = "pendentes" | "todos" | PartOrderStatus;
+type PartEditSection = "dados" | "pedido" | "pecas" | "cancelamento";
 
 function formatDate(value?: string) {
   if (!value) return "-";
@@ -115,6 +116,7 @@ export default function PecasPage() {
   const [orders, setOrders] = useState<PartOrder[]>([]);
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [orderForms, setOrderForms] = useState<Record<string, Partial<PartOrderFormFields>>>({});
+  const [openSections, setOpenSections] = useState<Record<string, PartEditSection | undefined>>({});
   const [savingId, setSavingId] = useState("");
   const [statusFilter, setStatusFilter] = useState<PartsFilter>("pendentes");
   const [error, setError] = useState("");
@@ -336,6 +338,13 @@ export default function PecasPage() {
     });
   }
 
+  function toggleSection(orderId: string, section: PartEditSection) {
+    setOpenSections((current) => ({
+      ...current,
+      [orderId]: current[orderId] === section ? undefined : section,
+    }));
+  }
+
   return (
     <ProtectedPage title="Pedidos de Peças" subtitle="Acompanhamento dos pedidos originados nos chips do fluxo.">
       <main className="page-wrap parts-page">
@@ -408,94 +417,119 @@ export default function PecasPage() {
           <div className="parts-list">
             {filteredOrders.length ? filteredOrders.map((order) => {
               const form = orderFormValues(order);
+              const openSection = openSections[order.id];
 
               return (
               <article key={order.id} className="parts-card">
-                <div className="parts-card-main">
-                  <div>
+                <div className="parts-table-row">
+                  <div className="parts-cell parts-client-cell">
+                    <span>Cliente</span>
                     {customerNameContent(order)}
-                    <span>{order.plate ?? "Sem placa"} · ID Cliente: {order.customerId || "-"}</span>
+                    <small>{order.plate ?? "Sem placa"} · ID {order.customerId || "-"}</small>
                   </div>
-                  <span className={`tag ${statusTone(order.orderStatus)}`}>{statusLabels[order.orderStatus]}</span>
+                  <div className="parts-cell"><span>Tipo</span><strong>{kindLabel(order.orderKind)}</strong></div>
+                  <div className="parts-cell"><span>Status</span><strong className={`tag ${statusTone(order.orderStatus)}`}>{statusLabels[order.orderStatus]}</strong></div>
+                  <div className="parts-cell"><span>Origem</span><strong>{sourceLabel(order.orderSource)}</strong></div>
+                  <div className="parts-cell"><span>Pedido</span><strong>{order.orderNumber || "-"}</strong></div>
+                  <div className="parts-cell"><span>NF</span><strong>{order.invoiceNumber || "-"}</strong></div>
+                  <div className="parts-cell"><span>Previsão</span><strong>{formatDate(order.expectedArrivalDate)}</strong></div>
+                  <div className="parts-cell"><span>Consultor</span><strong>{order.consultantName || "-"}</strong></div>
+                  <div className="parts-cell"><span>Técnico</span><strong>{order.technicianName || "-"}</strong></div>
+                  <div className="parts-cell"><span>Imobilizado</span><strong>{order.vehicleImmobilized ? "Sim" : "Não"}</strong></div>
+                  <div className="parts-cell"><span>Atualizado</span><strong>{order.updatedBy || order.requestedBy || "-"}</strong><small>{formatDateTime(order.updatedAt)}</small></div>
                 </div>
-                {order.vehicleImmobilized && (
-                  <span className="tag bad">Veículo imobilizado</span>
+
+                {order.vehicleImmobilized && <span className="tag bad">Veículo imobilizado</span>}
+                {order.cancellationReason && <p className="parts-note"><strong>Cancelamento:</strong> {order.cancellationReason}</p>}
+
+                <div className="parts-actions-row">
+                  <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "dados")}>+ Dados</button>
+                  <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "pedido")}>+ Pedido</button>
+                  <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "pecas")}>+ Peças</button>
+                  <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "cancelamento")}>+ Cancelamento</button>
+                </div>
+
+                {openSection === "dados" && (
+                  <div className="parts-edit-grid compact">
+                    <label className="field">
+                      <span>ID Cliente</span>
+                      <input
+                        value={form.customerId}
+                        placeholder="Informar ID"
+                        onChange={(event) => updateOrderForm(order.id, { customerId: event.target.value.toUpperCase() })}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Tipo</span>
+                      <select
+                        value={form.orderKind}
+                        onChange={(event) => updateOrderForm(order.id, { orderKind: event.target.value as PartOrderKind | "" })}
+                      >
+                        <option value="">Selecionar</option>
+                        {kindOptions.map(({ value, label }) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
                 )}
 
-                <div className="parts-edit-grid">
-                  <label className="field">
-                    <span>ID Cliente</span>
-                    <input
-                      value={form.customerId}
-                      placeholder="Informar ID"
-                      onChange={(event) => updateOrderForm(order.id, { customerId: event.target.value.toUpperCase() })}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Tipo</span>
-                    <select
-                      value={form.orderKind}
-                      onChange={(event) => updateOrderForm(order.id, { orderKind: event.target.value as PartOrderKind | "" })}
-                    >
-                      <option value="">Selecionar</option>
-                      {kindOptions.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Status do Pedido</span>
-                    <select
-                      value={form.orderStatus}
-                      onChange={(event) => updateOrderForm(order.id, { orderStatus: event.target.value as PartOrderStatus })}
-                    >
-                      {statusOptions.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Origem</span>
-                    <select
-                      value={form.orderSource}
-                      onChange={(event) => updateOrderForm(order.id, { orderSource: event.target.value as PartOrderSource | "" })}
-                    >
-                      <option value="">Selecionar origem</option>
-                      {sourceOptions.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field">
-                    <span>Número do Pedido</span>
-                    <input
-                      value={form.orderNumber}
-                      placeholder="Mobis ou externo"
-                      onChange={(event) => updateOrderForm(order.id, { orderNumber: event.target.value.toUpperCase() })}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Nota Fiscal</span>
-                    <input
-                      value={form.invoiceNumber}
-                      onChange={(event) => updateOrderForm(order.id, { invoiceNumber: event.target.value.toUpperCase() })}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Previsão de chegada</span>
-                    <input
-                      type="date"
-                      value={form.expectedArrivalDate}
-                      onChange={(event) => updateOrderForm(order.id, { expectedArrivalDate: event.target.value })}
-                    />
-                  </label>
-                </div>
+                {openSection === "pedido" && (
+                  <div className="parts-edit-grid">
+                    <label className="field">
+                      <span>Status do Pedido</span>
+                      <select
+                        value={form.orderStatus}
+                        onChange={(event) => updateOrderForm(order.id, { orderStatus: event.target.value as PartOrderStatus })}
+                      >
+                        {statusOptions.map(({ value, label }) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Origem</span>
+                      <select
+                        value={form.orderSource}
+                        onChange={(event) => updateOrderForm(order.id, { orderSource: event.target.value as PartOrderSource | "" })}
+                      >
+                        <option value="">Selecionar origem</option>
+                        {sourceOptions.map(({ value, label }) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="field">
+                      <span>Número do Pedido</span>
+                      <input
+                        value={form.orderNumber}
+                        placeholder="Mobis ou externo"
+                        onChange={(event) => updateOrderForm(order.id, { orderNumber: event.target.value.toUpperCase() })}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Nota Fiscal</span>
+                      <input
+                        value={form.invoiceNumber}
+                        onChange={(event) => updateOrderForm(order.id, { invoiceNumber: event.target.value.toUpperCase() })}
+                      />
+                    </label>
+                    <label className="field">
+                      <span>Previsão de chegada</span>
+                      <input
+                        type="date"
+                        value={form.expectedArrivalDate}
+                        onChange={(event) => updateOrderForm(order.id, { expectedArrivalDate: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                )}
 
-                {form.orderStatus === "cancelado" && (
+                {(openSection === "cancelamento" || form.orderStatus === "cancelado") && (
                   <label className="field">
                     <span>Motivo do cancelamento</span>
                     <textarea
-                      required
+                      required={form.orderStatus === "cancelado"}
                       value={form.cancellationReason}
                       placeholder="Informe por que este pedido foi cancelado"
                       onChange={(event) => updateOrderForm(order.id, { cancellationReason: event.target.value })}
@@ -503,51 +537,42 @@ export default function PecasPage() {
                   </label>
                 )}
 
-                <div className="parts-items">
-                  {form.parts.map((part, index) => (
-                    <div key={part.id} className="part-item-row">
-                      <label className="field">
-                        <span>Referência da Peça {index + 1}</span>
-                        <input
-                          value={part.partReference ?? ""}
-                          onChange={(event) => updatePartItem(order, part.id, { partReference: event.target.value.toUpperCase() })}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Descrição da Peça {index + 1}</span>
-                        <input
-                          value={part.partDescription ?? ""}
-                          onChange={(event) => updatePartItem(order, part.id, { partDescription: event.target.value })}
-                        />
-                      </label>
-                      <button
-                        className="ghost-btn"
-                        type="button"
-                        disabled={form.parts.length <= 1}
-                        onClick={() => removePartItem(order, part.id)}
-                      >
-                        Remover
-                      </button>
+                {openSection === "pecas" && (
+                  <>
+                    <div className="parts-items">
+                      {form.parts.map((part, index) => (
+                        <div key={part.id} className="part-item-row">
+                          <label className="field">
+                            <span>Referência da Peça {index + 1}</span>
+                            <input
+                              value={part.partReference ?? ""}
+                              onChange={(event) => updatePartItem(order, part.id, { partReference: event.target.value.toUpperCase() })}
+                            />
+                          </label>
+                          <label className="field">
+                            <span>Descrição da Peça {index + 1}</span>
+                            <input
+                              value={part.partDescription ?? ""}
+                              onChange={(event) => updatePartItem(order, part.id, { partDescription: event.target.value })}
+                            />
+                          </label>
+                          <button
+                            className="ghost-btn"
+                            type="button"
+                            disabled={form.parts.length <= 1}
+                            onClick={() => removePartItem(order, part.id)}
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
 
-                <button className="ghost-btn" type="button" onClick={() => addPartItem(order)}>
-                  + Adicionar peça
-                </button>
-
-                <div className="detail-grid">
-                  <div className="detail"><span>Tipo</span>{kindLabel(order.orderKind)}</div>
-                  <div className="detail"><span>Origem</span>{sourceLabel(order.orderSource)}</div>
-                  <div className="detail"><span>Pedido</span>{order.orderNumber || "-"}</div>
-                  <div className="detail"><span>Nota fiscal</span>{order.invoiceNumber || "-"}</div>
-                  <div className="detail"><span>Previsão atual</span>{formatDate(order.expectedArrivalDate)}</div>
-                  {order.cancellationReason && <div className="detail"><span>Motivo cancelamento</span>{order.cancellationReason}</div>}
-                  <div className="detail"><span>Consultor</span>{order.consultantName || "-"}</div>
-                  <div className="detail"><span>Técnico</span>{order.technicianName || "-"}</div>
-                  <div className="detail"><span>Imobilizado</span>{order.vehicleImmobilized ? "Sim" : "Não"}</div>
-                  <div className="detail"><span>Atualizado por</span>{order.updatedBy || order.requestedBy || "-"} · {formatDateTime(order.updatedAt)}</div>
-                </div>
+                    <button className="ghost-btn" type="button" onClick={() => addPartItem(order)}>
+                      + Adicionar peça
+                    </button>
+                  </>
+                )}
 
                 <button
                   className="ghost-btn"
