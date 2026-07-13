@@ -260,28 +260,26 @@ textarea {
 
 .flow-metrics {
   display: grid;
-  grid-template-columns:
-    repeat(7, minmax(118px, 1fr))
-    minmax(160px, 180px)
-    minmax(160px, 180px);
+  grid-template-columns: repeat(10, minmax(84px, 1fr));
   gap: 6px;
   margin: -4px 0 16px;
 }
 
 .flow-metric,
 .flow-filter {
-  min-height: 44px;
+  min-height: 54px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.94);
-  padding: 8px 10px;
-  text-align: left;
+  padding: 7px 8px;
+  text-align: center;
 }
 
 .flow-metric {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
   cursor: pointer;
 }
 
@@ -300,36 +298,35 @@ textarea {
 }
 
 .flow-metric strong {
-  display: inline-block;
-  font-size: 21px;
+  display: block;
+  font-size: 20px;
   line-height: 1;
 }
 
 .flow-metric span,
 .flow-filter span {
-  display: inline-block;
+  display: block;
   margin-top: 0;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: lowercase;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
   line-height: 1.15;
 }
 
 .flow-filter span {
-  margin: 0 0 6px;
-  text-transform: uppercase;
+  margin: 0 0 5px;
   letter-spacing: 0.03em;
 }
 
 .flow-filter select {
   width: 100%;
-  min-height: 34px;
+  min-height: 28px;
   border: 1px solid var(--line);
   border-radius: 7px;
   background: #fff;
-  padding: 5px 8px;
-  font-size: 14px;
+  padding: 4px 7px;
+  font-size: 12px;
 }
 
 .no-show-panel {
