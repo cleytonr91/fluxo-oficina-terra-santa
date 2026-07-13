@@ -56,7 +56,30 @@ const walkInServices = [
   "Reparo Geral",
   "Recall",
   "Combinado",
+  "Lavagem Simples",
+  "Lavagem de Motor",
+  "Lavagem Motor + Bancos",
 ];
+
+function isWashService(service: string) {
+  return service
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .includes("lavagem");
+}
+
+function washTypeFromService(service: string, fallback: WashType): WashType {
+  const text = service
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (!text.includes("lavagem")) return fallback;
+  if (text.includes("motor") && text.includes("banco")) return "motor_bancos";
+  if (text.includes("motor")) return "motor";
+  return "simples";
+}
 
 type ReceiveForm = {
   consultantName: string;
@@ -989,8 +1012,11 @@ export default function FluxoPage() {
 
     try {
       const selectedDate = flowDate || new Date().toISOString().slice(0, 10);
+      const initialLane: FlowLane = isWashService(walkInForm.service) ? "aguardando_lavagem" : "aguardando_servico";
+      const normalizedWashType = washTypeFromService(walkInForm.service, walkInForm.washType);
       await createWalkInVehicle({
         ...walkInForm,
+        washType: normalizedWashType,
         appointmentDate: selectedDate,
         appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         createdBy: profile?.name ?? user?.email ?? user?.uid,
@@ -1003,7 +1029,7 @@ export default function FluxoPage() {
           id,
           appointmentId: id,
           origin: "passante",
-          currentLane: "aguardando_servico",
+          currentLane: initialLane,
           appointmentDate: selectedDate,
           appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
           clientName: walkInForm.client,
@@ -1017,7 +1043,7 @@ export default function FluxoPage() {
           priority: "normal",
           importedNotes: walkInForm.note,
           customerWaits: false,
-          washType: walkInForm.washType,
+          washType: normalizedWashType,
           status: "ativo",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -2315,7 +2341,14 @@ export default function FluxoPage() {
                 <span>Tipo de atendimento</span>
                 <select
                   value={walkInForm.service}
-                  onChange={(event) => setWalkInForm((current) => ({ ...current, service: event.target.value }))}
+                  onChange={(event) => {
+                    const service = event.target.value;
+                    setWalkInForm((current) => ({
+                      ...current,
+                      service,
+                      washType: washTypeFromService(service, current.washType),
+                    }));
+                  }}
                 >
                   {walkInServices.map((service) => <option key={service}>{service}</option>)}
                 </select>

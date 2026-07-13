@@ -151,6 +151,26 @@ function serviceTypeFromLabel(service: string): ServiceType {
   return "combinado";
 }
 
+function isWashService(service: string) {
+  return service
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .includes("lavagem");
+}
+
+function washTypeFromService(service: string, fallback?: WashType): WashType {
+  const text = service
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (!text.includes("lavagem")) return fallback ?? "simples";
+  if (text.includes("motor") && text.includes("banco")) return "motor_bancos";
+  if (text.includes("motor")) return "motor";
+  return "simples";
+}
+
 function documentKey(...parts: string[]) {
   return parts
     .join("-")
@@ -684,6 +704,8 @@ export async function createWalkInVehicle({
   const flowRef = doc(collection(db, collections.vehiclesFlow), id);
   const flowEventRef = doc(collection(db, collections.flowEvents));
   const walkInRef = doc(collection(db, collections.walkInCustomers), id);
+  const initialLane: FlowLane = isWashService(service) ? "aguardando_lavagem" : "aguardando_servico";
+  const normalizedWashType = washTypeFromService(service, washType);
 
   batch.set(appointmentRef, {
     appointmentDate,
@@ -710,7 +732,7 @@ export async function createWalkInVehicle({
     serviceLabel: service,
     consultantName: consultant,
     technicianName: technician || "",
-    washType: washType ?? "simples",
+    washType: normalizedWashType,
     appointmentDate,
     appointmentTime: appointmentTime || "",
     note,
@@ -721,7 +743,7 @@ export async function createWalkInVehicle({
   batch.set(flowRef, {
     appointmentId: id,
     origin: "passante",
-    currentLane: "aguardando_servico",
+    currentLane: initialLane,
     appointmentDate,
     appointmentTime: appointmentTime || "",
     clientName: client,
@@ -735,7 +757,7 @@ export async function createWalkInVehicle({
     priority: "normal",
     importedNotes: note,
     customerWaits: false,
-    washType: washType ?? "simples",
+    washType: normalizedWashType,
     status: "ativo",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -743,9 +765,11 @@ export async function createWalkInVehicle({
 
   batch.set(flowEventRef, {
     vehicleFlowId: id,
-    toLane: "aguardando_servico",
+    toLane: initialLane,
     actionBy: createdBy,
-    actionNote: "Passante cadastrado no fluxo",
+    actionNote: initialLane === "aguardando_lavagem"
+      ? "Passante cadastrado direto em Aguardando Lavagem"
+      : "Passante cadastrado no fluxo",
     createdAt: serverTimestamp(),
   });
 
