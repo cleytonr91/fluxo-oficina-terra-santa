@@ -2159,12 +2159,13 @@ textarea {
 .parts-table-row {
   display: grid;
   grid-template-columns:
-    minmax(210px, 1.8fr)
-    minmax(150px, 1.1fr)
-    minmax(150px, 1.1fr)
-    minmax(150px, 1.1fr)
-    minmax(150px, 1.1fr)
-    minmax(160px, 1.15fr)
+    minmax(190px, 1.4fr)
+    minmax(300px, 2.5fr)
+    minmax(105px, 0.8fr)
+    minmax(120px, 0.9fr)
+    minmax(120px, 0.9fr)
+    minmax(125px, 0.95fr)
+    minmax(140px, 1fr)
     minmax(118px, 1fr);
   gap: 4px;
   align-items: stretch;
@@ -2204,9 +2205,9 @@ textarea {
 }
 
 .parts-duo-cell {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   align-content: stretch;
-  gap: 5px;
+  gap: 3px;
 }
 
 .parts-duo-cell > div {
@@ -2214,8 +2215,42 @@ textarea {
 }
 
 .parts-duo-cell > div + div {
-  border-left: 1px solid var(--line);
-  padding-left: 5px;
+  border-top: 1px solid var(--line);
+  padding-top: 3px;
+}
+
+.parts-line-cell {
+  align-content: start;
+}
+
+.parts-line-list {
+  display: grid;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.parts-line-item {
+  display: grid;
+  grid-template-columns: minmax(80px, 0.45fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+}
+
+.parts-line-item strong,
+.parts-line-item small {
+  white-space: normal;
+}
+
+.parts-line-item strong {
+  margin-top: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.parts-line-item small {
+  font-size: 11px;
+  color: #1d2925;
 }
 
 .parts-client-cell strong {
@@ -2248,6 +2283,55 @@ textarea {
   min-height: 26px;
   padding: 4px 8px;
   font-size: 11px;
+}
+
+.parts-actions-row .info-btn {
+  margin-left: auto;
+  min-width: 58px;
+}
+
+.parts-audit-box {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfa;
+  padding: 6px;
+}
+
+.parts-audit-box div {
+  min-width: 0;
+  border-radius: 6px;
+  background: #f4f7f4;
+  padding: 6px;
+}
+
+.parts-audit-box span,
+.parts-audit-box strong,
+.parts-audit-box small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.parts-audit-box span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.parts-audit-box strong {
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.parts-audit-box small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .parts-edit-grid {

@@ -53,7 +53,7 @@ const kindOptions: Array<{ value: PartOrderKind; label: string }> = [
 ];
 
 type PartsFilter = "pendentes" | "todos" | PartOrderStatus;
-type PartEditSection = "dados" | "pedido" | "pecas" | "cancelamento";
+type PartEditSection = "dados" | "pedido" | "pecas" | "cancelamento" | "info";
 
 function formatDate(value?: string) {
   if (!value) return "-";
@@ -454,6 +454,17 @@ export default function PecasPage() {
                     {customerNameContent(order)}
                     <small>{order.plate ?? "Sem placa"} · ID {order.customerId || "-"}</small>
                   </div>
+                  <div className="parts-cell parts-line-cell">
+                    <span>Pe&ccedil;as</span>
+                    <div className="parts-line-list">
+                      {orderParts(order).map((part, index) => (
+                        <div key={part.id || `${order.id}-part-${index}`} className="parts-line-item">
+                          <strong>{part.partReference || "-"}</strong>
+                          <small>{part.partDescription || "Sem descricao"}</small>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <div className="parts-cell parts-duo-cell">
                     <div><span>Tipo</span><strong>{kindLabel(order.orderKind)}</strong></div>
                     <div><span>Status</span><strong className={`tag ${statusTone(order.orderStatus)}`}>{statusLabels[order.orderStatus]}</strong></div>
@@ -485,7 +496,19 @@ export default function PecasPage() {
                   <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "pecas")}>+ Peças</button>
                   <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "pedido")}>+ Pedido</button>
                   <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "cancelamento")}>+ Cancelamento</button>
+                  <button type="button" className="ghost-btn info-btn" onClick={() => toggleSection(order.id, "info")}>i Info</button>
                 </div>
+
+                {openSection === "info" && (
+                  <div className="parts-audit-box">
+                    <div><span>Solicitado por</span><strong>{order.requestedBy || "-"}</strong><small>{formatDateTime(order.createdAt)}</small></div>
+                    <div><span>Atualizado por</span><strong>{order.updatedBy || order.requestedBy || "-"}</strong><small>{formatDateTime(order.updatedAt)}</small></div>
+                    <div><span>Status atual</span><strong>{statusLabels[order.orderStatus]}</strong></div>
+                    <div><span>Pedido</span><strong>{order.orderNumber || "-"}</strong><small>{sourceLabel(order.orderSource)}</small></div>
+                    <div><span>Nota / previsao</span><strong>{order.invoiceNumber || "-"}</strong><small>{formatDate(order.expectedArrivalDate)}</small></div>
+                    <div><span>Cancelamento</span><strong>{order.cancellationReason || "-"}</strong></div>
+                  </div>
+                )}
 
                 {openSection === "dados" && (
                   <div className="parts-edit-grid compact">
