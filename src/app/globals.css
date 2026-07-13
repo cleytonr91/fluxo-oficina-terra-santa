@@ -633,10 +633,15 @@ textarea {
   padding-bottom: 12px;
 }
 
+.modal-head > div {
+  min-width: 0;
+}
+
 .modal-head strong {
   display: block;
   font-size: 18px;
   font-weight: 900;
+  overflow-wrap: anywhere;
 }
 
 .modal-head span {
@@ -645,6 +650,7 @@ textarea {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .modal-check {
@@ -727,12 +733,21 @@ textarea {
 }
 
 .flow-detail-modal {
+  width: min(640px, calc(100vw - 24px));
   max-height: calc(100vh - 36px);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .modal-detail-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 6px;
+}
+
+.modal-detail-grid .detail {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .history-box {
@@ -795,8 +810,30 @@ textarea {
 
 .correction-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 0.7fr) minmax(240px, 1.3fr);
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr);
   gap: 10px;
+}
+
+.correction-grid .field,
+.correction-grid .ghost-btn,
+.correction-grid .primary-btn {
+  min-width: 0;
+}
+
+@media (max-width: 620px) {
+  .modal-backdrop {
+    padding: 8px;
+  }
+
+  .flow-detail-modal {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    padding: 14px;
+  }
+
+  .correction-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .budget-split {
