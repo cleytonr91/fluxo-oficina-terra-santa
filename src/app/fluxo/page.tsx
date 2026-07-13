@@ -87,6 +87,7 @@ type DeliveryForm = {
   deliveredOnTime: boolean;
   partsOrdered: boolean;
   internalNps: number;
+  hasPendingIssue: boolean;
   futureNote: string;
 };
 
@@ -405,6 +406,7 @@ export default function FluxoPage() {
     deliveredOnTime: true,
     partsOrdered: false,
     internalNps: 10,
+    hasPendingIssue: false,
     futureNote: "",
   });
   const [walkInForm, setWalkInForm] = useState<WalkInForm>({
@@ -560,6 +562,7 @@ export default function FluxoPage() {
       deliveredOnTime: promisedDate ? Date.now() <= promisedDate.getTime() : true,
       partsOrdered: false,
       internalNps: 10,
+      hasPendingIssue: false,
       futureNote: "",
     });
   }
@@ -880,6 +883,7 @@ export default function FluxoPage() {
         deliveredOnTime: deliveryForm.deliveredOnTime,
         partsOrdered: deliveryForm.partsOrdered,
         internalNps: deliveryForm.internalNps,
+        hasPendingIssue: deliveryForm.hasPendingIssue,
         futureNote: deliveryForm.futureNote,
       });
 
@@ -893,6 +897,7 @@ export default function FluxoPage() {
               deliveredOnTime: deliveryForm.deliveredOnTime,
               partsOrdered: deliveryForm.partsOrdered,
               internalNps: deliveryForm.internalNps,
+              hasPendingIssue: deliveryForm.hasPendingIssue,
               futureNote: deliveryForm.futureNote,
             }
           : vehicle
@@ -1740,6 +1745,15 @@ export default function FluxoPage() {
                 onChange={(event) => setDeliveryForm((current) => ({ ...current, partsOrdered: event.target.checked }))}
               />
               Teve pedido de peça
+            </label>
+
+            <label className="check-line modal-check">
+              <input
+                type="checkbox"
+                checked={deliveryForm.hasPendingIssue}
+                onChange={(event) => setDeliveryForm((current) => ({ ...current, hasPendingIssue: event.target.checked }))}
+              />
+              Cliente saiu com alguma pendência
             </label>
 
             <label className="field">

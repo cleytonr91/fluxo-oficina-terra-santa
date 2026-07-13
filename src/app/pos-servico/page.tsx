@@ -56,6 +56,7 @@ type FunnelItem = {
   deliveredOnTime?: boolean;
   partsOrdered?: boolean;
   internalNps?: number;
+  hasPendingIssue?: boolean;
   futureNote?: string;
 };
 
@@ -212,6 +213,7 @@ function vehicleToItem(vehicle: VehicleFlow): FunnelItem {
     deliveredOnTime: vehicle.deliveredOnTime,
     partsOrdered: vehicle.partsOrdered,
     internalNps: vehicle.internalNps,
+    hasPendingIssue: vehicle.hasPendingIssue,
     futureNote: vehicle.futureNote,
   };
 }
@@ -246,9 +248,8 @@ function answerToItem(answer: HgsiAnswerImport): FunnelItem {
 function needsTreatment(item: FunnelItem) {
   return Boolean(
     item.partsOrdered
-    || item.futureNote
-    || item.deliveredOnTime === false
-    || (typeof item.internalNps === "number" && item.internalNps <= 7),
+    || item.hasPendingIssue
+    || (typeof item.internalNps === "number" && item.internalNps < 8),
   );
 }
 
@@ -331,9 +332,11 @@ function FunnelCard({
   const hasDeliveryRecord = item.source === "fluxo" && (
     item.futureNote
     || item.partsOrdered
+    || item.hasPendingIssue
     || item.deliveredOnTime === false
     || typeof item.internalNps === "number"
   );
+  const internalNpsAttention = typeof item.internalNps === "number" && item.internalNps < 8;
 
   return (
     <article className={`post-card ${attention ? "attention" : ""}`}>
@@ -363,7 +366,9 @@ function FunnelCard({
         {answer && <span className="tag">Respondido HGSI</span>}
         {answer?.nps !== undefined && <span className={`tag ${answer.nps <= 7 ? "bad" : "good"}`}>NPS {answer.nps}</span>}
         {item.partsOrdered && <span className="tag warn">Pedido de peça</span>}
-        {item.futureNote && <span className="tag bad">Pendência/observação</span>}
+        {item.hasPendingIssue && <span className="tag bad">Pendência</span>}
+        {internalNpsAttention && <span className="tag bad">NPS interno baixo</span>}
+        {item.futureNote && <span className="tag">Observação</span>}
         {treatment && <span className="tag good">Tratativa registrada</span>}
         {treatment?.gpvRequired && <span className="tag bad">GPV</span>}
         {!attention && <span className="tag good">Sem pendência</span>}
@@ -374,6 +379,7 @@ function FunnelCard({
           <strong>Registro da entrega</strong>
           <span>Prazo: {item.deliveredOnTime === false ? "fora do prazo" : "no prazo"}</span>
           <span>Pedido de peça: {item.partsOrdered ? "sim" : "não"}</span>
+          <span>Pendência: {item.hasPendingIssue || internalNpsAttention || item.partsOrdered ? "sim" : "não"}</span>
           <span>NPS interno: {item.internalNps ?? "-"}</span>
           {item.futureNote && <p>{item.futureNote}</p>}
         </div>

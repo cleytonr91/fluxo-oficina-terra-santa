@@ -845,6 +845,7 @@ export async function completeVehicleDelivery({
   deliveredOnTime,
   partsOrdered,
   internalNps,
+  hasPendingIssue,
   futureNote,
 }: {
   vehicleFlowId: string;
@@ -853,6 +854,7 @@ export async function completeVehicleDelivery({
   deliveredOnTime: boolean;
   partsOrdered: boolean;
   internalNps?: number;
+  hasPendingIssue?: boolean;
   futureNote?: string;
 }) {
   const db = getFirebaseDb();
@@ -869,6 +871,7 @@ export async function completeVehicleDelivery({
     deliveredOnTime,
     partsOrdered,
     internalNps,
+    hasPendingIssue,
     futureNote,
     updatedAt: serverTimestamp(),
   }, { merge: true });
@@ -879,6 +882,7 @@ export async function completeVehicleDelivery({
     deliveredOnTime,
     partsOrdered,
     internalNps,
+    hasPendingIssue,
     futureNote,
     createdBy: deliveredBy,
     createdAt: serverTimestamp(),

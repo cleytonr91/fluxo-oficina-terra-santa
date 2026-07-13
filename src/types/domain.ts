@@ -151,6 +151,7 @@ export interface VehicleFlow {
   deliveredOnTime?: boolean;
   partsOrdered?: boolean;
   internalNps?: number;
+  hasPendingIssue?: boolean;
   futureNote?: string;
   noShow?: boolean;
   noShowAt?: FirestoreTimestamp;
@@ -188,6 +189,7 @@ export interface Delivery {
   deliveredOnTime?: boolean;
   partsOrdered: boolean;
   internalNps?: number;
+  hasPendingIssue?: boolean;
   futureNote?: string;
   createdBy?: string;
   createdAt: FirestoreTimestamp;
