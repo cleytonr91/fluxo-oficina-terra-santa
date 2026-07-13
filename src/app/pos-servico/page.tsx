@@ -71,12 +71,15 @@ function normalizeText(value: unknown) {
 }
 
 function findColumn(row: Record<string, unknown>, terms: string[]) {
-  const entry = Object.entries(row).find(([key]) => {
-    const normalizedKey = normalizeText(key);
-    return terms.some((term) => normalizedKey.includes(term));
-  });
+  const entries = Object.entries(row);
 
-  return entry?.[1] ?? "";
+  for (const term of terms) {
+    const normalizedTerm = normalizeText(term);
+    const entry = entries.find(([key]) => normalizeText(key).includes(normalizedTerm));
+    if (entry) return entry[1];
+  }
+
+  return "";
 }
 
 function textFrom(row: Record<string, unknown>, terms: string[]) {
@@ -116,7 +119,27 @@ function parseRows(file: File) {
     });
 
     if (headerIndex < 0) {
-      return XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
+      const secondaryHeaderIndex = matrix.findIndex((row) => {
+        const normalizedCells = row.map(normalizeText);
+        return normalizedCells.some((cell) => cell.includes("chassi") || cell.includes("vin"));
+      });
+
+      if (secondaryHeaderIndex < 0) {
+        return XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
+      }
+
+      const parentHeader = matrix[Math.max(0, secondaryHeaderIndex - 1)] ?? [];
+      const childHeader = matrix[secondaryHeaderIndex];
+      const headers = childHeader.map((header, index) => {
+        const parent = String(parentHeader[index] ?? "").trim();
+        const child = String(header ?? "").trim();
+        if (parent && child) return `${parent} ${child}`;
+        return child || parent || `COLUNA_${index}`;
+      });
+
+      return matrix.slice(secondaryHeaderIndex + 1)
+        .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])))
+        .filter((row) => Object.values(row).some((value) => String(value ?? "").trim()));
     }
 
     const headers = matrix[headerIndex].map((header, index) => String(header || `COLUNA_${index}`).trim() || `COLUNA_${index}`);
@@ -377,7 +400,7 @@ export default function PosServicoPage() {
           washScore: answer.washScore,
           correctService: answer.correctService,
           raw: answer.rawPayload ?? {},
-        })));
+        })).filter((answer) => answer.chassi || answer.osNumber));
         setPostCases(savedCases);
       } catch (currentError) {
         if (!active) return;
@@ -578,22 +601,22 @@ export default function PosServicoPage() {
         return {
           chassi,
           osNumber,
-          clientName: textFrom(row, ["cliente", "nome"]),
+          clientName: textFrom(row, ["dados do cliente nome", "cliente nome"]),
           plate: textFrom(row, ["placa"]),
-          serviceLabel: textFrom(row, ["servico", "serviço", "tipo"]),
+          serviceLabel: textFrom(row, ["dados do cliente veiculo", "veiculo", "veículo", "servico", "serviço", "tipo"]),
           consultantName: consultantDisplayName(textFrom(row, ["consultor responsavel", "consultor tecnico", "consultor"])),
-          answerDate: textFrom(row, ["data resposta", "data", "respondido"]),
-          nps: numberFrom(row, ["nps", "nota"]),
-          installationScore: numberFrom(row, ["instalacao", "instalacoes"]),
-          consultantScore: numberFrom(row, ["nota consultor", "consultor"]),
-          deadlineScore: numberFrom(row, ["prazo", "prazos"]),
-          serviceQualityScore: numberFrom(row, ["qualidade"]),
-          priceAlignmentScore: numberFrom(row, ["preco", "precos", "alinhamento"]),
-          washScore: numberFrom(row, ["lavagem"]),
-          correctService: boolFrom(row, ["servico correto", "servico realizado", "servico"]),
+          answerDate: textFrom(row, ["datas entrevista", "data entrevista", "entrevista", "data resposta", "respondido"]),
+          nps: numberFrom(row, ["indice hgsi", "índice hgsi", "nps", "nota"]),
+          installationScore: numberFrom(row, ["q2 instalacoes", "q2 instalações", "instalacoes", "instalações"]),
+          consultantScore: numberFrom(row, ["q3 consultor"]),
+          deadlineScore: numberFrom(row, ["q4 tempo", "tempo", "prazo", "prazos"]),
+          serviceQualityScore: numberFrom(row, ["q5 qualidade", "qualidade"]),
+          priceAlignmentScore: numberFrom(row, ["q6 preco", "q6 preço", "preco", "preços", "alinhamento"]),
+          washScore: numberFrom(row, ["q5.3.2 lavagem", "lavagem"]),
+          correctService: boolFrom(row, ["correto na primeira vez", "servico correto", "serviço correto", "servico realizado"]),
           rawPayload: row,
         };
-      });
+      }).filter((answer) => answer.chassi || answer.osNumber);
 
       await saveHgsiAnswers({
         sourceFileName: file.name,
