@@ -68,12 +68,21 @@ type SaveHgsiRecordInput = {
   osNumber: string;
   status: string;
   valid: boolean;
+  clientName?: string;
+  plate?: string;
+  serviceLabel?: string;
+  consultantName?: string;
   rawPayload?: Record<string, unknown>;
 };
 
 type SaveHgsiAnswerInput = {
   chassi: string;
   osNumber: string;
+  clientName?: string;
+  plate?: string;
+  serviceLabel?: string;
+  consultantName?: string;
+  answerDate?: string;
   nps?: number;
   installationScore?: number;
   consultantScore?: number;
@@ -189,6 +198,10 @@ export async function saveHgsiRecords({
       osNumber: record.osNumber,
       recordStatus: record.status,
       isValidRecord: record.valid,
+      clientName: record.clientName,
+      plate: record.plate,
+      serviceLabel: record.serviceLabel,
+      consultantName: record.consultantName,
       rawPayload: record.rawPayload,
       importedAt: serverTimestamp(),
     }), { merge: true });
@@ -226,6 +239,11 @@ export async function saveHgsiAnswers({
       importBatchId,
       chassi: answer.chassi,
       osNumber: answer.osNumber,
+      clientName: answer.clientName,
+      plate: answer.plate,
+      serviceLabel: answer.serviceLabel,
+      consultantName: answer.consultantName,
+      answerDate: answer.answerDate,
       nps: answer.nps,
       installationScore: answer.installationScore,
       consultantScore: answer.consultantScore,
