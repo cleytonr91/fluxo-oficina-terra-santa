@@ -15,6 +15,7 @@ type PartOrderFormFields = {
   orderNumber: string;
   invoiceNumber: string;
   expectedArrivalDate: string;
+  cancellationReason: string;
 };
 
 const statusLabels: Record<PartOrderStatus, string> = {
@@ -223,6 +224,7 @@ export default function PecasPage() {
       orderNumber: order.orderNumber ?? "",
       invoiceNumber: order.invoiceNumber ?? "",
       expectedArrivalDate: order.expectedArrivalDate ?? "",
+      cancellationReason: order.cancellationReason ?? "",
       ...orderForms[order.id],
     };
   }
@@ -251,6 +253,11 @@ export default function PecasPage() {
       return;
     }
 
+    if (form.orderStatus === "cancelado" && !form.cancellationReason.trim()) {
+      setError("Para cancelar um pedido, informe o motivo do cancelamento.");
+      return;
+    }
+
     setSavingId(order.id);
     setError("");
 
@@ -270,6 +277,7 @@ export default function PecasPage() {
         orderNumber: form.orderNumber,
         invoiceNumber: form.invoiceNumber,
         expectedArrivalDate: form.expectedArrivalDate,
+        cancellationReason: form.cancellationReason,
         updatedBy: profile?.name ?? user?.email ?? user?.uid,
       });
 
@@ -291,6 +299,7 @@ export default function PecasPage() {
               orderNumber: form.orderNumber,
               invoiceNumber: form.invoiceNumber,
               expectedArrivalDate: form.expectedArrivalDate,
+              cancellationReason: form.cancellationReason,
               updatedBy: profile?.name ?? user?.email ?? user?.uid,
               updatedAt: new Date().toISOString(),
             }
@@ -482,6 +491,18 @@ export default function PecasPage() {
                   </label>
                 </div>
 
+                {form.orderStatus === "cancelado" && (
+                  <label className="field">
+                    <span>Motivo do cancelamento</span>
+                    <textarea
+                      required
+                      value={form.cancellationReason}
+                      placeholder="Informe por que este pedido foi cancelado"
+                      onChange={(event) => updateOrderForm(order.id, { cancellationReason: event.target.value })}
+                    />
+                  </label>
+                )}
+
                 <div className="parts-items">
                   {form.parts.map((part, index) => (
                     <div key={part.id} className="part-item-row">
@@ -521,6 +542,7 @@ export default function PecasPage() {
                   <div className="detail"><span>Pedido</span>{order.orderNumber || "-"}</div>
                   <div className="detail"><span>Nota fiscal</span>{order.invoiceNumber || "-"}</div>
                   <div className="detail"><span>Previsão atual</span>{formatDate(order.expectedArrivalDate)}</div>
+                  {order.cancellationReason && <div className="detail"><span>Motivo cancelamento</span>{order.cancellationReason}</div>}
                   <div className="detail"><span>Consultor</span>{order.consultantName || "-"}</div>
                   <div className="detail"><span>Técnico</span>{order.technicianName || "-"}</div>
                   <div className="detail"><span>Imobilizado</span>{order.vehicleImmobilized ? "Sim" : "Não"}</div>

@@ -224,6 +224,7 @@ export interface PartOrder {
   orderNumber?: string;
   invoiceNumber?: string;
   expectedArrivalDate?: string;
+  cancellationReason?: string;
   vehicleImmobilized?: boolean;
   requestedBy?: string;
   updatedBy?: string;

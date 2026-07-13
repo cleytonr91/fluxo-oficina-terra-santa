@@ -134,6 +134,7 @@ type UpdatePartOrderInput = {
   orderNumber?: string;
   invoiceNumber?: string;
   expectedArrivalDate?: string;
+  cancellationReason?: string;
   updatedBy?: string;
 };
 
@@ -658,6 +659,7 @@ export async function updatePartOrder({
   orderNumber,
   invoiceNumber,
   expectedArrivalDate,
+  cancellationReason,
   updatedBy,
 }: UpdatePartOrderInput) {
   const db = getFirebaseDb();
@@ -687,6 +689,7 @@ export async function updatePartOrder({
     orderNumber: orderNumber?.trim(),
     invoiceNumber: invoiceNumber?.trim(),
     expectedArrivalDate: expectedArrivalDate || undefined,
+    cancellationReason: cancellationReason?.trim(),
     updatedBy,
     updatedAt: serverTimestamp(),
   }), { merge: true });
