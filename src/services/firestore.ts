@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, Preparation, ServiceType, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -94,6 +94,18 @@ type SaveHgsiAnswerInput = {
   rawPayload?: Record<string, unknown>;
 };
 
+type SavePostServiceTreatmentInput = {
+  vehicleFlowId: string;
+  caseType: PostCaseType;
+  treatmentStatus: TreatmentStatus;
+  treatmentBy?: string;
+  customerObservation?: string;
+  gpvRequired?: boolean;
+  assignedTo?: string;
+  hgsiRequestAllowed?: boolean;
+  hgsiRequestStatus?: "nao_solicitada" | "solicitada" | "respondida" | "bloqueada";
+};
+
 function serviceTypeFromLabel(service: string): ServiceType {
   const text = service.toLowerCase();
   const revision = text.match(/revis[aã]o\s*0?(\d+)/);
@@ -165,6 +177,46 @@ export async function listHgsiAnswers() {
     id: item.id,
     ...item.data(),
   })) as HgsiAnswer[];
+}
+
+export async function listPostServiceCases() {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(collection(db, collections.postServiceCases));
+
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as PostServiceCase[];
+}
+
+export async function savePostServiceTreatment({
+  vehicleFlowId,
+  caseType,
+  treatmentStatus,
+  treatmentBy,
+  customerObservation,
+  gpvRequired,
+  assignedTo,
+  hgsiRequestAllowed = true,
+  hgsiRequestStatus = "nao_solicitada",
+}: SavePostServiceTreatmentInput) {
+  const db = getFirebaseDb();
+  const ref = doc(collection(db, collections.postServiceCases), documentKey(vehicleFlowId));
+
+  await setDoc(ref, withoutUndefined({
+    vehicleFlowId,
+    caseType,
+    pendingDescription: customerObservation,
+    treatmentBy,
+    customerObservation,
+    gpvRequired,
+    assignedTo: gpvRequired ? (assignedTo || "GPV") : assignedTo,
+    treatmentStatus,
+    hgsiRequestAllowed,
+    hgsiRequestStatus,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
 }
 
 export async function saveHgsiRecords({

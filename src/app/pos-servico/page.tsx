@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { listActiveVehicleFlows, listHgsiAnswers, listHgsiRecords, saveHgsiAnswers, saveHgsiRecords } from "@/services/firestore";
-import type { VehicleFlow } from "@/types/domain";
+import { listActiveVehicleFlows, listHgsiAnswers, listHgsiRecords, listPostServiceCases, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
+import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from "@/types/domain";
 
 const consultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
 const surveyGoal = 15;
@@ -56,6 +56,14 @@ type FunnelItem = {
   partsOrdered?: boolean;
   internalNps?: number;
   futureNote?: string;
+};
+
+type TreatmentForm = {
+  treatmentBy: string;
+  customerObservation: string;
+  gpvRequired: boolean;
+  treatmentStatus: TreatmentStatus;
+  caseType: PostCaseType;
 };
 
 function normalizeText(value: unknown) {
@@ -234,10 +242,14 @@ function FunnelCard({
   item,
   answer,
   validRecord,
+  treatment,
+  onTreatment,
 }: {
   item: FunnelItem;
   answer?: HgsiAnswerImport;
   validRecord?: boolean;
+  treatment?: PostServiceCase;
+  onTreatment: (item: FunnelItem) => void;
 }) {
   const attention = needsTreatment(item);
   const phoneLink = whatsappUrl(item.phone);
@@ -271,8 +283,18 @@ function FunnelCard({
         {answer?.nps !== undefined && <span className={`tag ${answer.nps <= 7 ? "bad" : "good"}`}>NPS {answer.nps}</span>}
         {item.partsOrdered && <span className="tag warn">Pedido de peça</span>}
         {item.futureNote && <span className="tag bad">Pendência/observação</span>}
+        {treatment && <span className="tag good">Tratativa registrada</span>}
+        {treatment?.gpvRequired && <span className="tag bad">GPV</span>}
         {!attention && <span className="tag good">Sem pendência</span>}
       </div>
+
+      {treatment?.customerObservation && (
+        <p className="post-card-note">{treatment.customerObservation}</p>
+      )}
+
+      <button className="ghost-btn post-treatment-btn" type="button" onClick={() => onTreatment(item)}>
+        Tratativa
+      </button>
     </article>
   );
 }
@@ -282,6 +304,15 @@ export default function PosServicoPage() {
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [hgsiRecords, setHgsiRecords] = useState<HgsiRecordImport[]>([]);
   const [hgsiAnswers, setHgsiAnswers] = useState<HgsiAnswerImport[]>([]);
+  const [postCases, setPostCases] = useState<PostServiceCase[]>([]);
+  const [treatmentItem, setTreatmentItem] = useState<FunnelItem | null>(null);
+  const [treatmentForm, setTreatmentForm] = useState<TreatmentForm>({
+    treatmentBy: "",
+    customerObservation: "",
+    gpvRequired: false,
+    treatmentStatus: "em_tratativa",
+    caseType: "tratar_antes_pesquisa",
+  });
   const [consultantFilter, setConsultantFilter] = useState("Todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -294,10 +325,11 @@ export default function PosServicoPage() {
       setError("");
 
       try {
-        const [flowData, savedRecords, savedAnswers] = await Promise.all([
+        const [flowData, savedRecords, savedAnswers, savedCases] = await Promise.all([
           listActiveVehicleFlows({ includeDelivered: true }),
           listHgsiRecords(),
           listHgsiAnswers(),
+          listPostServiceCases(),
         ]);
         if (!active) return;
         setVehicles(flowData.filter((vehicle) => vehicle.currentLane === "entregue"));
@@ -330,6 +362,7 @@ export default function PosServicoPage() {
           correctService: answer.correctService,
           raw: answer.rawPayload ?? {},
         })));
+        setPostCases(savedCases);
       } catch (currentError) {
         if (!active) return;
         setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar o pós-serviço.");
@@ -345,6 +378,14 @@ export default function PosServicoPage() {
   }, []);
 
   const flowItems = useMemo(() => vehicles.map(vehicleToItem), [vehicles]);
+
+  const casesByItemKey = useMemo(() => {
+    const mapped = new Map<string, PostServiceCase>();
+    postCases.forEach((postCase) => {
+      mapped.set(postCase.vehicleFlowId, postCase);
+    });
+    return mapped;
+  }, [postCases]);
 
   const answersByChassi = useMemo(() => {
     const mapped = new Map<string, HgsiAnswerImport>();
@@ -415,6 +456,64 @@ export default function PosServicoPage() {
     { label: "Tratar antes", value: treatmentItems.length },
     { label: "Clientes responderam", value: filteredAnsweredItems.length },
   ];
+
+  function openTreatmentModal(item: FunnelItem) {
+    const key = itemKey(item);
+    const existing = casesByItemKey.get(key);
+
+    setTreatmentItem(item);
+    setTreatmentForm({
+      treatmentBy: existing?.treatmentBy ?? profile?.name ?? "",
+      customerObservation: existing?.customerObservation ?? existing?.pendingDescription ?? "",
+      gpvRequired: existing?.gpvRequired ?? false,
+      treatmentStatus: existing?.treatmentStatus ?? "em_tratativa",
+      caseType: existing?.caseType ?? (needsTreatment(item) ? "tratar_antes_pesquisa" : "solicitar_hgsi"),
+    });
+  }
+
+  async function submitTreatment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!treatmentItem) return;
+
+    const key = itemKey(treatmentItem);
+    setError("");
+
+    try {
+      await savePostServiceTreatment({
+        vehicleFlowId: key,
+        caseType: treatmentForm.caseType,
+        treatmentStatus: treatmentForm.treatmentStatus,
+        treatmentBy: treatmentForm.treatmentBy.trim(),
+        customerObservation: treatmentForm.customerObservation.trim(),
+        gpvRequired: treatmentForm.gpvRequired,
+        assignedTo: treatmentForm.gpvRequired ? "GPV" : undefined,
+        hgsiRequestAllowed: treatmentForm.caseType !== "nao_solicitar",
+        hgsiRequestStatus: treatmentForm.caseType === "nao_solicitar" ? "bloqueada" : "nao_solicitada",
+      });
+
+      setPostCases((current) => {
+        const nextCase: PostServiceCase = {
+          id: key,
+          vehicleFlowId: key,
+          caseType: treatmentForm.caseType,
+          pendingDescription: treatmentForm.customerObservation.trim(),
+          treatmentBy: treatmentForm.treatmentBy.trim(),
+          customerObservation: treatmentForm.customerObservation.trim(),
+          gpvRequired: treatmentForm.gpvRequired,
+          treatmentStatus: treatmentForm.treatmentStatus,
+          hgsiRequestAllowed: treatmentForm.caseType !== "nao_solicitar",
+          hgsiRequestStatus: treatmentForm.caseType === "nao_solicitar" ? "bloqueada" : "nao_solicitada",
+          assignedTo: treatmentForm.gpvRequired ? "GPV" : undefined,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        return [...current.filter((item) => item.vehicleFlowId !== key), nextCase];
+      });
+      setTreatmentItem(null);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar a tratativa.");
+    }
+  }
 
   async function importHgsiRecords(file?: File) {
     if (!file) return;
@@ -552,6 +651,8 @@ export default function PosServicoPage() {
                   item={item}
                   validRecord={validChassis.has(normalizeChassi(item.chassi))}
                   answer={answersByChassi.get(normalizeChassi(item.chassi))}
+                  treatment={casesByItemKey.get(itemKey(item))}
+                  onTreatment={openTreatmentModal}
                 />
               )) : (
                 <p className="empty">Sem veículos entregues.</p>
@@ -577,6 +678,8 @@ export default function PosServicoPage() {
                   key={item.id}
                   item={item}
                   validRecord
+                  treatment={casesByItemKey.get(itemKey(item))}
+                  onTreatment={openTreatmentModal}
                 />
               )) : (
                 <p className="empty">Nenhum cliente pendente com registro válido.</p>
@@ -599,6 +702,8 @@ export default function PosServicoPage() {
                   item={item}
                   validRecord={validChassis.has(normalizeChassi(item.chassi))}
                   answer={answersByChassi.get(normalizeChassi(item.chassi))}
+                  treatment={casesByItemKey.get(itemKey(item))}
+                  onTreatment={openTreatmentModal}
                 />
               )) : (
                 <p className="empty">Nenhuma resposta vinculada ao filtro selecionado.</p>
@@ -638,6 +743,84 @@ export default function PosServicoPage() {
             ))}
           </div>
         </section>
+
+        {treatmentItem && (
+          <div className="modal-backdrop" role="presentation">
+            <form className="flow-modal" onSubmit={submitTreatment}>
+              <div className="modal-head">
+                <div>
+                  <strong>Registrar tratativa</strong>
+                  <span>{treatmentItem.clientName ?? "Cliente sem nome"} · {treatmentItem.plate ?? treatmentItem.chassi ?? treatmentItem.osNumber ?? "-"}</span>
+                </div>
+                <button type="button" className="ghost-btn icon-btn" aria-label="Fechar" onClick={() => setTreatmentItem(null)}>
+                  ×
+                </button>
+              </div>
+
+              <label className="field">
+                <span>Quem realizou a tratativa</span>
+                <input
+                  required
+                  value={treatmentForm.treatmentBy}
+                  onChange={(event) => setTreatmentForm((current) => ({ ...current, treatmentBy: event.target.value }))}
+                />
+              </label>
+
+              <label className="field">
+                <span>Situação</span>
+                <select
+                  value={treatmentForm.caseType}
+                  onChange={(event) => setTreatmentForm((current) => ({ ...current, caseType: event.target.value as PostCaseType }))}
+                >
+                  <option value="solicitar_hgsi">Solicitar resposta HGSI</option>
+                  <option value="tratar_antes_pesquisa">Tratar antes da pesquisa</option>
+                  <option value="pendencia_acordada">Pendência acordada</option>
+                  <option value="nao_solicitar">Não solicitar pesquisa</option>
+                  <option value="fora_base">Fora da base</option>
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Status da tratativa</span>
+                <select
+                  value={treatmentForm.treatmentStatus}
+                  onChange={(event) => setTreatmentForm((current) => ({ ...current, treatmentStatus: event.target.value as TreatmentStatus }))}
+                >
+                  <option value="aberto">Aberto</option>
+                  <option value="em_tratativa">Em tratativa</option>
+                  <option value="tratado">Tratado</option>
+                  <option value="sem_acao">Sem ação</option>
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Observação do cliente</span>
+                <textarea
+                  value={treatmentForm.customerObservation}
+                  onChange={(event) => setTreatmentForm((current) => ({ ...current, customerObservation: event.target.value }))}
+                />
+              </label>
+
+              <label className="check-line modal-check">
+                <input
+                  type="checkbox"
+                  checked={treatmentForm.gpvRequired}
+                  onChange={(event) => setTreatmentForm((current) => ({ ...current, gpvRequired: event.target.checked }))}
+                />
+                GPV precisa tratar este cliente
+              </label>
+
+              <div className="modal-actions">
+                <button type="button" className="ghost-btn" onClick={() => setTreatmentItem(null)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="primary-btn">
+                  Salvar tratativa
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </main>
     </ProtectedPage>
   );

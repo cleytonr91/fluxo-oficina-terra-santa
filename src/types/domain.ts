@@ -198,6 +198,9 @@ export interface PostServiceCase {
   vehicleFlowId: string;
   caseType: PostCaseType;
   pendingDescription?: string;
+  treatmentBy?: string;
+  customerObservation?: string;
+  gpvRequired?: boolean;
   treatmentStatus: TreatmentStatus;
   hgsiRequestAllowed: boolean;
   hgsiRequestStatus: HgsiRequestStatus;
