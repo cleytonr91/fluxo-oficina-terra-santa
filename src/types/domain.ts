@@ -57,6 +57,8 @@ export type PartOrderSource =
   | "juazeiro"
   | "rede_autorizada";
 
+export type PartOrderKind = "garantia" | "externo";
+
 export interface PartOrderItem {
   id: string;
   partReference?: string;
@@ -213,6 +215,7 @@ export interface PartOrder {
   clientName?: string;
   consultantName?: string;
   technicianName?: string;
+  orderKind?: PartOrderKind;
   parts?: PartOrderItem[];
   partReference?: string;
   partDescription?: string;

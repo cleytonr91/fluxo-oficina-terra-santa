@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { subscribeActiveVehicleFlows, subscribePartOrders, updatePartOrder } from "@/services/firestore";
-import type { PartOrder, PartOrderItem, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
+import type { PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
 type PartOrderFormFields = {
+  customerId: string;
+  orderKind: PartOrderKind | "";
   parts: PartOrderItem[];
   orderStatus: PartOrderStatus;
   orderSource: PartOrderSource | "";
@@ -43,11 +45,42 @@ const sourceOptions: Array<{ value: PartOrderSource; label: string }> = [
   { value: "rede_autorizada", label: "Rede Autorizada" },
 ];
 
+const kindOptions: Array<{ value: PartOrderKind; label: string }> = [
+  { value: "garantia", label: "Garantia" },
+  { value: "externo", label: "Externo" },
+];
+
+type PartsFilter = "pendentes" | "todos" | PartOrderStatus;
+
 function formatDate(value?: string) {
   if (!value) return "-";
   const [year, month, day] = value.split("-");
   if (!year || !month || !day) return value;
   return `${day}/${month}/${year}`;
+}
+
+function toDate(value: unknown) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "string") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  if (typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+    return value.toDate() as Date;
+  }
+  return null;
+}
+
+function formatDateTime(value: unknown) {
+  const date = toDate(value);
+  if (!date) return "-";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 function statusTone(status: PartOrderStatus) {
@@ -61,6 +94,10 @@ function sourceLabel(value?: PartOrderSource) {
   return sourceOptions.find((option) => option.value === value)?.label ?? "-";
 }
 
+function kindLabel(value?: PartOrderKind) {
+  return kindOptions.find((option) => option.value === value)?.label ?? "-";
+}
+
 function orderParts(order: PartOrder) {
   if (order.parts?.length) return order.parts;
   return [{ id: "peca-1", partReference: order.partReference ?? "", partDescription: order.partDescription ?? "" }];
@@ -72,7 +109,7 @@ export default function PecasPage() {
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [orderForms, setOrderForms] = useState<Record<string, Partial<PartOrderFormFields>>>({});
   const [savingId, setSavingId] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"todos" | PartOrderStatus>("todos");
+  const [statusFilter, setStatusFilter] = useState<PartsFilter>("pendentes");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -102,7 +139,7 @@ export default function PecasPage() {
         id: vehicle.id,
         vehicleFlowId: vehicle.id,
         plate: vehicle.plate,
-        customerId: vehicle.chassi,
+        customerId: "",
         clientName: vehicle.clientName,
         consultantName: vehicle.consultantName,
         technicianName: vehicle.technicianName,
@@ -116,27 +153,43 @@ export default function PecasPage() {
     return [...orders, ...syntheticOrders];
   }, [orders, vehicles]);
 
-  const filteredOrders = useMemo(() => (
-    statusFilter === "todos" ? mergedOrders : mergedOrders.filter((order) => order.orderStatus === statusFilter)
-  ), [mergedOrders, statusFilter]);
-
   const availableOrders = useMemo(() => (
     mergedOrders.filter((order) => order.orderStatus === "disponivel")
   ), [mergedOrders]);
+
+  const canceledOrders = useMemo(() => (
+    mergedOrders.filter((order) => order.orderStatus === "cancelado")
+  ), [mergedOrders]);
+
+  const pendingOrders = useMemo(() => (
+    mergedOrders.filter((order) => order.orderStatus !== "disponivel" && order.orderStatus !== "cancelado")
+  ), [mergedOrders]);
+
+  const filteredOrders = useMemo(() => {
+    if (statusFilter === "todos") return mergedOrders;
+    if (statusFilter === "pendentes") return pendingOrders;
+    if (statusFilter === "solicitado_oficina") {
+      return mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas");
+    }
+    return mergedOrders.filter((order) => order.orderStatus === statusFilter);
+  }, [mergedOrders, pendingOrders, statusFilter]);
 
   const availableImmobilized = availableOrders.filter((order) => order.vehicleImmobilized);
   const availableScheduling = availableOrders.filter((order) => !order.vehicleImmobilized);
 
   const metrics = [
-    { label: "pedidos", value: mergedOrders.length },
-    { label: "solicitado oficina", value: mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas").length },
-    { label: "pedido realizado", value: mergedOrders.filter((order) => order.orderStatus === "pedido_realizado").length },
-    { label: "em trânsito", value: mergedOrders.filter((order) => order.orderStatus === "em_transito").length },
-    { label: "disponíveis", value: availableOrders.length },
+    { label: "pendências", value: pendingOrders.length, filter: "pendentes" as PartsFilter, state: "active" },
+    { label: "solicitado oficina", value: mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas").length, filter: "solicitado_oficina" as PartsFilter, state: "" },
+    { label: "pedido realizado", value: mergedOrders.filter((order) => order.orderStatus === "pedido_realizado").length, filter: "pedido_realizado" as PartsFilter, state: "" },
+    { label: "em trânsito", value: mergedOrders.filter((order) => order.orderStatus === "em_transito").length, filter: "em_transito" as PartsFilter, state: "" },
+    { label: "disponíveis", value: availableOrders.length, filter: "disponivel" as PartsFilter, state: "" },
+    { label: "cancelados", value: canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
   ];
 
   function orderFormValues(order: PartOrder): PartOrderFormFields {
     return {
+      customerId: order.customerId ?? "",
+      orderKind: order.orderKind ?? "",
       parts: orderParts(order),
       orderStatus: order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas"
         ? "solicitado_oficina"
@@ -181,10 +234,11 @@ export default function PecasPage() {
         orderId: order.id,
         vehicleFlowId: order.vehicleFlowId,
         plate: order.plate,
-        customerId: order.customerId,
+        customerId: form.customerId,
         clientName: order.clientName,
         consultantName: order.consultantName,
         technicianName: order.technicianName,
+        orderKind: form.orderKind || undefined,
         parts: validParts,
         orderStatus: form.orderStatus,
         orderSource: form.orderSource || undefined,
@@ -205,12 +259,15 @@ export default function PecasPage() {
               })),
               partReference: validParts[0]?.partReference?.trim().toUpperCase(),
               partDescription: validParts[0]?.partDescription?.trim(),
+              customerId: form.customerId,
+              orderKind: form.orderKind || undefined,
               orderStatus: form.orderStatus,
               orderSource: form.orderSource || undefined,
               orderNumber: form.orderNumber,
               invoiceNumber: form.invoiceNumber,
               expectedArrivalDate: form.expectedArrivalDate,
               updatedBy: profile?.name ?? user?.email ?? user?.uid,
+              updatedAt: new Date().toISOString(),
             }
           : item
       )));
@@ -250,15 +307,21 @@ export default function PecasPage() {
       <main className="page-wrap parts-page">
         <section className="flow-metrics">
           {metrics.map((metric) => (
-            <div key={metric.label} className="flow-metric active">
+            <button
+              key={metric.label}
+              className={`flow-metric ${metric.state} ${statusFilter === metric.filter ? "selected" : ""}`}
+              type="button"
+              onClick={() => setStatusFilter(metric.filter)}
+            >
               <strong>{metric.value}</strong>
               <span>{metric.label}</span>
-            </div>
+            </button>
           ))}
 
           <label className="flow-filter">
             <span>Status</span>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+              <option value="pendentes">Pendências</option>
               <option value="todos">Todos</option>
               {statusOptions.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
@@ -326,6 +389,26 @@ export default function PecasPage() {
                 )}
 
                 <div className="parts-edit-grid">
+                  <label className="field">
+                    <span>ID Cliente</span>
+                    <input
+                      value={form.customerId}
+                      placeholder="Informar ID"
+                      onChange={(event) => updateOrderForm(order.id, { customerId: event.target.value.toUpperCase() })}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Tipo</span>
+                    <select
+                      value={form.orderKind}
+                      onChange={(event) => updateOrderForm(order.id, { orderKind: event.target.value as PartOrderKind | "" })}
+                    >
+                      <option value="">Selecionar</option>
+                      {kindOptions.map(({ value, label }) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </label>
                   <label className="field">
                     <span>Status do Pedido</span>
                     <select
@@ -408,6 +491,7 @@ export default function PecasPage() {
                 </button>
 
                 <div className="detail-grid">
+                  <div className="detail"><span>Tipo</span>{kindLabel(order.orderKind)}</div>
                   <div className="detail"><span>Origem</span>{sourceLabel(order.orderSource)}</div>
                   <div className="detail"><span>Pedido</span>{order.orderNumber || "-"}</div>
                   <div className="detail"><span>Nota fiscal</span>{order.invoiceNumber || "-"}</div>
@@ -415,7 +499,7 @@ export default function PecasPage() {
                   <div className="detail"><span>Consultor</span>{order.consultantName || "-"}</div>
                   <div className="detail"><span>Técnico</span>{order.technicianName || "-"}</div>
                   <div className="detail"><span>Imobilizado</span>{order.vehicleImmobilized ? "Sim" : "Não"}</div>
-                  <div className="detail"><span>Atualizado por</span>{order.updatedBy || order.requestedBy || "-"}</div>
+                  <div className="detail"><span>Atualizado por</span>{order.updatedBy || order.requestedBy || "-"} · {formatDateTime(order.updatedAt)}</div>
                 </div>
 
                 <button

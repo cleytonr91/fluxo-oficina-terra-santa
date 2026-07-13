@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderSource, PartOrderStatus, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -125,6 +125,7 @@ type UpdatePartOrderInput = {
   clientName?: string;
   consultantName?: string;
   technicianName?: string;
+  orderKind?: PartOrderKind;
   parts: PartOrderItem[];
   partReference?: string;
   partDescription?: string;
@@ -648,6 +649,7 @@ export async function updatePartOrder({
   clientName,
   consultantName,
   technicianName,
+  orderKind,
   parts,
   partReference,
   partDescription,
@@ -676,6 +678,7 @@ export async function updatePartOrder({
     clientName,
     consultantName,
     technicianName,
+    orderKind,
     parts: normalizedParts,
     partReference: partReference?.trim().toUpperCase() || firstPart?.partReference,
     partDescription: partDescription?.trim() || firstPart?.partDescription,
