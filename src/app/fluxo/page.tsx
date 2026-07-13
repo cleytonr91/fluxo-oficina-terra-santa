@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician } from "@/services/firestore";
-import type { FlowLane, PartAvailability, PartOrder, PartOrderItem, PartOrderStatus, VehicleFlow, WashType } from "@/types/domain";
+import type { FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
   { id: "preparacao_confirmada", label: "Agendamento do Dia" },
@@ -31,15 +31,6 @@ const washLabels = Object.fromEntries(washOptions.map((option) => [option.value,
 const fixedConsultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
 
 const workshopTechnicians = ["Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan"];
-
-const partOrderStatusLabels: Record<PartOrderStatus, string> = {
-  necessidade_identificada: "Necessidade identificada",
-  aguardando_pecas: "Aguardando peças",
-  pedido_realizado: "Pedido realizado",
-  em_transito: "Em trânsito",
-  recebido: "Recebido",
-  cancelado: "Cancelado",
-};
 
 const walkInServices = [
   "Revisão 01",
@@ -115,8 +106,7 @@ type ServiceForm = {
 type PartOrderForm = {
   customerId: string;
   parts: PartOrderItem[];
-  orderStatus: PartOrderStatus;
-  expectedArrivalDate: string;
+  vehicleImmobilized: boolean;
 };
 
 type BudgetRequestForm = {
@@ -461,8 +451,7 @@ export default function FluxoPage() {
   const [partOrderForm, setPartOrderForm] = useState<PartOrderForm>({
     customerId: "",
     parts: [{ id: "peca-1", partReference: "", partDescription: "" }],
-    orderStatus: "necessidade_identificada",
-    expectedArrivalDate: "",
+    vehicleImmobilized: false,
   });
   const [budgetRequestForm, setBudgetRequestForm] = useState<BudgetRequestForm>({ note: "" });
   const [budgetCompleteForm, setBudgetCompleteForm] = useState<BudgetCompleteForm>({
@@ -611,12 +600,11 @@ export default function FluxoPage() {
     setTechnicianForm({ technicianName: vehicle.technicianName ?? "" });
     setServiceForm({ serviceLabel: vehicle.serviceLabel ?? "" });
     setPartOrderForm({
-      customerId: existingPartOrder?.customerId ?? vehicle.chassi ?? "",
+      customerId: existingPartOrder?.customerId ?? "",
       parts: existingPartOrder?.parts?.length
         ? existingPartOrder.parts
         : [{ id: "peca-1", partReference: existingPartOrder?.partReference ?? "", partDescription: existingPartOrder?.partDescription ?? "" }],
-      orderStatus: existingPartOrder?.orderStatus ?? "necessidade_identificada",
-      expectedArrivalDate: existingPartOrder?.expectedArrivalDate ?? "",
+      vehicleImmobilized: existingPartOrder?.vehicleImmobilized ?? false,
     });
     setPromiseForm({
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
@@ -1332,8 +1320,7 @@ export default function FluxoPage() {
         vehicle: detailVehicle,
         customerId: partOrderForm.customerId,
         parts: validParts,
-        orderStatus: partOrderForm.orderStatus,
-        expectedArrivalDate: partOrderForm.expectedArrivalDate,
+        vehicleImmobilized: partOrderForm.vehicleImmobilized,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
       });
 
@@ -1352,8 +1339,8 @@ export default function FluxoPage() {
         })),
         partReference: validParts[0]?.partReference?.trim().toUpperCase(),
         partDescription: validParts[0]?.partDescription?.trim(),
-        orderStatus: partOrderForm.orderStatus,
-        expectedArrivalDate: partOrderForm.expectedArrivalDate,
+        orderStatus: "necessidade_identificada",
+        vehicleImmobilized: partOrderForm.vehicleImmobilized,
         requestedBy: profile?.name ?? user?.email ?? user?.uid,
         updatedBy: profile?.name ?? user?.email ?? user?.uid,
         createdAt: new Date().toISOString(),
@@ -1770,28 +1757,17 @@ export default function FluxoPage() {
                   <span>ID Cliente</span>
                   <input
                     value={partOrderForm.customerId}
-                    placeholder="Chassi, código ou identificação"
+                    placeholder="Preencher se necessário"
                     onChange={(event) => setPartOrderForm((current) => ({ ...current, customerId: event.target.value.toUpperCase() }))}
                   />
                 </label>
-                <label className="field">
-                  <span>Status do pedido</span>
-                  <select
-                    value={partOrderForm.orderStatus}
-                    onChange={(event) => setPartOrderForm((current) => ({ ...current, orderStatus: event.target.value as PartOrderStatus }))}
-                  >
-                    {Object.entries(partOrderStatusLabels).map(([value, label]) => (
-                      <option key={value} value={value}>{label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Previsão de chegada</span>
+                <label className="modal-check">
                   <input
-                    type="date"
-                    value={partOrderForm.expectedArrivalDate}
-                    onChange={(event) => setPartOrderForm((current) => ({ ...current, expectedArrivalDate: event.target.value }))}
+                    type="checkbox"
+                    checked={partOrderForm.vehicleImmobilized}
+                    onChange={(event) => setPartOrderForm((current) => ({ ...current, vehicleImmobilized: event.target.checked }))}
                   />
+                  Veículo imobilizado
                 </label>
               </div>
               <div className="parts-items">

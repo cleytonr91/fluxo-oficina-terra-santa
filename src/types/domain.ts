@@ -209,6 +209,7 @@ export interface PartOrder {
   partDescription?: string;
   orderStatus: PartOrderStatus;
   expectedArrivalDate?: string;
+  vehicleImmobilized?: boolean;
   requestedBy?: string;
   updatedBy?: string;
   createdAt: FirestoreTimestamp;

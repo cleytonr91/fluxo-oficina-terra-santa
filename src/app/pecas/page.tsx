@@ -82,6 +82,7 @@ export default function PecasPage() {
         technicianName: vehicle.technicianName,
         parts: [{ id: "peca-1", partReference: "", partDescription: vehicle.partsNote ?? "" }],
         orderStatus: "necessidade_identificada",
+        vehicleImmobilized: false,
         createdAt: vehicle.createdAt,
         updatedAt: vehicle.updatedAt,
       }));
@@ -232,6 +233,9 @@ export default function PecasPage() {
                   </div>
                   <span className={`tag ${statusTone(order.orderStatus)}`}>{statusLabels[order.orderStatus]}</span>
                 </div>
+                {order.vehicleImmobilized && (
+                  <span className="tag bad">Veículo imobilizado</span>
+                )}
 
                 <div className="parts-edit-grid">
                   <label className="field">
@@ -292,6 +296,7 @@ export default function PecasPage() {
                   <div className="detail"><span>Previsão atual</span>{formatDate(order.expectedArrivalDate)}</div>
                   <div className="detail"><span>Consultor</span>{order.consultantName || "-"}</div>
                   <div className="detail"><span>Técnico</span>{order.technicianName || "-"}</div>
+                  <div className="detail"><span>Imobilizado</span>{order.vehicleImmobilized ? "Sim" : "Não"}</div>
                   <div className="detail"><span>Atualizado por</span>{order.updatedBy || order.requestedBy || "-"}</div>
                 </div>
 

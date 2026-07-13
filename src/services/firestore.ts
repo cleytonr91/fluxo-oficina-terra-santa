@@ -113,8 +113,7 @@ type SavePartOrderInput = {
   parts: PartOrderItem[];
   partReference?: string;
   partDescription?: string;
-  orderStatus: PartOrderStatus;
-  expectedArrivalDate?: string;
+  vehicleImmobilized?: boolean;
   actionBy?: string;
 };
 
@@ -584,8 +583,7 @@ export async function savePartOrder({
   parts,
   partReference,
   partDescription,
-  orderStatus,
-  expectedArrivalDate,
+  vehicleImmobilized,
   actionBy,
 }: SavePartOrderInput) {
   const db = getFirebaseDb();
@@ -614,8 +612,8 @@ export async function savePartOrder({
     parts: normalizedParts,
     partReference: normalizedReference,
     partDescription: normalizedDescription,
-    orderStatus,
-    expectedArrivalDate: expectedArrivalDate || undefined,
+    orderStatus: "necessidade_identificada",
+    vehicleImmobilized: vehicleImmobilized ?? false,
     requestedBy: actionBy,
     updatedBy: actionBy,
     createdAt: serverTimestamp(),
