@@ -444,8 +444,8 @@ export default function PecasPage() {
 
                 <div className="parts-actions-row">
                   <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "dados")}>+ Dados</button>
-                  <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "pedido")}>+ Pedido</button>
                   <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "pecas")}>+ Peças</button>
+                  <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "pedido")}>+ Pedido</button>
                   <button type="button" className="ghost-btn" onClick={() => toggleSection(order.id, "cancelamento")}>+ Cancelamento</button>
                 </div>
 
