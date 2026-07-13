@@ -152,7 +152,7 @@ type StartServiceForm = {
   note: string;
 };
 
-type MetricFilter = "todos" | "noShow";
+type MetricFilter = "todos" | "noShow" | "immobilized";
 
 function EmptyLane({ text = "Sem veículos nesta etapa" }: { text?: string }) {
   return <p className="empty">{text}</p>;
@@ -317,12 +317,14 @@ function washStatusText(vehicle: VehicleFlow) {
 
 function FlowChip({
   vehicle,
+  immobilized,
   onAdvance,
   onDetails,
   now,
   selectedDate,
 }: {
   vehicle: VehicleFlow;
+  immobilized?: boolean;
   onAdvance?: (vehicle: VehicleFlow) => void;
   onDetails: (vehicle: VehicleFlow) => void;
   now: Date;
@@ -361,6 +363,7 @@ function FlowChip({
         {vehicle.washingAdvanced && !vehicle.washDone && <span className="tag warn">Lavagem antecipada</span>}
         {vehicle.washingAdvanced && vehicle.washDone && !vehicle.serviceCompleted && <span className="tag warn">Lavagem feita</span>}
         {vehicle.noShow && <span className="tag bad">NO-SHOW</span>}
+        {immobilized && <span className="tag bad">Imobilizado</span>}
         {vehicle.budgetStatus === "realizado" && <span className="tag">{partAvailabilityIcon(vehicle.partAvailability)} Peças</span>}
         {vehicle.currentLane === "entregue" && typeof vehicle.internalNps === "number" && <span className="tag">NPS {vehicle.internalNps}</span>}
       </div>
@@ -518,6 +521,10 @@ export default function FluxoPage() {
     const mapped = new Map<string, PartOrder>();
     partOrders.forEach((order) => mapped.set(order.vehicleFlowId, order));
     return mapped;
+  }, [partOrders]);
+
+  const immobilizedVehicleIds = useMemo(() => {
+    return new Set(partOrders.filter((order) => order.vehicleImmobilized).map((order) => order.vehicleFlowId));
   }, [partOrders]);
 
   useEffect(() => {
@@ -1389,20 +1396,42 @@ export default function FluxoPage() {
       .sort((a, b) => `${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`.localeCompare(`${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`));
   }, [consultantFilter, technicianFilter, vehicles]);
 
+  const immobilizedVehicles = useMemo(() => {
+    return vehicles
+      .filter((vehicle) => {
+        const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
+        const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
+        return (
+          immobilizedVehicleIds.has(vehicle.id)
+          && !vehicle.noShow
+          && vehicle.currentLane !== "entregue"
+          && vehicle.status !== "cancelado"
+          && consultantMatches
+          && technicianMatches
+        );
+      })
+      .map((vehicle) => ({ ...vehicle, currentLane: "aguardando_servico" as FlowLane }))
+      .sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`));
+  }, [consultantFilter, immobilizedVehicleIds, technicianFilter, vehicles]);
+
   const filteredVehicles = metricFilter === "noShow"
     ? noShowVehicles
-    : dateScopedVehicles.filter((vehicle) => !vehicle.noShow);
+    : metricFilter === "immobilized"
+      ? immobilizedVehicles
+      : dateScopedVehicles.filter((vehicle) => !vehicle.noShow && !immobilizedVehicleIds.has(vehicle.id));
 
   const operationalVehicles = dateScopedVehicles.filter((vehicle) => !vehicle.noShow);
+  const visibleOperationalVehicles = operationalVehicles.filter((vehicle) => !immobilizedVehicleIds.has(vehicle.id));
 
   const metrics = [
-    { value: operationalVehicles.length, label: "veículos no fluxo", state: "active", filter: "todos" as MetricFilter },
-    { value: operationalVehicles.filter(isRevision).length, label: "revisões", state: "", filter: "todos" as MetricFilter },
-    { value: operationalVehicles.filter(isDiagnostic).length, label: "diagnósticos", state: "", filter: "todos" as MetricFilter },
-    { value: operationalVehicles.filter(isGeneralRepair).length, label: "reparos gerais", state: "", filter: "todos" as MetricFilter },
-    { value: operationalVehicles.filter((item) => item.origin === "passante").length, label: "passantes", state: "", filter: "todos" as MetricFilter },
+    { value: visibleOperationalVehicles.length, label: "veículos no fluxo", state: "active", filter: "todos" as MetricFilter },
+    { value: visibleOperationalVehicles.filter(isRevision).length, label: "revisões", state: "", filter: "todos" as MetricFilter },
+    { value: visibleOperationalVehicles.filter(isDiagnostic).length, label: "diagnósticos", state: "", filter: "todos" as MetricFilter },
+    { value: visibleOperationalVehicles.filter(isGeneralRepair).length, label: "reparos gerais", state: "", filter: "todos" as MetricFilter },
+    { value: visibleOperationalVehicles.filter((item) => item.origin === "passante").length, label: "passantes", state: "", filter: "todos" as MetricFilter },
     { value: noShowVehicles.length, label: "no-show", state: "danger", filter: "noShow" as MetricFilter },
-    { value: operationalVehicles.filter((item) => item.priority === "alta" || item.roadTestRequired || item.customerWaits).length, label: "em atenção", state: "", filter: "todos" as MetricFilter },
+    { value: immobilizedVehicles.length, label: "imobilizados", state: "danger", filter: "immobilized" as MetricFilter },
+    { value: visibleOperationalVehicles.filter((item) => item.priority === "alta" || item.roadTestRequired || item.customerWaits).length, label: "em atenção", state: "", filter: "todos" as MetricFilter },
   ] as const;
 
   return (
@@ -1422,7 +1451,7 @@ export default function FluxoPage() {
               key={item.label}
               className={`flow-metric ${item.state} ${metricFilter === item.filter && item.filter !== "todos" ? "selected" : ""}`}
               type="button"
-              onClick={() => setMetricFilter(item.filter === "noShow" && metricFilter !== "noShow" ? "noShow" : "todos")}
+              onClick={() => setMetricFilter(item.filter !== "todos" && metricFilter !== item.filter ? item.filter : "todos")}
             >
               <strong>{item.value}</strong>
               <span>{item.label}</span>
@@ -1494,6 +1523,7 @@ export default function FluxoPage() {
                         <FlowChip
                           key={vehicle.id}
                           vehicle={vehicle}
+                          immobilized={immobilizedVehicleIds.has(vehicle.id)}
                           onAdvance={openBudgetCompleteModal}
                           onDetails={openDetailModal}
                           now={now}
@@ -1507,6 +1537,7 @@ export default function FluxoPage() {
                         <FlowChip
                           key={vehicle.id}
                           vehicle={vehicle}
+                          immobilized={immobilizedVehicleIds.has(vehicle.id)}
                           onAdvance={vehicle.partAvailability === "sim" ? openBudgetReturnModal : undefined}
                           onDetails={openDetailModal}
                           now={now}
@@ -1524,6 +1555,7 @@ export default function FluxoPage() {
                         <FlowChip
                           key={vehicle.id}
                           vehicle={vehicle}
+                          immobilized={immobilizedVehicleIds.has(vehicle.id)}
                           now={now}
                           selectedDate={flowDate}
                           onAdvance={
