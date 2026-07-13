@@ -454,16 +454,26 @@ export default function PecasPage() {
                     {customerNameContent(order)}
                     <small>{order.plate ?? "Sem placa"} · ID {order.customerId || "-"}</small>
                   </div>
-                  <div className="parts-cell"><span>Tipo</span><strong>{kindLabel(order.orderKind)}</strong></div>
-                  <div className="parts-cell"><span>Status</span><strong className={`tag ${statusTone(order.orderStatus)}`}>{statusLabels[order.orderStatus]}</strong></div>
-                  <div className="parts-cell"><span>Origem</span><strong>{sourceLabel(order.orderSource)}</strong></div>
-                  <div className="parts-cell"><span>Pedido</span><strong>{order.orderNumber || "-"}</strong></div>
-                  <div className="parts-cell"><span>Data pedido</span><strong>{formatDate(order.orderDate)}</strong></div>
-                  <div className="parts-cell"><span>NF</span><strong>{order.invoiceNumber || "-"}</strong></div>
-                  <div className="parts-cell"><span>Previsão</span><strong>{formatDate(order.expectedArrivalDate)}</strong></div>
-                  <div className="parts-cell"><span>Consultor</span><strong>{order.consultantName || "-"}</strong></div>
-                  <div className="parts-cell"><span>Técnico</span><strong>{order.technicianName || "-"}</strong></div>
-                  <div className="parts-cell"><span>Imobilizado</span><strong>{order.vehicleImmobilized ? "Sim" : "Não"}</strong></div>
+                  <div className="parts-cell parts-duo-cell">
+                    <div><span>Tipo</span><strong>{kindLabel(order.orderKind)}</strong></div>
+                    <div><span>Status</span><strong className={`tag ${statusTone(order.orderStatus)}`}>{statusLabels[order.orderStatus]}</strong></div>
+                  </div>
+                  <div className="parts-cell parts-duo-cell">
+                    <div><span>Origem</span><strong>{sourceLabel(order.orderSource)}</strong></div>
+                    <div><span>Pedido</span><strong>{order.orderNumber || "-"}</strong></div>
+                  </div>
+                  <div className="parts-cell parts-duo-cell">
+                    <div><span>Data pedido</span><strong>{formatDate(order.orderDate)}</strong></div>
+                    <div><span>NF</span><strong>{order.invoiceNumber || "-"}</strong></div>
+                  </div>
+                  <div className="parts-cell parts-duo-cell">
+                    <div><span>Previsão</span><strong>{formatDate(order.expectedArrivalDate)}</strong></div>
+                    <div><span>Imobilizado</span><strong>{order.vehicleImmobilized ? "Sim" : "Não"}</strong></div>
+                  </div>
+                  <div className="parts-cell parts-duo-cell">
+                    <div><span>Consultor</span><strong>{order.consultantName || "-"}</strong></div>
+                    <div><span>Técnico</span><strong>{order.technicianName || "-"}</strong></div>
+                  </div>
                   <div className="parts-cell"><span>Atualizado</span><strong>{order.updatedBy || order.requestedBy || "-"}</strong><small>{formatDateTime(order.updatedAt)}</small></div>
                 </div>
 

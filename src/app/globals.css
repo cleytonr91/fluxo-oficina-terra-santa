@@ -2160,16 +2160,11 @@ textarea {
   display: grid;
   grid-template-columns:
     minmax(210px, 1.8fr)
-    minmax(78px, 0.7fr)
-    minmax(120px, 0.9fr)
-    minmax(82px, 0.75fr)
-    minmax(90px, 0.8fr)
-    minmax(86px, 0.75fr)
-    minmax(80px, 0.7fr)
-    minmax(86px, 0.75fr)
-    minmax(90px, 0.8fr)
-    minmax(82px, 0.75fr)
-    minmax(80px, 0.7fr)
+    minmax(150px, 1.1fr)
+    minmax(150px, 1.1fr)
+    minmax(150px, 1.1fr)
+    minmax(150px, 1.1fr)
+    minmax(160px, 1.15fr)
     minmax(118px, 1fr);
   gap: 4px;
   align-items: stretch;
@@ -2206,6 +2201,21 @@ textarea {
   margin-top: 2px;
   font-size: 11px;
   font-weight: 800;
+}
+
+.parts-duo-cell {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: stretch;
+  gap: 5px;
+}
+
+.parts-duo-cell > div {
+  min-width: 0;
+}
+
+.parts-duo-cell > div + div {
+  border-left: 1px solid var(--line);
+  padding-left: 5px;
 }
 
 .parts-client-cell strong {
