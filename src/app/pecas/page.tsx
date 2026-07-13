@@ -566,7 +566,7 @@ export default function PecasPage() {
                             <span>Descrição da Peça {index + 1}</span>
                             <input
                               value={part.partDescription ?? ""}
-                              onChange={(event) => updatePartItem(order, part.id, { partDescription: event.target.value })}
+                              onChange={(event) => updatePartItem(order, part.id, { partDescription: event.target.value.toUpperCase() })}
                             />
                           </label>
                           <button
