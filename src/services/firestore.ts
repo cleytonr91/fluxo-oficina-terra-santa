@@ -90,6 +90,7 @@ type SaveHgsiAnswerInput = {
   serviceQualityScore?: number;
   priceAlignmentScore?: number;
   washScore?: number;
+  correctServiceScore?: number;
   correctService?: boolean;
   rawPayload?: Record<string, unknown>;
 };
@@ -303,6 +304,7 @@ export async function saveHgsiAnswers({
       serviceQualityScore: answer.serviceQualityScore,
       priceAlignmentScore: answer.priceAlignmentScore,
       washScore: answer.washScore,
+      correctServiceScore: answer.correctServiceScore,
       correctService: answer.correctService,
       rawPayload: answer.rawPayload,
       importedAt: serverTimestamp(),

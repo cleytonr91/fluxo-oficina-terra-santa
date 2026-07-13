@@ -37,6 +37,7 @@ type HgsiAnswerImport = {
   serviceQualityScore?: number;
   priceAlignmentScore?: number;
   washScore?: number;
+  correctServiceScore?: number;
   correctService?: boolean;
   raw: Record<string, unknown>;
 };
@@ -251,10 +252,61 @@ function needsTreatment(item: FunnelItem) {
   );
 }
 
-function average(values: Array<number | undefined>) {
+function averageNumber(values: Array<number | undefined>) {
   const valid = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-  if (!valid.length) return "-";
-  return (valid.reduce((sum, value) => sum + value, 0) / valid.length).toFixed(1);
+  if (!valid.length) return null;
+  return valid.reduce((sum, value) => sum + value, 0) / valid.length;
+}
+
+function formatScore(value: number | null, digits = 1) {
+  if (value === null) return "-";
+  return value.toFixed(digits);
+}
+
+function hgsiValue(answer: HgsiAnswerImport) {
+  if (typeof answer.nps !== "number" || !Number.isFinite(answer.nps)) return undefined;
+  return answer.nps <= 10 ? answer.nps * 100 : answer.nps;
+}
+
+function tenPointValue(value?: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return value > 10 ? value / 100 : value;
+}
+
+function scoreTone(value: number | null, scale: "ten" | "thousand" = "ten") {
+  if (value === null) return "muted";
+  if (scale === "thousand") {
+    if (value >= 950) return "good";
+    if (value >= 800) return "warn";
+    return "bad";
+  }
+  if (value >= 9) return "good";
+  if (value >= 8) return "warn";
+  return "bad";
+}
+
+function scoreWidth(value: number | null, scale: "ten" | "thousand" = "ten") {
+  if (value === null) return "0%";
+  const max = scale === "thousand" ? 1000 : 10;
+  return `${Math.max(0, Math.min(100, (value / max) * 100))}%`;
+}
+
+function consultantFullName(name: string) {
+  if (name === "Rosangela") return "Rosangela Santos de Jesus";
+  if (name === "Eliane") return "Eliane Ribeiro";
+  if (name === "Cleverton") return "Jose Cleverton Macedo";
+  return name;
+}
+
+function answerComment(answer: HgsiAnswerImport) {
+  return textFrom(answer.raw, [
+    "comentarios ou sugestao",
+    "comentário",
+    "comentarios",
+    "sugestao",
+    "qual motivo",
+    "motivo",
+  ]);
 }
 
 function displayAnswerConsultant(answer: HgsiAnswerImport) {
@@ -398,6 +450,7 @@ export default function PosServicoPage() {
           serviceQualityScore: answer.serviceQualityScore,
           priceAlignmentScore: answer.priceAlignmentScore,
           washScore: answer.washScore,
+          correctServiceScore: answer.correctServiceScore,
           correctService: answer.correctService,
           raw: answer.rawPayload ?? {},
         })).filter((answer) => answer.chassi || answer.osNumber));
@@ -469,21 +522,61 @@ export default function PosServicoPage() {
   const consultantStats = useMemo(() => {
     return consultants.map((consultant) => {
       const answered = hgsiAnswers.filter((answer) => displayAnswerConsultant(answer) === consultant);
+      const hgsiScores = answered.map(hgsiValue);
+      const hgsiAverage = averageNumber(hgsiScores);
+      const range950 = answered.filter((answer) => {
+        const value = hgsiValue(answer);
+        return typeof value === "number" && value >= 950;
+      }).length;
+      const range800 = answered.filter((answer) => {
+        const value = hgsiValue(answer);
+        return typeof value === "number" && value >= 800 && value < 950;
+      }).length;
+      const rangeUnder800 = answered.filter((answer) => {
+        const value = hgsiValue(answer);
+        return typeof value === "number" && value < 800;
+      }).length;
+      const redFlags = answered.filter((answer) => {
+        const value = hgsiValue(answer);
+        return typeof value === "number" && value < 800;
+      }).length;
+      const correctServiceValues = answered.map((answer) => (
+        tenPointValue(answer.correctServiceScore)
+        ?? (answer.correctService === undefined ? undefined : answer.correctService ? 10 : 0)
+      ));
+      const indicatorRows = [
+        { label: "NPS", count: hgsiScores.filter((value) => value !== undefined).length, value: averageNumber(hgsiScores.map((value) => (value === undefined ? undefined : value / 100))) },
+        { label: "Serviço correto", count: correctServiceValues.filter((value) => value !== undefined).length, value: averageNumber(correctServiceValues) },
+        { label: "Instalações", count: answered.filter((answer) => answer.installationScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.installationScore))) },
+        { label: "Consultor", count: answered.filter((answer) => answer.consultantScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.consultantScore))) },
+        { label: "Prazos", count: answered.filter((answer) => answer.deadlineScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.deadlineScore))) },
+        { label: "Qualidade dos Serviços", count: answered.filter((answer) => answer.serviceQualityScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.serviceQualityScore))) },
+        { label: "Alinhamento de Preços", count: answered.filter((answer) => answer.priceAlignmentScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.priceAlignmentScore))) },
+        { label: "Lavagem", count: answered.filter((answer) => answer.washScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.washScore))) },
+      ];
+      const criticalComments = answered
+        .map((answer) => ({
+          score: hgsiValue(answer),
+          clientName: answer.clientName || "Cliente",
+          comment: answerComment(answer) || "Sem comentário crítico",
+        }))
+        .filter((item) => item.score !== undefined)
+        .sort((first, second) => (first.score ?? 0) - (second.score ?? 0))
+        .slice(0, 3);
 
       return {
         consultant,
+        consultantName: consultantFullName(consultant),
         answered: answered.length,
-        goalPercent: Math.min(100, Math.round((answered.length / surveyGoal) * 100)),
-        nps: average(answered.map((answer) => answer.nps)),
-        installation: average(answered.map((answer) => answer.installationScore)),
-        consultantScore: average(answered.map((answer) => answer.consultantScore)),
-        deadline: average(answered.map((answer) => answer.deadlineScore)),
-        serviceQuality: average(answered.map((answer) => answer.serviceQualityScore)),
-        priceAlignment: average(answered.map((answer) => answer.priceAlignmentScore)),
-        wash: average(answered.map((answer) => answer.washScore)),
-        correctService: answered.length
-          ? `${Math.round((answered.filter((answer) => answer.correctService === true).length / answered.length) * 100)}%`
-          : "-",
+        goalPercent: Math.round((answered.length / surveyGoal) * 100),
+        goalTrackPercent: Math.min(100, Math.round((answered.length / surveyGoal) * 100)),
+        hgsiAverage,
+        range950,
+        range800,
+        rangeUnder800,
+        redFlags,
+        indicatorRows,
+        criticalComments,
       };
     });
   }, [hgsiAnswers]);
@@ -613,6 +706,7 @@ export default function PosServicoPage() {
           serviceQualityScore: numberFrom(row, ["q5 qualidade", "qualidade"]),
           priceAlignmentScore: numberFrom(row, ["q6 preco", "q6 preço", "preco", "preços", "alinhamento"]),
           washScore: numberFrom(row, ["q5.3.2 lavagem", "lavagem"]),
+          correctServiceScore: numberFrom(row, ["q14.3 correto na primeira vez", "correto na primeira vez", "servico correto", "serviço correto"]),
           correctService: boolFrom(row, ["correto na primeira vez", "servico correto", "serviço correto", "servico realizado"]),
           rawPayload: row,
         };
@@ -762,21 +856,81 @@ export default function PosServicoPage() {
             {consultantStats.map((item) => (
               <article key={item.consultant} className="consultant-score-card">
                 <div className="consultant-score-head">
-                  <strong>{item.consultant}</strong>
-                  <span>{item.answered}/{surveyGoal}</span>
+                  <div>
+                    <strong>{item.consultantName}</strong>
+                    <span>{item.answered} respostas de {surveyGoal} previstas ({item.goalPercent}% da meta)</span>
+                  </div>
+                  <mark className={`hgsi-pill ${scoreTone(item.hgsiAverage, "thousand")}`}>
+                    {item.hgsiAverage === null ? "-" : Math.round(item.hgsiAverage)}
+                  </mark>
                 </div>
-                <div className="goal-track">
-                  <span style={{ width: `${item.goalPercent}%` }} />
+
+                <div className="score-progress-block">
+                  <div className="score-progress-label">
+                    <span>Meta de pesquisas</span>
+                    <strong>{item.answered}/{surveyGoal}</strong>
+                  </div>
+                  <div className="goal-track">
+                    <span style={{ width: `${item.goalTrackPercent}%` }} />
+                  </div>
                 </div>
-                <div className="score-grid">
-                  <div><span>NPS</span><strong>{item.nps}</strong></div>
-                  <div><span>Instalações</span><strong>{item.installation}</strong></div>
-                  <div><span>Consultor</span><strong>{item.consultantScore}</strong></div>
-                  <div><span>Prazos</span><strong>{item.deadline}</strong></div>
-                  <div><span>Qualidade</span><strong>{item.serviceQuality}</strong></div>
-                  <div><span>Preços</span><strong>{item.priceAlignment}</strong></div>
-                  <div><span>Lavagem</span><strong>{item.wash}</strong></div>
-                  <div><span>Serviço correto</span><strong>{item.correctService}</strong></div>
+
+                <div className="score-progress-block">
+                  <div className="score-progress-label">
+                    <span>Índice HGSI médio</span>
+                    <strong>{item.hgsiAverage === null ? "-" : `${Math.round(item.hgsiAverage)}/1000`}</strong>
+                  </div>
+                  <div className={`hgsi-track ${scoreTone(item.hgsiAverage, "thousand")}`}>
+                    <span style={{ width: scoreWidth(item.hgsiAverage, "thousand") }} />
+                  </div>
+                </div>
+
+                <div className="score-range-grid">
+                  <div><strong>{item.range950}</strong><span>950+</span></div>
+                  <div><strong>{item.range800}</strong><span>800-949</span></div>
+                  <div><strong>{item.rangeUnder800}</strong><span>&lt;800</span></div>
+                  <div><strong>{item.redFlags}</strong><span>Red Flag</span></div>
+                </div>
+
+                <div className="score-stack" aria-label={`Distribuição de notas de ${item.consultant}`}>
+                  <span className="good" style={{ width: `${item.answered ? (item.range950 / item.answered) * 100 : 0}%` }} />
+                  <span className="warn" style={{ width: `${item.answered ? (item.range800 / item.answered) * 100 : 0}%` }} />
+                  <span className="bad" style={{ width: `${item.answered ? (item.rangeUnder800 / item.answered) * 100 : 0}%` }} />
+                </div>
+
+                <div className="score-mini-grid">
+                  <div><span>NPS</span><strong>{formatScore(item.indicatorRows[0].value)}</strong></div>
+                  <div><span>Serviço correto</span><strong>{formatScore(item.indicatorRows[1].value)}</strong></div>
+                  <div><span>Sem autorização</span><strong>0</strong></div>
+                  <div><span>Recomendação</span><strong>{item.hgsiAverage === null ? "-" : `${Math.round(item.hgsiAverage / 10)}%`}</strong></div>
+                </div>
+
+                <div className="indicator-list">
+                  {item.indicatorRows.map((indicator) => (
+                    <div key={indicator.label} className="indicator-row">
+                      <div className="indicator-label">
+                        <span>{indicator.label} ({indicator.count})</span>
+                        <strong>{formatScore(indicator.value)}</strong>
+                      </div>
+                      <div className={`indicator-track ${scoreTone(indicator.value)}`}>
+                        <span style={{ width: scoreWidth(indicator.value) }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="critical-list">
+                  {item.criticalComments.length ? item.criticalComments.map((comment, index) => (
+                    <div key={`${comment.clientName}-${index}`} className="critical-item">
+                      <strong>{Math.round(comment.score ?? 0)}</strong>
+                      <span>{comment.clientName} - {comment.comment}</span>
+                    </div>
+                  )) : (
+                    <div className="critical-item muted">
+                      <strong>-</strong>
+                      <span>Sem comentários críticos</span>
+                    </div>
+                  )}
                 </div>
               </article>
             ))}

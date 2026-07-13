@@ -229,10 +229,12 @@ export interface HgsiAnswer {
   answerDate?: string;
   nps?: number;
   installationScore?: number;
+  consultantScore?: number;
   deadlineScore?: number;
   serviceQualityScore?: number;
   priceAlignmentScore?: number;
   washScore?: number;
+  correctServiceScore?: number;
   correctService?: boolean;
   rawPayload?: Record<string, unknown>;
   importedAt: FirestoreTimestamp;
