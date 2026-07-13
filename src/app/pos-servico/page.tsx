@@ -253,6 +253,12 @@ function FunnelCard({
 }) {
   const attention = needsTreatment(item);
   const phoneLink = whatsappUrl(item.phone);
+  const hasDeliveryRecord = item.source === "fluxo" && (
+    item.futureNote
+    || item.partsOrdered
+    || item.deliveredOnTime === false
+    || typeof item.internalNps === "number"
+  );
 
   return (
     <article className={`post-card ${attention ? "attention" : ""}`}>
@@ -287,6 +293,16 @@ function FunnelCard({
         {treatment?.gpvRequired && <span className="tag bad">GPV</span>}
         {!attention && <span className="tag good">Sem pendência</span>}
       </div>
+
+      {hasDeliveryRecord && (
+        <div className="post-card-note">
+          <strong>Registro da entrega</strong>
+          <span>Prazo: {item.deliveredOnTime === false ? "fora do prazo" : "no prazo"}</span>
+          <span>Pedido de peça: {item.partsOrdered ? "sim" : "não"}</span>
+          <span>NPS interno: {item.internalNps ?? "-"}</span>
+          {item.futureNote && <p>{item.futureNote}</p>}
+        </div>
+      )}
 
       {treatment?.customerObservation && (
         <p className="post-card-note">{treatment.customerObservation}</p>

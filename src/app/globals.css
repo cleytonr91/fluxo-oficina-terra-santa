@@ -1747,6 +1747,8 @@ textarea {
 }
 
 .post-card-note {
+  display: grid;
+  gap: 3px;
   margin: 0;
   border-radius: 7px;
   background: #f7f9f7;
@@ -1754,6 +1756,17 @@ textarea {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.35;
+}
+
+.post-card-note strong {
+  color: var(--ink);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.post-card-note span,
+.post-card-note p {
+  margin: 0;
 }
 
 .post-treatment-btn {
