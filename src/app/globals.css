@@ -2331,6 +2331,98 @@ textarea {
   margin: 0;
 }
 
+.scheduling-page {
+  display: grid;
+  gap: 16px;
+}
+
+.scheduling-metrics {
+  grid-template-columns: repeat(5, minmax(110px, 1fr)) minmax(260px, 1.6fr);
+}
+
+.scheduling-search input {
+  width: 100%;
+  min-height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  padding: 4px 8px;
+}
+
+.scheduling-list {
+  display: grid;
+  gap: 8px;
+}
+
+.scheduling-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: 7px;
+  background: #fff;
+  padding: 10px;
+}
+
+.scheduling-card.attention {
+  border-left-color: var(--red);
+  background: #fff7f5;
+}
+
+.scheduling-main {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.3fr) repeat(4, minmax(120px, 1fr));
+  gap: 6px;
+}
+
+.scheduling-main > div,
+.scheduling-parts {
+  min-width: 0;
+  border-radius: 6px;
+  background: #f4f7f4;
+  padding: 7px 8px;
+}
+
+.scheduling-main strong,
+.scheduling-parts strong {
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.scheduling-main span,
+.scheduling-foot small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.scheduling-parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 4px 10px;
+}
+
+.scheduling-parts span {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.scheduling-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.scheduling-foot .primary-btn {
+  min-width: 108px;
+}
+
+.scheduling-modal {
+  width: min(560px, calc(100vw - 24px));
+}
+
 .parts-client-cell strong {
   font-size: 12px;
   font-weight: 900;
@@ -2549,8 +2641,13 @@ textarea {
   }
 
   .parts-edit-grid,
+  .scheduling-main,
   .available-split {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .scheduling-metrics {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
 
   .parts-table-row {
@@ -2596,8 +2693,16 @@ textarea {
   }
 
   .parts-edit-grid,
+  .scheduling-main,
+  .scheduling-metrics,
+  .scheduling-parts,
   .available-split {
     grid-template-columns: 1fr;
+  }
+
+  .scheduling-foot {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .parts-edit-grid.compact,

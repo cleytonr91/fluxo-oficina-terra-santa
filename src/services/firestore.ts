@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -138,6 +138,16 @@ type UpdatePartOrderInput = {
   expectedArrivalDate?: string;
   cancellationReason?: string;
   updatedBy?: string;
+};
+
+type RegisterPartSchedulingActionInput = {
+  orderId: string;
+  action: PartSchedulingActionType;
+  actionBy?: string;
+  returnDate?: string;
+  contactAttemptAt?: string;
+  nextContactAt?: string;
+  note?: string;
 };
 
 function serviceTypeFromLabel(service: string): ServiceType {
@@ -725,6 +735,42 @@ export async function updatePartOrder({
     expectedArrivalDate: expectedArrivalDate || undefined,
     cancellationReason: cancellationReason?.trim(),
     updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
+export async function registerPartSchedulingAction({
+  orderId,
+  action,
+  actionBy,
+  returnDate,
+  contactAttemptAt,
+  nextContactAt,
+  note,
+}: RegisterPartSchedulingActionInput) {
+  const db = getFirebaseDb();
+  const ref = doc(collection(db, collections.partOrders), orderId);
+  const cleanNote = note?.trim();
+  const historyEntry = withoutUndefined({
+    action,
+    actionAt: new Date().toISOString(),
+    actionBy,
+    returnDate: returnDate || undefined,
+    contactAttemptAt: contactAttemptAt || undefined,
+    nextContactAt: nextContactAt || undefined,
+    note: cleanNote,
+  });
+
+  await setDoc(ref, withoutUndefined({
+    schedulingStatus: action,
+    scheduledReturnDate: action === "agendamento_confirmado" ? returnDate : undefined,
+    contactAttemptAt: contactAttemptAt || undefined,
+    nextContactAt: nextContactAt || undefined,
+    schedulingNote: cleanNote,
+    schedulingUpdatedBy: actionBy,
+    schedulingUpdatedAt: serverTimestamp(),
+    schedulingHistory: arrayUnion(historyEntry),
+    updatedBy: actionBy,
     updatedAt: serverTimestamp(),
   }), { merge: true });
 }

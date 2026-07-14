@@ -8,6 +8,7 @@ import { useAuth } from "@/context/auth-context";
 const navigation = [
   { href: "/preparacao", label: "Preparação" },
   { href: "/fluxo", label: "Fluxo do dia" },
+  { href: "/agendamento", label: "Agendamento" },
   { href: "/pecas", label: "Peças" },
   { href: "/pos-servico", label: "Pós-serviço" },
 ];

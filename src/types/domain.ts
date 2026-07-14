@@ -60,10 +60,31 @@ export type PartOrderSource =
 
 export type PartOrderKind = "garantia" | "externo";
 
+export type PartSchedulingStatus =
+  | "disponivel_agendamento"
+  | "agendamento_confirmado"
+  | "contato_sem_sucesso"
+  | "cliente_sem_disponibilidade";
+
+export type PartSchedulingActionType =
+  | "agendamento_confirmado"
+  | "contato_sem_sucesso"
+  | "cliente_sem_disponibilidade";
+
 export interface PartOrderItem {
   id: string;
   partReference?: string;
   partDescription?: string;
+}
+
+export interface PartSchedulingHistory {
+  action: PartSchedulingActionType;
+  actionAt: FirestoreTimestamp;
+  actionBy?: string;
+  returnDate?: string;
+  contactAttemptAt?: string;
+  nextContactAt?: string;
+  note?: string;
 }
 export type BudgetStatus = "aguardando" | "realizado" | "cancelado";
 
@@ -229,6 +250,14 @@ export interface PartOrder {
   expectedArrivalDate?: string;
   cancellationReason?: string;
   vehicleImmobilized?: boolean;
+  schedulingStatus?: PartSchedulingStatus;
+  scheduledReturnDate?: string;
+  contactAttemptAt?: string;
+  nextContactAt?: string;
+  schedulingNote?: string;
+  schedulingUpdatedBy?: string;
+  schedulingUpdatedAt?: FirestoreTimestamp;
+  schedulingHistory?: PartSchedulingHistory[];
   requestedBy?: string;
   updatedBy?: string;
   createdAt: FirestoreTimestamp;
