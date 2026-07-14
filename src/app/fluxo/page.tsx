@@ -3,8 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician } from "@/services/firestore";
-import type { FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
+import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician } from "@/services/firestore";
+import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
   { id: "preparacao_confirmada", label: "Agendamento do Dia" },
@@ -16,6 +16,8 @@ const laneLabels: Array<{ id: FlowLane; label: string }> = [
   { id: "preparacao_entrega", label: "Preparação de Entrega" },
   { id: "entregue", label: "Entregue" },
 ];
+
+const laneNameById = Object.fromEntries(laneLabels.map((lane) => [lane.id, lane.label])) as Record<FlowLane, string>;
 
 const correctionLaneOptions = laneLabels.filter((lane) => lane.id !== "entregue");
 
@@ -218,6 +220,17 @@ function formatDateOnly(value?: string) {
   const [year, month, day] = value.split("-");
   if (!year || !month || !day) return value;
   return `${day}/${month}/${year}`;
+}
+
+function flowEventTitle(event: FlowEvent) {
+  const fromLane = event.fromLane ? laneNameById[event.fromLane] : "Início";
+  const toLane = laneNameById[event.toLane] ?? event.toLane;
+
+  if (event.fromLane && event.fromLane === event.toLane) {
+    return `Atualização em ${toLane}`;
+  }
+
+  return `${fromLane} → ${toLane}`;
 }
 
 function escapeHtml(value: unknown) {
@@ -461,6 +474,8 @@ export default function FluxoPage() {
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [receivingVehicle, setReceivingVehicle] = useState<VehicleFlow | null>(null);
   const [detailVehicle, setDetailVehicle] = useState<VehicleFlow | null>(null);
+  const [detailEvents, setDetailEvents] = useState<FlowEvent[]>([]);
+  const [detailEventsLoading, setDetailEventsLoading] = useState(false);
   const [sendVehicle, setSendVehicle] = useState<VehicleFlow | null>(null);
   const [startServiceVehicle, setStartServiceVehicle] = useState<VehicleFlow | null>(null);
   const [budgetRequestVehicle, setBudgetRequestVehicle] = useState<VehicleFlow | null>(null);
@@ -553,6 +568,22 @@ export default function FluxoPage() {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    if (!detailVehicle?.id) {
+      return undefined;
+    }
+
+    const unsubscribe = subscribeVehicleFlowEvents(detailVehicle.id, (events) => {
+      setDetailEvents(events);
+      setDetailEventsLoading(false);
+    }, () => {
+      setDetailEvents([]);
+      setDetailEventsLoading(false);
+    });
+
+    return unsubscribe;
+  }, [detailVehicle?.id]);
+
   const partOrdersByVehicle = useMemo(() => {
     const mapped = new Map<string, PartOrder>();
     partOrders.forEach((order) => mapped.set(order.vehicleFlowId, order));
@@ -638,6 +669,8 @@ export default function FluxoPage() {
 
   function openDetailModal(vehicle: VehicleFlow) {
     const existingPartOrder = partOrdersByVehicle.get(vehicle.id);
+    setDetailEvents([]);
+    setDetailEventsLoading(true);
     setDetailVehicle(vehicle);
     setPlateForm({ plate: vehicle.plate?.startsWith("SEMPLACA") ? "" : vehicle.plate ?? "" });
     setTechnicianForm({ technicianName: vehicle.technicianName ?? "" });
@@ -1998,6 +2031,25 @@ export default function FluxoPage() {
                 {detailVehicle.partsNote && <p><strong>Peças:</strong> {detailVehicle.partsNote}</p>}
               </section>
             )}
+
+            <section className="history-box">
+              <h3>Histórico do chip</h3>
+              {detailEventsLoading ? (
+                <p>Carregando histórico...</p>
+              ) : detailEvents.length ? (
+                <ul className="chip-history-list">
+                  {detailEvents.map((event) => (
+                    <li key={event.id}>
+                      <strong>{flowEventTitle(event)}</strong>
+                      <span>{event.actionBy ?? "Operador não identificado"} · {formatDateTime(event.createdAt)}</span>
+                      {event.actionNote && <p>{event.actionNote}</p>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>Nenhuma movimentação registrada para este chip.</p>
+              )}
+            </section>
 
             <section className="history-box">
               <h3>Histórico de previsão</h3>

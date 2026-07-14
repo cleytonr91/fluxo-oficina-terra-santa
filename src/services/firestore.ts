@@ -584,6 +584,34 @@ export async function listRecentFlowEvents(maxEvents = 150) {
   })) as FlowEvent[];
 }
 
+function eventTimeValue(value: unknown) {
+  if (!value) return 0;
+  const timestamp = value as { toMillis?: () => number; toDate?: () => Date };
+  if (typeof timestamp.toMillis === "function") return timestamp.toMillis();
+  if (typeof timestamp.toDate === "function") return timestamp.toDate().getTime();
+
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+export function subscribeVehicleFlowEvents(
+  vehicleFlowId: string,
+  onChange: (events: FlowEvent[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.flowEvents);
+
+  return onSnapshot(query(ref, where("vehicleFlowId", "==", vehicleFlowId)), (snapshot) => {
+    const events = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as FlowEvent[];
+
+    onChange(events.sort((a, b) => eventTimeValue(b.createdAt) - eventTimeValue(a.createdAt)));
+  }, onError);
+}
+
 export async function savePartOrder({
   vehicle,
   customerId,

@@ -812,6 +812,22 @@ textarea {
   margin: 3px 0 0;
 }
 
+.chip-history-list li {
+  position: relative;
+  padding-left: 12px;
+}
+
+.chip-history-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--green);
+}
+
 .correction-box {
   background: #fffdf7;
 }
