@@ -260,7 +260,7 @@ textarea {
 
 .flow-metrics {
   display: grid;
-  grid-template-columns: repeat(10, minmax(84px, 1fr));
+  grid-template-columns: repeat(11, minmax(76px, 1fr));
   gap: 6px;
   margin: -4px 0 16px;
 }
@@ -319,7 +319,8 @@ textarea {
   letter-spacing: 0.03em;
 }
 
-.flow-filter select {
+.flow-filter select,
+.flow-filter input {
   width: 100%;
   min-height: 28px;
   border: 1px solid var(--line);

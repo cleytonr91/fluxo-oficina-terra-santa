@@ -468,6 +468,7 @@ export default function FluxoPage() {
   const [error, setError] = useState("");
   const [consultantFilter, setConsultantFilter] = useState("Todos");
   const [technicianFilter, setTechnicianFilter] = useState("Todos");
+  const [plateFilter, setPlateFilter] = useState("");
   const [metricFilter, setMetricFilter] = useState<MetricFilter>("todos");
   const [flowDate, setFlowDate] = useState("");
   const [now, setNow] = useState(() => new Date());
@@ -1439,30 +1440,39 @@ export default function FluxoPage() {
   const technicians = workshopTechnicians;
 
   const dateScopedVehicles = useMemo(() => {
+    const normalizedPlateFilter = plateFilter.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+
     return vehicles.filter((vehicle) => {
       const dateMatches = matchesSelectedFlowDate(vehicle, flowDate);
       const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
       const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
-      return dateMatches && consultantMatches && technicianMatches;
+      const plateMatches = !normalizedPlateFilter || (vehicle.plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().includes(normalizedPlateFilter);
+      return dateMatches && consultantMatches && technicianMatches && plateMatches;
     });
-  }, [consultantFilter, flowDate, technicianFilter, vehicles]);
+  }, [consultantFilter, flowDate, plateFilter, technicianFilter, vehicles]);
 
   const noShowVehicles = useMemo(() => {
+    const normalizedPlateFilter = plateFilter.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+
     return vehicles
       .filter((vehicle) => {
         const dateMatches = matchesNoShowDate(vehicle, flowDate);
         const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
         const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
-        return vehicle.noShow && dateMatches && consultantMatches && technicianMatches;
+        const plateMatches = !normalizedPlateFilter || (vehicle.plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().includes(normalizedPlateFilter);
+        return vehicle.noShow && dateMatches && consultantMatches && technicianMatches && plateMatches;
       })
       .sort((a, b) => `${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`.localeCompare(`${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`));
-  }, [consultantFilter, flowDate, technicianFilter, vehicles]);
+  }, [consultantFilter, flowDate, plateFilter, technicianFilter, vehicles]);
 
   const immobilizedVehicles = useMemo(() => {
+    const normalizedPlateFilter = plateFilter.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+
     return vehicles
       .filter((vehicle) => {
         const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
         const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
+        const plateMatches = !normalizedPlateFilter || (vehicle.plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().includes(normalizedPlateFilter);
         return (
           immobilizedVehicleIds.has(vehicle.id)
           && !vehicle.noShow
@@ -1470,11 +1480,12 @@ export default function FluxoPage() {
           && vehicle.status !== "cancelado"
           && consultantMatches
           && technicianMatches
+          && plateMatches
         );
       })
       .map((vehicle) => ({ ...vehicle, currentLane: "aguardando_servico" as FlowLane }))
       .sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`));
-  }, [consultantFilter, immobilizedVehicleIds, technicianFilter, vehicles]);
+  }, [consultantFilter, immobilizedVehicleIds, plateFilter, technicianFilter, vehicles]);
 
   const filteredVehicles = metricFilter === "noShow"
     ? noShowVehicles
@@ -1645,6 +1656,15 @@ export default function FluxoPage() {
               <option>Todos</option>
               {technicians.map((item) => <option key={item}>{item}</option>)}
             </select>
+          </label>
+
+          <label className="flow-filter flow-plate-filter">
+            <span>Placa</span>
+            <input
+              value={plateFilter}
+              placeholder="Buscar placa"
+              onChange={(event) => setPlateFilter(event.target.value.toUpperCase())}
+            />
           </label>
         </section>
 
