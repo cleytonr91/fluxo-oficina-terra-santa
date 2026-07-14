@@ -2126,7 +2126,7 @@ export default function FluxoPage() {
             <div className="send-options">
               {sendVehicle.currentLane === "aguardando_servico" ? (
                 <>
-                  {sendVehicle.washType !== "nao" && (
+                  {sendVehicle.washType !== "nao" && !sendVehicle.washDone && (
                     <button
                       type="button"
                       className="ghost-btn"
