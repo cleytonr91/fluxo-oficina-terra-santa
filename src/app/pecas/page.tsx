@@ -13,6 +13,7 @@ type PartOrderFormFields = {
   orderStatus: PartOrderStatus;
   orderSource: PartOrderSource | "";
   orderNumber: string;
+  orderVor: boolean;
   orderDate: string;
   invoiceNumber: string;
   expectedArrivalDate: string;
@@ -24,6 +25,7 @@ const statusLabels: Record<PartOrderStatus, string> = {
   necessidade_identificada: "Solicitado oficina",
   aguardando_pecas: "Solicitado oficina",
   pedido_realizado: "Pedido realizado",
+  back_order: "B.O",
   em_transito: "Em trânsito",
   recebido: "Recebido",
   disponivel: "Disponível",
@@ -33,6 +35,7 @@ const statusLabels: Record<PartOrderStatus, string> = {
 const statusOptions: Array<{ value: PartOrderStatus; label: string }> = [
   { value: "solicitado_oficina", label: "Solicitado oficina" },
   { value: "pedido_realizado", label: "Pedido realizado" },
+  { value: "back_order", label: "B.O (Back Order)" },
   { value: "em_transito", label: "Em trânsito" },
   { value: "recebido", label: "Recebido" },
   { value: "disponivel", label: "Disponível" },
@@ -89,7 +92,7 @@ function formatDateTime(value: unknown) {
 function statusTone(status: PartOrderStatus) {
   if (status === "disponivel" || status === "recebido") return "good";
   if (status === "cancelado") return "bad";
-  if (status === "em_transito" || status === "pedido_realizado") return "warn";
+  if (status === "em_transito" || status === "pedido_realizado" || status === "back_order") return "warn";
   return "";
 }
 
@@ -215,6 +218,7 @@ export default function PecasPage() {
     { label: "pendências", value: pendingOrders.length, filter: "pendentes" as PartsFilter, state: "active" },
     { label: "solicitado oficina", value: mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas").length, filter: "solicitado_oficina" as PartsFilter, state: "" },
     { label: "pedido realizado", value: mergedOrders.filter((order) => order.orderStatus === "pedido_realizado").length, filter: "pedido_realizado" as PartsFilter, state: "" },
+    { label: "B.O", value: mergedOrders.filter((order) => order.orderStatus === "back_order").length, filter: "back_order" as PartsFilter, state: "danger" },
     { label: "em trânsito", value: mergedOrders.filter((order) => order.orderStatus === "em_transito").length, filter: "em_transito" as PartsFilter, state: "" },
     { label: "disponíveis", value: availableOrders.length, filter: "disponivel" as PartsFilter, state: "" },
     { label: "cancelados", value: canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
@@ -230,6 +234,7 @@ export default function PecasPage() {
         : order.orderStatus,
       orderSource: order.orderSource ?? "",
       orderNumber: order.orderNumber ?? "",
+      orderVor: order.orderVor ?? false,
       orderDate: order.orderDate ?? "",
       invoiceNumber: order.invoiceNumber ?? "",
       expectedArrivalDate: order.expectedArrivalDate ?? "",
@@ -252,8 +257,8 @@ export default function PecasPage() {
     const form = orderFormValues(order);
     const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
 
-    if (form.orderStatus === "pedido_realizado" && (!form.orderSource || !form.orderNumber.trim())) {
-      setError("Para marcar Pedido Realizado, informe a origem e o número do pedido.");
+    if ((form.orderStatus === "pedido_realizado" || form.orderStatus === "back_order") && (!form.orderSource || !form.orderNumber.trim())) {
+      setError("Para marcar Pedido Realizado ou B.O, informe a origem e o número do pedido.");
       return;
     }
 
@@ -284,6 +289,7 @@ export default function PecasPage() {
         orderStatus: form.orderStatus,
         orderSource: form.orderSource || undefined,
         orderNumber: form.orderNumber,
+        orderVor: form.orderVor,
         orderDate: form.orderDate,
         invoiceNumber: form.invoiceNumber,
         expectedArrivalDate: form.expectedArrivalDate,
@@ -307,6 +313,7 @@ export default function PecasPage() {
               orderStatus: form.orderStatus,
               orderSource: form.orderSource || undefined,
               orderNumber: form.orderNumber,
+              orderVor: form.orderVor,
               orderDate: form.orderDate,
               invoiceNumber: form.invoiceNumber,
               expectedArrivalDate: form.expectedArrivalDate,
@@ -471,7 +478,11 @@ export default function PecasPage() {
                   </div>
                   <div className="parts-cell parts-duo-cell">
                     <div><span>Origem</span><strong>{sourceLabel(order.orderSource)}</strong></div>
-                    <div><span>Pedido</span><strong>{order.orderNumber || "-"}</strong></div>
+                    <div>
+                      <span>Pedido</span>
+                      <strong>{order.orderNumber || "-"}</strong>
+                      {order.orderVor && <small className="parts-vor-flag">Pedido VOR</small>}
+                    </div>
                   </div>
                   <div className="parts-cell parts-duo-cell">
                     <div><span>Data pedido</span><strong>{formatDate(order.orderDate)}</strong></div>
@@ -560,14 +571,22 @@ export default function PecasPage() {
                         ))}
                       </select>
                     </label>
-                    <label className="field">
+                    <div className="field">
                       <span>Número do Pedido</span>
                       <input
                         value={form.orderNumber}
                         placeholder="Mobis ou externo"
                         onChange={(event) => updateOrderForm(order.id, { orderNumber: event.target.value.toUpperCase() })}
                       />
-                    </label>
+                      <label className="inline-check parts-vor-check">
+                        <input
+                          type="checkbox"
+                          checked={form.orderVor}
+                          onChange={(event) => updateOrderForm(order.id, { orderVor: event.target.checked })}
+                        />
+                        <span>Pedido VOR</span>
+                      </label>
+                    </div>
                     <label className="field">
                       <span>Data do Pedido</span>
                       <input

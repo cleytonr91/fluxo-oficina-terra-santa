@@ -2264,6 +2264,36 @@ textarea {
   color: #1d2925;
 }
 
+.parts-vor-flag {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: #fff1cf;
+  color: #8a5a00;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.parts-vor-check {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  color: #1d2925;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.parts-vor-check input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
 .parts-client-cell strong {
   font-size: 12px;
   font-weight: 900;

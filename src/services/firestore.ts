@@ -132,6 +132,7 @@ type UpdatePartOrderInput = {
   orderStatus: PartOrderStatus;
   orderSource?: PartOrderSource;
   orderNumber?: string;
+  orderVor?: boolean;
   orderDate?: string;
   invoiceNumber?: string;
   expectedArrivalDate?: string;
@@ -658,6 +659,7 @@ export async function updatePartOrder({
   orderStatus,
   orderSource,
   orderNumber,
+  orderVor,
   orderDate,
   invoiceNumber,
   expectedArrivalDate,
@@ -689,6 +691,7 @@ export async function updatePartOrder({
     orderStatus,
     orderSource,
     orderNumber: orderNumber?.trim(),
+    orderVor: orderVor ?? false,
     orderDate: orderDate || undefined,
     invoiceNumber: invoiceNumber?.trim(),
     expectedArrivalDate: expectedArrivalDate || undefined,

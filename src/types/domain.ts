@@ -45,6 +45,7 @@ export type PartOrderStatus =
   | "necessidade_identificada"
   | "aguardando_pecas"
   | "pedido_realizado"
+  | "back_order"
   | "em_transito"
   | "recebido"
   | "disponivel"
@@ -222,6 +223,7 @@ export interface PartOrder {
   orderStatus: PartOrderStatus;
   orderSource?: PartOrderSource;
   orderNumber?: string;
+  orderVor?: boolean;
   orderDate?: string;
   invoiceNumber?: string;
   expectedArrivalDate?: string;
