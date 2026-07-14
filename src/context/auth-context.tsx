@@ -113,12 +113,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name,
           email,
           role,
-          active: true,
+          active: false,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
 
-        localStorage.setItem("firstAccessCreated", "true");
         setProfile(await loadProfile(credentials.user.uid));
       } finally {
         setLoading(false);

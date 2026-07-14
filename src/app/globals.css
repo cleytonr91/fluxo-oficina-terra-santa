@@ -1012,6 +1012,37 @@ textarea {
   width: 100%;
 }
 
+.pending-access-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: #f6f7f4;
+  padding: 24px;
+}
+
+.pending-access-card {
+  display: grid;
+  width: min(460px, 100%);
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 40px rgba(31, 41, 37, 0.12);
+  padding: 24px;
+  text-align: center;
+}
+
+.pending-access-card strong {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+.pending-access-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .prep-page {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);

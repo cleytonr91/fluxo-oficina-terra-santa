@@ -31,20 +31,13 @@ export default function LoginPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("admin");
+  const [role, setRole] = useState<UserRole>("consultor");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [firstAccessAvailable, setFirstAccessAvailable] = useState(true);
 
   useEffect(() => {
     if (!loading && user) router.replace("/fluxo");
   }, [loading, router, user]);
-
-  useEffect(() => {
-    window.requestAnimationFrame(() => {
-      setFirstAccessAvailable(localStorage.getItem("firstAccessCreated") !== "true");
-    });
-  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,7 +49,6 @@ export default function LoginPage() {
         await login(email, password);
       } else {
         await createFirstAccess({ name, email, password, role });
-        setFirstAccessAvailable(false);
       }
       router.replace("/fluxo");
     } catch (currentError) {
@@ -85,11 +77,9 @@ export default function LoginPage() {
               <button type="button" onClick={() => setMode("entrar")} className={mode === "entrar" ? "primary-btn" : "ghost-btn"}>
                 Entrar
               </button>
-              {firstAccessAvailable && (
-                <button type="button" onClick={() => setMode("primeiro-acesso")} className={mode === "primeiro-acesso" ? "primary-btn" : "ghost-btn"}>
-                  Primeiro acesso
-                </button>
-              )}
+              <button type="button" onClick={() => setMode("primeiro-acesso")} className={mode === "primeiro-acesso" ? "primary-btn" : "ghost-btn"}>
+                Solicitar acesso
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="mt-4 toolbar-grid">
@@ -118,7 +108,7 @@ export default function LoginPage() {
               </label>
               {error && <p className="tag bad rounded-md">{error}</p>}
               <button type="submit" disabled={submitting || loading} className="primary-btn">
-                {submitting || loading ? "Aguarde..." : mode === "entrar" ? "Entrar no sistema" : "Criar acesso"}
+                {submitting || loading ? "Aguarde..." : mode === "entrar" ? "Entrar no sistema" : "Enviar solicitação"}
               </button>
             </form>
           </div>

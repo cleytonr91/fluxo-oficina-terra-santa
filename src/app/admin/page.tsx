@@ -36,7 +36,7 @@ export default function AdminPage() {
       try {
         const data = await listUserProfiles();
         if (!active) return;
-        setUsers(data.sort((a, b) => a.name.localeCompare(b.name)));
+        setUsers(data.sort((a, b) => Number(a.active) - Number(b.active) || a.name.localeCompare(b.name)));
       } catch (currentError) {
         if (!active) return;
         setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar usuários.");
@@ -95,7 +95,7 @@ export default function AdminPage() {
                     <h3 className="client">{user.name}</h3>
                     <p className="model">{user.email ?? "Sem e-mail"}</p>
                   </div>
-                  <span className={`tag ${user.active ? "good" : "bad"}`}>{user.active ? "Ativo" : "Inativo"}</span>
+                  <span className={`tag ${user.active ? "good" : "bad"}`}>{user.active ? "Ativo" : "Aguardando aprovação"}</span>
                 </div>
 
                 <div className="admin-user-controls">

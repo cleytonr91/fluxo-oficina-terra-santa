@@ -6,7 +6,7 @@ import { useAuth } from "@/context/auth-context";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, profile, loading, logout } = useAuth();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -27,6 +27,23 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (!user) {
     return null;
+  }
+
+  if (!profile?.active) {
+    return (
+      <main className="pending-access-page">
+        <section className="pending-access-card">
+          <strong>Acesso aguardando autorização</strong>
+          <p>
+            Seu cadastro foi recebido, mas ainda precisa ser aprovado pelo administrador do sistema.
+            Assim que sua função for validada, o acesso será liberado.
+          </p>
+          <button type="button" className="primary-btn" onClick={logout}>
+            Sair
+          </button>
+        </section>
+      </main>
+    );
   }
 
   return <>{children}</>;
