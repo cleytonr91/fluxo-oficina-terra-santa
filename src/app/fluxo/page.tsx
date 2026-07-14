@@ -2068,24 +2068,33 @@ export default function FluxoPage() {
               )}
             </section>
 
-            <label className="field">
-              <span>Nova previsão de entrega</span>
-              <input
-                required
-                type="datetime-local"
-                min={toDateTimeLocal(detailVehicle.promisedDeliveryAt) || undefined}
-                value={promiseForm.promisedDeliveryAt}
-                onChange={(event) => setPromiseForm((current) => ({ ...current, promisedDeliveryAt: event.target.value }))}
-              />
-            </label>
+            <section className="history-box promise-update-box">
+              <h3>Nova previsão de entrega</h3>
+              <div className="promise-update-grid">
+                <label className="field">
+                  <span>Data e hora</span>
+                  <input
+                    required
+                    type="datetime-local"
+                    min={toDateTimeLocal(detailVehicle.promisedDeliveryAt) || undefined}
+                    value={promiseForm.promisedDeliveryAt}
+                    onChange={(event) => setPromiseForm((current) => ({ ...current, promisedDeliveryAt: event.target.value }))}
+                  />
+                </label>
 
-            <label className="field">
-              <span>Motivo da alteração</span>
-              <textarea
-                value={promiseForm.note}
-                onChange={(event) => setPromiseForm((current) => ({ ...current, note: event.target.value }))}
-              />
-            </label>
+                <label className="field">
+                  <span>Motivo da alteração</span>
+                  <input
+                    value={promiseForm.note}
+                    placeholder="Ex.: cliente autorizou novo horário"
+                    onChange={(event) => setPromiseForm((current) => ({ ...current, note: event.target.value }))}
+                  />
+                </label>
+              </div>
+              <button type="submit" className="primary-btn" disabled={movingId === detailVehicle.id}>
+                {movingId === detailVehicle.id ? "Salvando..." : "Salvar nova previsão"}
+              </button>
+            </section>
 
             <section className="history-box correction-box">
               <h3>Corrigir etapa</h3>
@@ -2124,9 +2133,6 @@ export default function FluxoPage() {
             <div className="modal-actions">
               <button type="button" className="ghost-btn" onClick={() => setDetailVehicle(null)}>
                 Fechar
-              </button>
-              <button type="submit" className="primary-btn" disabled={movingId === detailVehicle.id}>
-                {movingId === detailVehicle.id ? "Salvando..." : "Salvar nova previsão"}
               </button>
             </div>
           </form>

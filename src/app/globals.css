@@ -828,6 +828,25 @@ textarea {
   background: var(--green);
 }
 
+.promise-update-box {
+  background: #fff;
+}
+
+.promise-update-grid {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1.2fr);
+  gap: 10px;
+}
+
+.promise-update-grid .field,
+.promise-update-box .primary-btn {
+  min-width: 0;
+}
+
+.promise-update-box .primary-btn {
+  width: 100%;
+}
+
 .correction-box {
   background: #fffdf7;
 }
@@ -855,6 +874,7 @@ textarea {
     padding: 14px;
   }
 
+  .promise-update-grid,
   .correction-grid {
     grid-template-columns: 1fr;
   }
