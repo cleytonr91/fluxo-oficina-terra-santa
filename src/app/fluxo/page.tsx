@@ -1449,18 +1449,22 @@ export default function FluxoPage() {
       ? immobilizedVehicles
       : dateScopedVehicles.filter((vehicle) => !vehicle.noShow && !immobilizedVehicleIds.has(vehicle.id));
 
-  const operationalVehicles = dateScopedVehicles.filter((vehicle) => !vehicle.noShow);
-  const visibleOperationalVehicles = operationalVehicles.filter((vehicle) => !immobilizedVehicleIds.has(vehicle.id));
+  const metricDate = flowDate || new Date().toISOString().slice(0, 10);
+  const dayOperationalVehicles = dateScopedVehicles.filter((vehicle) => (
+    vehicle.appointmentDate === metricDate
+    && !vehicle.noShow
+    && !immobilizedVehicleIds.has(vehicle.id)
+  ));
 
   const metrics = [
-    { value: visibleOperationalVehicles.length, label: "veículos no fluxo", state: "active", filter: "todos" as MetricFilter },
-    { value: visibleOperationalVehicles.filter(isRevision).length, label: "revisões", state: "", filter: "todos" as MetricFilter },
-    { value: visibleOperationalVehicles.filter(isDiagnostic).length, label: "diagnósticos", state: "", filter: "todos" as MetricFilter },
-    { value: visibleOperationalVehicles.filter(isGeneralRepair).length, label: "reparos gerais", state: "", filter: "todos" as MetricFilter },
-    { value: visibleOperationalVehicles.filter((item) => item.origin === "passante").length, label: "passantes", state: "", filter: "todos" as MetricFilter },
+    { value: dayOperationalVehicles.length, label: "veículos no fluxo", state: "active", filter: "todos" as MetricFilter },
+    { value: dayOperationalVehicles.filter(isRevision).length, label: "revisões", state: "", filter: "todos" as MetricFilter },
+    { value: dayOperationalVehicles.filter(isDiagnostic).length, label: "diagnósticos", state: "", filter: "todos" as MetricFilter },
+    { value: dayOperationalVehicles.filter(isGeneralRepair).length, label: "reparos gerais", state: "", filter: "todos" as MetricFilter },
+    { value: dayOperationalVehicles.filter((item) => item.origin === "passante").length, label: "passantes", state: "", filter: "todos" as MetricFilter },
     { value: noShowVehicles.length, label: "no-show", state: "danger", filter: "noShow" as MetricFilter },
     { value: immobilizedVehicles.length, label: "imobilizados", state: "danger", filter: "immobilized" as MetricFilter },
-    { value: visibleOperationalVehicles.filter((item) => item.priority === "alta" || item.roadTestRequired || item.customerWaits).length, label: "em atenção", state: "", filter: "todos" as MetricFilter },
+    { value: dayOperationalVehicles.filter((item) => item.priority === "alta" || item.roadTestRequired || item.customerWaits).length, label: "em atenção", state: "", filter: "todos" as MetricFilter },
   ] as const;
 
   function generateNoShowPdf() {
