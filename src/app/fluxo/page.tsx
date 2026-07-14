@@ -2126,18 +2126,20 @@ export default function FluxoPage() {
             <div className="send-options">
               {sendVehicle.currentLane === "aguardando_servico" ? (
                 <>
-                  <button
-                    type="button"
-                    className="ghost-btn"
-                    disabled={movingId === sendVehicle.id}
-                    onClick={() => moveToLane(sendVehicle, "aguardando_lavagem", "Lavagem antecipada solicitada antes do serviço", {
-                      serviceCompleted: false,
-                      washingAdvanced: true,
-                      washDone: false,
-                    })}
-                  >
-                    Lavagem antecipada
-                  </button>
+                  {sendVehicle.washType !== "nao" && (
+                    <button
+                      type="button"
+                      className="ghost-btn"
+                      disabled={movingId === sendVehicle.id}
+                      onClick={() => moveToLane(sendVehicle, "aguardando_lavagem", "Lavagem antecipada solicitada antes do serviço", {
+                        serviceCompleted: false,
+                        washingAdvanced: true,
+                        washDone: false,
+                      })}
+                    >
+                      Lavagem antecipada
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="primary-btn"
@@ -2162,12 +2164,18 @@ export default function FluxoPage() {
                   >
                     Orçamento complementar
                   </button>
-                  {sendVehicle.washDone ? (
+                  {sendVehicle.washDone || sendVehicle.washType === "nao" ? (
                     <button
                       type="button"
                       className="primary-btn"
                       disabled={movingId === sendVehicle.id}
-                      onClick={() => moveToLane(sendVehicle, "preparacao_entrega", "Serviço concluído; lavagem antecipada já realizada", {
+                      onClick={() => moveToLane(
+                        sendVehicle,
+                        "preparacao_entrega",
+                        sendVehicle.washType === "nao"
+                          ? "Serviço concluído; veículo sem lavagem"
+                          : "Serviço concluído; lavagem antecipada já realizada",
+                        {
                         serviceCompleted: true,
                         washingAdvanced: false,
                       })}
