@@ -55,7 +55,7 @@ const kindOptions: Array<{ value: PartOrderKind; label: string }> = [
   { value: "externo", label: "Externo" },
 ];
 
-type PartsFilter = "pendentes" | "todos" | PartOrderStatus;
+type PartsFilter = "pendentes" | "todos" | "vor" | PartOrderStatus;
 type PartEditSection = "dados" | "pedido" | "pecas" | "cancelamento" | "info";
 
 function formatDate(value?: string) {
@@ -205,6 +205,7 @@ export default function PecasPage() {
     if (focusedOrderId) return mergedOrders.filter((order) => order.vehicleFlowId === focusedOrderId || order.id === focusedOrderId);
     if (statusFilter === "todos") return mergedOrders;
     if (statusFilter === "pendentes") return pendingOrders;
+    if (statusFilter === "vor") return mergedOrders.filter((order) => order.orderVor);
     if (statusFilter === "solicitado_oficina") {
       return mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas");
     }
@@ -219,6 +220,7 @@ export default function PecasPage() {
     { label: "solicitado oficina", value: mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas").length, filter: "solicitado_oficina" as PartsFilter, state: "" },
     { label: "pedido realizado", value: mergedOrders.filter((order) => order.orderStatus === "pedido_realizado").length, filter: "pedido_realizado" as PartsFilter, state: "" },
     { label: "B.O", value: mergedOrders.filter((order) => order.orderStatus === "back_order").length, filter: "back_order" as PartsFilter, state: "danger" },
+    { label: "VOR", value: mergedOrders.filter((order) => order.orderVor).length, filter: "vor" as PartsFilter, state: "danger" },
     { label: "em trânsito", value: mergedOrders.filter((order) => order.orderStatus === "em_transito").length, filter: "em_transito" as PartsFilter, state: "" },
     { label: "disponíveis", value: availableOrders.length, filter: "disponivel" as PartsFilter, state: "" },
     { label: "cancelados", value: canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
@@ -382,6 +384,7 @@ export default function PecasPage() {
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
               <option value="pendentes">Pendências</option>
               <option value="todos">Todos</option>
+              <option value="vor">VOR</option>
               {statusOptions.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
               ))}
