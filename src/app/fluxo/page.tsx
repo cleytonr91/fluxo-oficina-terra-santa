@@ -322,7 +322,7 @@ function matchesSelectedFlowDate(vehicle: VehicleFlow, selectedDate?: string) {
   const deliveredDate = toDateInputValue(vehicle.deliveredAt);
 
   if (vehicle.currentLane === "entregue") {
-    return deliveredDate ? deliveredDate === selectedDate : vehicle.appointmentDate === selectedDate;
+    return deliveredDate === selectedDate;
   }
 
   return vehicle.appointmentDate === selectedDate
