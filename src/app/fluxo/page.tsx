@@ -192,7 +192,19 @@ type StartServiceForm = {
   note: string;
 };
 
-type MetricFilter = "todos" | "revisao" | "diagnostico" | "reparo" | "embelezamento" | "noShow" | "concluidos" | "immobilized" | "attention";
+type MetricFilter =
+  | "todos"
+  | "agendados"
+  | "passantes"
+  | "anteriores"
+  | "revisao"
+  | "diagnostico"
+  | "reparo"
+  | "embelezamento"
+  | "noShow"
+  | "concluidos"
+  | "immobilized"
+  | "attention";
 
 function EmptyLane({ text = "Sem veículos nesta etapa" }: { text?: string }) {
   return <p className="empty">{text}</p>;
@@ -1617,6 +1629,9 @@ export default function FluxoPage() {
   const metricDate = flowDate || new Date().toISOString().slice(0, 10);
   const visibleFlowVehicles = dateScopedVehicles.filter((vehicle) => !vehicle.noShow && !immobilizedVehicleIds.has(vehicle.id));
   const operationalFlowVehicles = visibleFlowVehicles.filter((vehicle) => vehicle.currentLane !== "entregue");
+  const scheduledDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin !== "passante" && vehicle.appointmentDate === metricDate);
+  const walkInDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin === "passante" && vehicle.appointmentDate === metricDate);
+  const previousDayVehicles = operationalFlowVehicles.filter((vehicle) => isPreviousDayVehicle(vehicle, metricDate));
   const concludedDayVehicles = visibleFlowVehicles.filter((vehicle) => (
     vehicle.currentLane === "preparacao_entrega"
     || (vehicle.currentLane === "entregue" && toDateInputValue(vehicle.deliveredAt) === metricDate)
@@ -1633,30 +1648,44 @@ export default function FluxoPage() {
     ? noShowVehicles
     : metricFilter === "immobilized"
       ? immobilizedVehicles
-      : metricFilter === "revisao"
-        ? operationalFlowVehicles.filter(isRevision)
-        : metricFilter === "diagnostico"
-          ? operationalFlowVehicles.filter(isDiagnostic)
-          : metricFilter === "reparo"
-            ? operationalFlowVehicles.filter(isGeneralRepair)
-            : metricFilter === "embelezamento"
-              ? operationalFlowVehicles.filter(isBeautyService)
-              : metricFilter === "concluidos"
-                ? concludedDayVehicles
-                : metricFilter === "attention"
-                  ? attentionVehicles
-                  : visibleFlowVehicles;
+      : metricFilter === "agendados"
+        ? scheduledDayVehicles
+        : metricFilter === "passantes"
+          ? walkInDayVehicles
+          : metricFilter === "anteriores"
+            ? previousDayVehicles
+            : metricFilter === "revisao"
+              ? operationalFlowVehicles.filter(isRevision)
+              : metricFilter === "diagnostico"
+                ? operationalFlowVehicles.filter(isDiagnostic)
+                : metricFilter === "reparo"
+                  ? operationalFlowVehicles.filter(isGeneralRepair)
+                  : metricFilter === "embelezamento"
+                    ? operationalFlowVehicles.filter(isBeautyService)
+                    : metricFilter === "concluidos"
+                      ? concludedDayVehicles
+                      : metricFilter === "attention"
+                        ? attentionVehicles
+                        : visibleFlowVehicles;
 
-  const metrics = [
-    { value: operationalFlowVehicles.length, label: "veículos no fluxo", state: "active", filter: "todos" as MetricFilter },
-    { value: operationalFlowVehicles.filter(isRevision).length, label: "revisões", state: "", filter: "revisao" as MetricFilter },
-    { value: operationalFlowVehicles.filter(isDiagnostic).length, label: "diagnósticos", state: "", filter: "diagnostico" as MetricFilter },
-    { value: operationalFlowVehicles.filter(isGeneralRepair).length, label: "reparos gerais", state: "", filter: "reparo" as MetricFilter },
-    { value: operationalFlowVehicles.filter(isBeautyService).length, label: "embelezamento", state: "", filter: "embelezamento" as MetricFilter },
+  const originMetrics = [
+    { value: scheduledDayVehicles.length, label: "agendados", filter: "agendados" as MetricFilter },
+    { value: walkInDayVehicles.length, label: "passantes", filter: "passantes" as MetricFilter },
+    { value: previousDayVehicles.length, label: "dias anteriores", filter: "anteriores" as MetricFilter },
+  ] as const;
+
+  const serviceMetrics = [
+    { value: operationalFlowVehicles.filter(isRevision).length, label: "revisões", filter: "revisao" as MetricFilter },
+    { value: operationalFlowVehicles.filter(isDiagnostic).length, label: "diagnósticos", filter: "diagnostico" as MetricFilter },
+    { value: operationalFlowVehicles.filter(isGeneralRepair).length, label: "reparos gerais", filter: "reparo" as MetricFilter },
+    { value: operationalFlowVehicles.filter(isBeautyService).length, label: "embelezamento", filter: "embelezamento" as MetricFilter },
+  ] as const;
+
+  const statusMetrics = [
     { value: noShowVehicles.length, label: "no-show", state: "danger", filter: "noShow" as MetricFilter },
-    { value: concludedDayVehicles.length, label: "concluídos do dia", state: "", filter: "concluidos" as MetricFilter },
-    { value: immobilizedVehicles.length, label: "imobilizados", state: "danger", filter: "immobilized" as MetricFilter },
     { value: attentionVehicles.length, label: "em atenção", state: "", filter: "attention" as MetricFilter },
+    { value: immobilizedVehicles.length, label: "imobilizados", state: "danger", filter: "immobilized" as MetricFilter },
+    { value: concludedDayVehicles.length, label: "concluídos do dia", state: "", filter: "concluidos" as MetricFilter },
   ] as const;
 
   function generateNoShowPdf() {
@@ -1778,18 +1807,60 @@ export default function FluxoPage() {
           <strong>{lastSyncAt ? `Atualizado ${lastSyncAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Conectando..."}</strong>
         </div>
 
-        <section className="flow-metrics">
-          {metrics.map((item) => (
+        <section className="flow-metrics flow-day-panel">
+          <button
+            className={`flow-metric flow-total active ${metricFilter === "todos" ? "selected-total" : ""}`}
+            type="button"
+            onClick={() => setMetricFilter("todos")}
+          >
+            <span>Fluxo do dia</span>
+            <strong>{operationalFlowVehicles.length}</strong>
+            <small>veículos em atuação hoje</small>
+          </button>
+
+          <div className="flow-metric-group">
+            <strong>Origem do fluxo</strong>
+            {originMetrics.map((item) => (
+              <button
+                key={item.label}
+                className={`metric-line-btn ${metricFilter === item.filter ? "selected" : ""}`}
+                type="button"
+                onClick={() => setMetricFilter(metricFilter !== item.filter ? item.filter : "todos")}
+              >
+                <span>{item.label}</span>
+                <b>{item.value}</b>
+              </button>
+            ))}
+          </div>
+
+          <div className="flow-metric-group service-group">
+            <strong>Tipo do serviço</strong>
+            {serviceMetrics.map((item) => (
+              <button
+                key={item.label}
+                className={`metric-line-btn ${metricFilter === item.filter ? "selected" : ""}`}
+                type="button"
+                onClick={() => setMetricFilter(metricFilter !== item.filter ? item.filter : "todos")}
+              >
+                <span>{item.label}</span>
+                <b>{item.value}</b>
+              </button>
+            ))}
+          </div>
+
+          <div className="flow-status-strip">
+            {statusMetrics.map((item) => (
             <button
               key={item.label}
-              className={`flow-metric ${item.state} ${metricFilter === item.filter && item.filter !== "todos" ? "selected" : ""}`}
+                className={`flow-metric mini ${item.state} ${metricFilter === item.filter ? "selected" : ""}`}
               type="button"
-              onClick={() => setMetricFilter(item.filter !== "todos" && metricFilter !== item.filter ? item.filter : "todos")}
+                onClick={() => setMetricFilter(metricFilter !== item.filter ? item.filter : "todos")}
             >
               <strong>{item.value}</strong>
               <span>{item.label}</span>
             </button>
           ))}
+          </div>
 
           <label className="flow-filter">
             <span>Consultor</span>
