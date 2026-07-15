@@ -51,6 +51,7 @@ type HgsiRecordImport = {
 type HgsiAnswerImport = {
   chassi: string;
   osNumber: string;
+  responseStatus?: string;
   clientName?: string;
   plate?: string;
   serviceLabel?: string;
@@ -127,6 +128,14 @@ function boolFrom(row: Record<string, unknown>, terms: string[]) {
   if (["sim", "s", "yes", "correto", "1"].some((term) => value === term || value.includes(term))) return true;
   if (["nao", "n", "no", "incorreto", "0"].some((term) => value === term || value.includes(term))) return false;
   return undefined;
+}
+
+function isUnauthorizedAnswerStatus(status?: string) {
+  return normalizeText(status).includes("realizada sem autorizacao");
+}
+
+function isAnswerInHgsiBase(answer: HgsiAnswerImport) {
+  return !isUnauthorizedAnswerStatus(answer.responseStatus);
 }
 
 function parseRows(file: File) {
@@ -470,6 +479,7 @@ export default function PosServicoPage() {
         setHgsiAnswers(savedAnswers.map((answer) => ({
           chassi: normalizeChassi(answer.chassi),
           osNumber: answer.osNumber ?? "",
+          responseStatus: (answer as { responseStatus?: string }).responseStatus,
           clientName: (answer as { clientName?: string }).clientName,
           plate: (answer as { plate?: string }).plate,
           serviceLabel: (answer as { serviceLabel?: string }).serviceLabel,
@@ -513,11 +523,13 @@ export default function PosServicoPage() {
 
   const answersByChassi = useMemo(() => {
     const mapped = new Map<string, HgsiAnswerImport>();
-    hgsiAnswers.forEach((answer) => {
+    hgsiAnswers.filter(isAnswerInHgsiBase).forEach((answer) => {
       if (answer.chassi) mapped.set(answer.chassi, answer);
     });
     return mapped;
   }, [hgsiAnswers]);
+  const hgsiBaseAnswers = useMemo(() => hgsiAnswers.filter(isAnswerInHgsiBase), [hgsiAnswers]);
+  const unauthorizedAnswers = useMemo(() => hgsiAnswers.filter((answer) => !isAnswerInHgsiBase(answer)), [hgsiAnswers]);
 
   const validRecords = useMemo(() => hgsiRecords.filter((record) => record.valid), [hgsiRecords]);
   const validChassis = useMemo(() => new Set(validRecords.map((record) => record.chassi).filter(Boolean)), [validRecords]);
@@ -532,13 +544,13 @@ export default function PosServicoPage() {
   }, [flowItems, flowKeys, validChassis, validRecords]);
 
   const answeredItems = useMemo(() => {
-    const answeredKeys = new Set(hgsiAnswers.map((answer) => answer.chassi || answer.osNumber).filter(Boolean));
+    const answeredKeys = new Set(hgsiBaseAnswers.map((answer) => answer.chassi || answer.osNumber).filter(Boolean));
     const matched = flowItems.filter((item) => answeredKeys.has(normalizeChassi(item.chassi)) || answeredKeys.has(item.osNumber ?? ""));
-    const basic = hgsiAnswers
+    const basic = hgsiBaseAnswers
       .filter((answer) => !flowKeys.has(answer.chassi || answer.osNumber))
       .map(answerToItem);
     return [...matched, ...basic];
-  }, [flowItems, flowKeys, hgsiAnswers]);
+  }, [flowItems, flowKeys, hgsiBaseAnswers]);
 
   const filterByConsultant = (item: FunnelItem) => (
     consultantFilter === "Todos" || consultantDisplayName(item.consultantName) === consultantFilter
@@ -553,7 +565,7 @@ export default function PosServicoPage() {
 
   const consultantStats = useMemo(() => {
     return consultants.map((consultant) => {
-      const answered = hgsiAnswers.filter((answer) => displayAnswerConsultant(answer) === consultant);
+      const answered = hgsiBaseAnswers.filter((answer) => displayAnswerConsultant(answer) === consultant);
       const hgsiScores = answered.map(hgsiValue);
       const hgsiAverage = averageNumber(hgsiScores);
       const range950 = answered.filter((answer) => {
@@ -621,7 +633,7 @@ export default function PosServicoPage() {
         answeredClients,
       };
     });
-  }, [hgsiAnswers]);
+  }, [hgsiBaseAnswers]);
 
   const metrics = [
     { label: "Veículos entregues", value: deliveredItems.length },
@@ -736,6 +748,7 @@ export default function PosServicoPage() {
         return {
           chassi,
           osNumber,
+          responseStatus: textFrom(row, ["status da pesquisa", "status entrevista", "status", "situacao", "situação"]),
           clientName: textFrom(row, ["dados do cliente nome", "cliente nome"]),
           plate: textFrom(row, ["placa"]),
           serviceLabel: textFrom(row, ["dados do cliente veiculo", "veiculo", "veículo", "servico", "serviço", "tipo"]),
@@ -804,7 +817,7 @@ export default function PosServicoPage() {
             <label className="file-button compact-file">
               <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiAnswers(event.target.files?.[0])} />
               <strong>Respostas HGSI</strong>
-              <span>{hgsiAnswers.length} resposta(s)</span>
+              <span>{hgsiBaseAnswers.length} na base{unauthorizedAnswers.length ? ` · ${unauthorizedAnswers.length} sem autorização` : ""}</span>
             </label>
           </div>
         </section>
@@ -870,8 +883,8 @@ export default function PosServicoPage() {
               <strong>{filteredAnsweredItems.length}</strong>
             </div>
             <div className="funnel-stage-body">
-              {hgsiAnswers.length === 0 ? (
-                <p className="empty">Importe a planilha de respostas HGSI.</p>
+              {hgsiBaseAnswers.length === 0 ? (
+                <p className="empty">{hgsiAnswers.length ? "Nenhuma resposta válida para a base HGSI." : "Importe a planilha de respostas HGSI."}</p>
               ) : filteredAnsweredItems.length ? filteredAnsweredItems.map((item) => (
                 <FunnelCard
                   key={item.id}

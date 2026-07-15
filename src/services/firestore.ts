@@ -78,6 +78,7 @@ type SaveHgsiRecordInput = {
 type SaveHgsiAnswerInput = {
   chassi: string;
   osNumber: string;
+  responseStatus?: string;
   clientName?: string;
   plate?: string;
   serviceLabel?: string;
@@ -355,6 +356,7 @@ export async function saveHgsiAnswers({
       importBatchId,
       chassi: answer.chassi,
       osNumber: answer.osNumber,
+      responseStatus: answer.responseStatus,
       clientName: answer.clientName,
       plate: answer.plate,
       serviceLabel: answer.serviceLabel,

@@ -309,6 +309,7 @@ export interface HgsiAnswer {
   importBatchId?: string;
   chassi?: string;
   osNumber?: string;
+  responseStatus?: string;
   consultantId?: string;
   answerDate?: string;
   nps?: number;
