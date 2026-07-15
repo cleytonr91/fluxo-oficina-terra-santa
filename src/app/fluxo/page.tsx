@@ -33,7 +33,7 @@ const washLabels = Object.fromEntries(washOptions.map((option) => [option.value,
 
 const fixedConsultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
 
-const workshopTechnicians = ["Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan"];
+const workshopTechnicians = ["Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan", "Igo"];
 
 const walkInServices = [
   "Revisão 01",
@@ -90,6 +90,10 @@ function isWashService(service: string) {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .includes("lavagem");
+}
+
+function isWashOnlyVehicle(vehicle: VehicleFlow) {
+  return isWashService(vehicle.serviceLabel ?? "");
 }
 
 function washTypeFromService(service: string, fallback: WashType): WashType {
@@ -690,13 +694,14 @@ export default function FluxoPage() {
       : fixedConsultants.includes(importedConsultant)
         ? importedConsultant
         : "";
+    const washOnly = isWashOnlyVehicle(vehicle);
 
     setReceivingVehicle(vehicle);
     setReceiveForm({
       consultantName: selectedConsultant,
       customerWaits: vehicle.customerWaits ?? false,
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
-      washType: vehicle.washType ?? "simples",
+      washType: washOnly ? washTypeFromService(vehicle.serviceLabel ?? "", vehicle.washType ?? "simples") : vehicle.washType ?? "simples",
       receiveNote: vehicle.receiveNote ?? "",
       roadTestDone: typeof vehicle.roadTestDone === "boolean" ? (vehicle.roadTestDone ? "sim" : "nao") : "",
     });
@@ -841,12 +846,17 @@ export default function FluxoPage() {
     setError("");
 
     try {
+      const nextLane: FlowLane = isWashOnlyVehicle(receivingVehicle) ? "aguardando_lavagem" : "aguardando_servico";
+      const receiveNote = receiveForm.receiveNote || (nextLane === "aguardando_lavagem"
+        ? "Veículo recebido para serviço de lavagem"
+        : "Veículo recebido pelo consultor");
+
       await moveVehicleFlow({
         vehicleFlowId: receivingVehicle.id,
         fromLane: receivingVehicle.currentLane,
-        toLane: "aguardando_servico",
+        toLane: nextLane,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
-        actionNote: receiveForm.receiveNote || "Veículo recebido pelo consultor",
+        actionNote: receiveNote,
         consultantName: receiveForm.consultantName.trim(),
         customerWaits: receiveForm.customerWaits,
         promisedDeliveryAt: receiveForm.promisedDeliveryAt,
@@ -859,7 +869,7 @@ export default function FluxoPage() {
         vehicle.id === receivingVehicle.id
           ? {
               ...vehicle,
-              currentLane: "aguardando_servico",
+              currentLane: nextLane,
               consultantName: receiveForm.consultantName.trim(),
               customerWaits: receiveForm.customerWaits,
               promisedDeliveryAt: receiveForm.promisedDeliveryAt,
@@ -1907,7 +1917,11 @@ export default function FluxoPage() {
                 Cancelar
               </button>
               <button type="submit" className="primary-btn" disabled={movingId === receivingVehicle.id}>
-                {movingId === receivingVehicle.id ? "Movendo..." : "Mover para Aguardando Serviço"}
+                {movingId === receivingVehicle.id
+                  ? "Movendo..."
+                  : isWashOnlyVehicle(receivingVehicle)
+                    ? "Mover para Aguardando Lavagem"
+                    : "Mover para Aguardando Serviço"}
               </button>
             </div>
           </form>
