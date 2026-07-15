@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -137,6 +137,10 @@ type TechnicianForm = {
 
 type ServiceForm = {
   serviceLabel: string;
+};
+
+type WashForm = {
+  washType: WashType;
 };
 
 type PartOrderForm = {
@@ -542,6 +546,7 @@ export default function FluxoPage() {
   const [plateForm, setPlateForm] = useState<PlateForm>({ plate: "" });
   const [technicianForm, setTechnicianForm] = useState<TechnicianForm>({ technicianName: "" });
   const [serviceForm, setServiceForm] = useState<ServiceForm>({ serviceLabel: "" });
+  const [washForm, setWashForm] = useState<WashForm>({ washType: "nao" });
   const [partOrderForm, setPartOrderForm] = useState<PartOrderForm>({
     customerId: "",
     parts: [{ id: "peca-1", partReference: "", partDescription: "" }],
@@ -716,6 +721,7 @@ export default function FluxoPage() {
     setPlateForm({ plate: vehicle.plate?.startsWith("SEMPLACA") ? "" : vehicle.plate ?? "" });
     setTechnicianForm({ technicianName: vehicle.technicianName ?? "" });
     setServiceForm({ serviceLabel: vehicle.serviceLabel ?? "" });
+    setWashForm({ washType: vehicle.washType ?? "nao" });
     setPartOrderForm({
       customerId: existingPartOrder?.customerId ?? "",
       parts: existingPartOrder?.parts?.length
@@ -1423,6 +1429,38 @@ export default function FluxoPage() {
     }
   }
 
+  async function submitWashTypeUpdate() {
+    if (!detailVehicle) return;
+
+    const washType = washForm.washType;
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await updateVehicleWashType({
+        vehicleFlowId: detailVehicle.id,
+        currentLane: detailVehicle.currentLane,
+        washType,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+
+      const washPatch = {
+        washType,
+        ...(washType === "nao" ? { washingAdvanced: false, washDone: false } : {}),
+      };
+
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === detailVehicle.id ? { ...vehicle, ...washPatch } : vehicle
+      )));
+      setDetailVehicle((current) => current ? { ...current, ...washPatch } : current);
+      setWashForm({ washType });
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível atualizar o tipo da lavagem.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   function updatePartOrderItem(partId: string, patch: Partial<PartOrderItem>) {
     setPartOrderForm((current) => ({
       ...current,
@@ -2054,6 +2092,31 @@ export default function FluxoPage() {
                   onClick={submitServiceUpdate}
                 >
                   {movingId === detailVehicle.id ? "Salvando..." : "Salvar serviço"}
+                </button>
+              </div>
+            </section>
+
+            <section className="history-box">
+              <h3>Tipo da lavagem</h3>
+              <div className="correction-grid">
+                <label className="field">
+                  <span>Lavagem</span>
+                  <select
+                    value={washForm.washType}
+                    onChange={(event) => setWashForm({ washType: event.target.value as WashType })}
+                  >
+                    {washOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  disabled={movingId === detailVehicle.id}
+                  onClick={submitWashTypeUpdate}
+                >
+                  {movingId === detailVehicle.id ? "Salvando..." : "Salvar lavagem"}
                 </button>
               </div>
             </section>

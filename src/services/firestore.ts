@@ -1149,6 +1149,46 @@ export async function updateVehicleService({
   await batch.commit();
 }
 
+export async function updateVehicleWashType({
+  vehicleFlowId,
+  currentLane,
+  washType,
+  actionBy,
+}: {
+  vehicleFlowId: string;
+  currentLane: FlowLane;
+  washType: WashType;
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+  const washTypeLabels: Record<WashType, string> = {
+    simples: "Lavagem Simples",
+    motor: "Lavagem de Motor",
+    motor_bancos: "Lavagem Motor + Bancos",
+    nao: "Não",
+  };
+
+  batch.set(flowRef, {
+    washType,
+    ...(washType === "nao" ? { washingAdvanced: false, washDone: false } : {}),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(flowEventRef, {
+    vehicleFlowId,
+    fromLane: currentLane,
+    toLane: currentLane,
+    actionBy,
+    actionNote: `Tipo da lavagem atualizado para ${washTypeLabels[washType]}`,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
 export async function requestComplementaryBudget({
   vehicleFlowId,
   fromLane,
