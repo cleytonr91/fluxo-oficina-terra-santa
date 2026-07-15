@@ -192,7 +192,7 @@ type StartServiceForm = {
   note: string;
 };
 
-type MetricFilter = "todos" | "noShow" | "immobilized";
+type MetricFilter = "todos" | "revisao" | "diagnostico" | "reparo" | "embelezamento" | "noShow" | "concluidos" | "immobilized" | "attention";
 
 function EmptyLane({ text = "Sem veículos nesta etapa" }: { text?: string }) {
   return <p className="empty">{text}</p>;
@@ -208,6 +208,10 @@ function isDiagnostic(vehicle: VehicleFlow) {
 
 function isGeneralRepair(vehicle: VehicleFlow) {
   return (vehicle.serviceLabel ?? "").toLowerCase().includes("reparo");
+}
+
+function isBeautyService(vehicle: VehicleFlow) {
+  return isWashService(vehicle.serviceLabel ?? "") || (vehicle.washType !== undefined && vehicle.washType !== "nao");
 }
 
 function sameDayDefault(date?: string) {
@@ -336,12 +340,6 @@ function sortLaneVehicles(lane: FlowLane, vehicles: VehicleFlow[]) {
   return [...vehicles].sort((a, b) => priorityScore(a).localeCompare(priorityScore(b)));
 }
 
-function isPastDate(date?: string) {
-  if (!date) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  return date < today;
-}
-
 function timeProgress(vehicle: VehicleFlow, now: Date) {
   const promised = toDate(vehicle.promisedDeliveryAt);
   if (!promised || vehicle.currentLane === "entregue") return null;
@@ -383,6 +381,19 @@ function matchesSelectedFlowDate(vehicle: VehicleFlow, selectedDate?: string) {
 function matchesNoShowDate(vehicle: VehicleFlow, selectedDate?: string) {
   if (!selectedDate) return true;
   return vehicle.appointmentDate === selectedDate || toDateInputValue(vehicle.noShowAt) === selectedDate;
+}
+
+function appointmentDateTime(vehicle: VehicleFlow) {
+  if (!vehicle.appointmentDate || !vehicle.appointmentTime) return null;
+  const [hour = "0", minute = "0"] = vehicle.appointmentTime.split(":");
+  const date = new Date(`${vehicle.appointmentDate}T${hour.padStart(2, "0")}:${minute.padStart(2, "0")}:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isNoShowDue(vehicle: VehicleFlow, referenceDate: Date) {
+  const appointment = appointmentDateTime(vehicle);
+  if (!appointment) return false;
+  return referenceDate.getTime() - appointment.getTime() > 60 * 60 * 1000;
 }
 
 function washStatusText(vehicle: VehicleFlow) {
@@ -671,7 +682,7 @@ export default function FluxoPage() {
     const candidates = vehicles.filter((vehicle) => (
       vehicle.currentLane === "preparacao_confirmada"
       && !vehicle.noShow
-      && isPastDate(vehicle.appointmentDate)
+      && isNoShowDue(vehicle, now)
     ));
 
     if (!candidates.length) return;
@@ -690,7 +701,7 @@ export default function FluxoPage() {
           : vehicle
       )));
     });
-  }, [profile?.name, user?.email, user?.uid, vehicles]);
+  }, [now, profile?.name, user?.email, user?.uid, vehicles]);
 
   function openReceiveModal(vehicle: VehicleFlow) {
     const loggedConsultant = consultantDisplayName(profile?.name);
@@ -1598,28 +1609,49 @@ export default function FluxoPage() {
       .sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`));
   }, [consultantFilter, immobilizedVehicleIds, plateFilter, technicianFilter, vehicles]);
 
+  const metricDate = flowDate || new Date().toISOString().slice(0, 10);
+  const visibleFlowVehicles = dateScopedVehicles.filter((vehicle) => !vehicle.noShow && !immobilizedVehicleIds.has(vehicle.id));
+  const operationalFlowVehicles = visibleFlowVehicles.filter((vehicle) => vehicle.currentLane !== "entregue");
+  const concludedDayVehicles = visibleFlowVehicles.filter((vehicle) => (
+    vehicle.currentLane === "preparacao_entrega"
+    || (vehicle.currentLane === "entregue" && toDateInputValue(vehicle.deliveredAt) === metricDate)
+  ));
+  const attentionVehicles = operationalFlowVehicles.filter((vehicle) => (
+    vehicle.priority === "alta"
+    || vehicle.roadTestRequired
+    || vehicle.customerWaits
+    || vehicle.budgetStatus === "aguardando"
+    || timeProgress(vehicle, now)?.status === "late"
+  ));
+
   const filteredVehicles = metricFilter === "noShow"
     ? noShowVehicles
     : metricFilter === "immobilized"
       ? immobilizedVehicles
-      : dateScopedVehicles.filter((vehicle) => !vehicle.noShow && !immobilizedVehicleIds.has(vehicle.id));
-
-  const metricDate = flowDate || new Date().toISOString().slice(0, 10);
-  const dayOperationalVehicles = dateScopedVehicles.filter((vehicle) => (
-    vehicle.appointmentDate === metricDate
-    && !vehicle.noShow
-    && !immobilizedVehicleIds.has(vehicle.id)
-  ));
+      : metricFilter === "revisao"
+        ? operationalFlowVehicles.filter(isRevision)
+        : metricFilter === "diagnostico"
+          ? operationalFlowVehicles.filter(isDiagnostic)
+          : metricFilter === "reparo"
+            ? operationalFlowVehicles.filter(isGeneralRepair)
+            : metricFilter === "embelezamento"
+              ? operationalFlowVehicles.filter(isBeautyService)
+              : metricFilter === "concluidos"
+                ? concludedDayVehicles
+                : metricFilter === "attention"
+                  ? attentionVehicles
+                  : visibleFlowVehicles;
 
   const metrics = [
-    { value: dayOperationalVehicles.length, label: "veículos no fluxo", state: "active", filter: "todos" as MetricFilter },
-    { value: dayOperationalVehicles.filter(isRevision).length, label: "revisões", state: "", filter: "todos" as MetricFilter },
-    { value: dayOperationalVehicles.filter(isDiagnostic).length, label: "diagnósticos", state: "", filter: "todos" as MetricFilter },
-    { value: dayOperationalVehicles.filter(isGeneralRepair).length, label: "reparos gerais", state: "", filter: "todos" as MetricFilter },
-    { value: dayOperationalVehicles.filter((item) => item.origin === "passante").length, label: "passantes", state: "", filter: "todos" as MetricFilter },
+    { value: operationalFlowVehicles.length, label: "veículos no fluxo", state: "active", filter: "todos" as MetricFilter },
+    { value: operationalFlowVehicles.filter(isRevision).length, label: "revisões", state: "", filter: "revisao" as MetricFilter },
+    { value: operationalFlowVehicles.filter(isDiagnostic).length, label: "diagnósticos", state: "", filter: "diagnostico" as MetricFilter },
+    { value: operationalFlowVehicles.filter(isGeneralRepair).length, label: "reparos gerais", state: "", filter: "reparo" as MetricFilter },
+    { value: operationalFlowVehicles.filter(isBeautyService).length, label: "embelezamento", state: "", filter: "embelezamento" as MetricFilter },
     { value: noShowVehicles.length, label: "no-show", state: "danger", filter: "noShow" as MetricFilter },
+    { value: concludedDayVehicles.length, label: "concluídos do dia", state: "", filter: "concluidos" as MetricFilter },
     { value: immobilizedVehicles.length, label: "imobilizados", state: "danger", filter: "immobilized" as MetricFilter },
-    { value: dayOperationalVehicles.filter((item) => item.priority === "alta" || item.roadTestRequired || item.customerWaits).length, label: "em atenção", state: "", filter: "todos" as MetricFilter },
+    { value: attentionVehicles.length, label: "em atenção", state: "", filter: "attention" as MetricFilter },
   ] as const;
 
   function generateNoShowPdf() {
