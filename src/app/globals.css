@@ -2368,7 +2368,7 @@ textarea {
 }
 
 .scheduling-metrics {
-  grid-template-columns: repeat(5, minmax(110px, 1fr)) minmax(260px, 1.6fr);
+  grid-template-columns: repeat(6, minmax(96px, 1fr)) minmax(260px, 1.6fr);
 }
 
 .scheduling-search input {
