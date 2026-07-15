@@ -428,7 +428,11 @@ function FlowChip({
         {previousDay && <span className="tag previous-day">Dia anterior</span>}
         {vehicle.origin === "passante" && <span className="tag warn">Passante</span>}
         {vehicle.priority === "alta" && <span className="tag bad">Alta</span>}
-        {vehicle.roadTestRequired && <span className={`tag ${vehicle.roadTestDone ? "good" : "bad"}`}>Teste {vehicle.roadTestDone ? "👍" : "👎"}</span>}
+        {vehicle.roadTestRequired && (
+          <span className={`tag ${typeof vehicle.roadTestDone === "boolean" ? (vehicle.roadTestDone ? "good" : "bad") : ""}`}>
+            Teste{typeof vehicle.roadTestDone === "boolean" ? (vehicle.roadTestDone ? " 👍" : " 👎") : ""}
+          </span>
+        )}
         {vehicle.washingAdvanced && !vehicle.washDone && <span className="tag warn">Lavagem antecipada</span>}
         {vehicle.washingAdvanced && vehicle.washDone && !vehicle.serviceCompleted && <span className="tag warn">Lavagem feita</span>}
         {vehicle.noShow && <span className="tag bad">NO-SHOW</span>}
