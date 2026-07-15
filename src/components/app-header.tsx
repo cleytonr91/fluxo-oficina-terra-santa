@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
+import { OperationManual, type ManualContent } from "@/components/operation-manual";
 
 const navigation = [
   { href: "/preparacao", label: "Preparação" },
@@ -28,9 +29,11 @@ function currentTime() {
 export function AppHeader({
   title,
   subtitle,
+  manual,
 }: {
   title: string;
   subtitle?: string;
+  manual?: ManualContent;
 }) {
   const pathname = usePathname();
   const { profile, user, logout } = useAuth();
@@ -72,6 +75,7 @@ export function AppHeader({
 
       <div className="header-actions">
         <nav aria-label="Páginas do fluxo">
+          {manual && <OperationManual manual={manual} />}
           {navigation.filter((item) => !(isFlow && item.href === "/fluxo")).map((item) => {
             const active = pathname === item.href;
 

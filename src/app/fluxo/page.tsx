@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
+import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
 import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
@@ -53,6 +54,35 @@ const walkInServices = [
   "Lavagem de Motor",
   "Lavagem Motor + Bancos",
 ];
+
+const manual: ManualContent = {
+  title: "Manual do Fluxo da Oficina",
+  audience: "Uso principal: consultores, técnicos, chefe de oficina, lavagem e peças",
+  objective: "Acompanhar cada veículo do recebimento até a entrega, mantendo a equipe alinhada sobre etapa, prioridade, previsão, lavagem, orçamento e pendências.",
+  steps: [
+    "Selecione a data correta no cabeçalho.",
+    "Use os filtros de consultor, técnico ou placa para localizar um chip.",
+    "No quadro Agendamento do Dia, mova o veículo quando o cliente chegar.",
+    "Informe consultor que recebeu, se cliente aguarda, previsão prometida, lavagem e observação.",
+    "Avance o chip conforme a execução: aguardando serviço, em serviço, orçamento, lavagem, preparação de entrega e entregue.",
+    "Use o detalhe do chip para corrigir etapa, alterar previsão, placa, técnico, serviço ou registrar pedido de peças.",
+    "Na entrega, registre prazo, pedido de peças, NPS, pendência e observação futura.",
+  ],
+  rules: [
+    "A previsão de entrega não pode ser reduzida para ganhar prioridade.",
+    "Cliente aguarda deve receber atenção visual no chip.",
+    "Se não houver lavagem ou ela já tiver sido antecipada, o fluxo pode seguir direto para preparação de entrega.",
+    "Toda correção de etapa deve ter motivo registrado.",
+    "Veículos no-show ficam fora da fila principal e aparecem no filtro No-show.",
+  ],
+  flow: [
+    { title: "Agendamento do Dia", text: "Consultor confirma chegada do cliente." },
+    { title: "Aguardando Serviço", text: "Oficina visualiza prioridade por previsão, recebimento e cliente aguarda." },
+    { title: "Em Serviço", text: "Técnico executa ou solicita orçamento complementar." },
+    { title: "Lavagem", text: "Veículo segue para lavagem quando aplicável." },
+    { title: "Entrega", text: "Consultor fecha dados de entrega e gera pós-serviço." },
+  ],
+};
 
 function isWashService(service: string) {
   return service
@@ -1622,6 +1652,7 @@ export default function FluxoPage() {
     <ProtectedPage
       title="Fluxo da Oficina"
       subtitle="Agenda, passantes, oficina, lavagem e entrega."
+      manual={manual}
     >
       <main className="flow-page">
         <div className={`realtime-status ${error ? "offline" : ""}`}>

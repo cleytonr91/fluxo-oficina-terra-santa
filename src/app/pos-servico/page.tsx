@@ -3,12 +3,38 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ProtectedPage } from "@/components/protected-page";
+import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
 import { listActiveVehicleFlows, listHgsiAnswers, listHgsiRecords, listPostServiceCases, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
 import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from "@/types/domain";
 
 const consultants = ["Cleverton", "Rosangela", "Eliane"];
 const surveyGoal = 15;
+
+const manual: ManualContent = {
+  title: "Manual do Pós-serviço HGSI",
+  audience: "Uso principal: coordenador de qualidade",
+  objective: "Acompanhar clientes entregues, cruzar registros válidos e respostas HGSI, tratar pendências e medir impacto por consultor.",
+  steps: [
+    "Importe a planilha de Status Registro para identificar clientes aptos à pesquisa.",
+    "Importe a planilha de entrevistas para atualizar clientes que já responderam.",
+    "Analise veículos entregues e registros válidos antes da resposta HGSI.",
+    "Registre tratativas, observações do cliente e necessidade de GPV quando houver risco.",
+    "Use os indicadores por consultor para acompanhar meta, nota HGSI, NPS e serviço correto.",
+  ],
+  rules: [
+    "Chassi com pelo menos um registro válido indica cliente apto à pesquisa.",
+    "Registro válido com pendência deve ser tratado antes da solicitação da pesquisa.",
+    "Clientes já respondidos devem sair da fila de tratativa pré-pesquisa.",
+    "Pendência real ocorre quando há pedido de peças, NPS baixo ou pendência marcada na entrega.",
+  ],
+  flow: [
+    { title: "Entregues", text: "Clientes vêm do quadro Entregue do fluxo." },
+    { title: "Registro válido", text: "Planilha Route/HGSI define aptidão." },
+    { title: "Tratativa", text: "Qualidade registra ação e observação." },
+    { title: "Resposta HGSI", text: "Planilha de entrevistas alimenta indicadores por consultor." },
+  ],
+};
 
 type HgsiRecordImport = {
   chassi: string;
@@ -747,6 +773,7 @@ export default function PosServicoPage() {
     <ProtectedPage
       title="Funil HGSI"
       subtitle="Veículos entregues, registros válidos Route, clientes respondidos e indicadores por consultor."
+      manual={manual}
     >
       <main className="page-wrap post-funnel-page">
         <section className="post-toolbar">

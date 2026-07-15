@@ -813,6 +813,80 @@ textarea {
   margin: 3px 0 0;
 }
 
+.manual-modal {
+  width: min(780px, calc(100vw - 24px));
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+}
+
+.manual-section {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fbfcfa;
+  padding: 12px;
+}
+
+.manual-section h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.manual-section p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.manual-section ol,
+.manual-section ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.manual-section li {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.manual-flow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.manual-flow-step {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #d7ded9;
+  border-left: 4px solid var(--green);
+  border-radius: 7px;
+  background: #fff;
+  padding: 10px;
+}
+
+.manual-flow-step span {
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.manual-flow-step strong {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.manual-flow-step p {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .chip-history-list li {
   position: relative;
   padding-left: 12px;

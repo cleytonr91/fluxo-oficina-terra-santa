@@ -2,8 +2,32 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
+import type { ManualContent } from "@/components/operation-manual";
 import { listActiveVehicleFlows } from "@/services/firestore";
 import type { VehicleFlow } from "@/types/domain";
+
+const manual: ManualContent = {
+  title: "Manual do Farol Gerencial",
+  audience: "Uso principal: gerência e coordenação",
+  objective: "Ler os indicadores do fluxo para identificar volume, prazo, gargalos, no-show, atenção ao cliente e qualidade da entrega.",
+  steps: [
+    "Abra o Farol para uma visão consolidada da operação.",
+    "Confira volume recebido, entregas no prazo, no-show e clientes em atenção.",
+    "Use os indicadores como radar diário para cobrar ação das áreas responsáveis.",
+    "Compare os números com o Fluxo e o Pós-serviço quando precisar investigar um caso.",
+  ],
+  rules: [
+    "O Farol é uma página de leitura gerencial, não de movimentação de chips.",
+    "Indicadores dependem da disciplina de uso nas páginas Fluxo, Peças e Pós-serviço.",
+    "Pedidos de peças, atrasos e NPS baixo devem gerar tratativa operacional.",
+  ],
+  flow: [
+    { title: "Coletar dados", text: "Sistema reúne informações do fluxo." },
+    { title: "Gerar indicadores", text: "Calcula volume, prazo, atenção e satisfação." },
+    { title: "Analisar gargalos", text: "Gerência identifica onde agir." },
+    { title: "Cobrar ação", text: "Direciona correção para oficina, consultores, peças ou qualidade." },
+  ],
+};
 
 export default function FarolGerencialPage() {
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
@@ -57,6 +81,7 @@ export default function FarolGerencialPage() {
     <ProtectedPage
       title="Farol Gerencial"
       subtitle="Indicadores para enxergar volume, prazo, gargalos, satisfação e atuação por área."
+      manual={manual}
     >
       <main className="page-wrap">
         {error && <div className="duplicate-alert"><strong>Erro no farol gerencial</strong><span>{error}</span></div>}

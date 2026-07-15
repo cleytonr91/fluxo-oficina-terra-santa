@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
+import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
 import { registerPartSchedulingAction, subscribeActiveVehicleFlows, subscribePartOrders } from "@/services/firestore";
 import type { PartOrder, PartOrderItem, PartOrderStatus, PartSchedulingActionType, PartSchedulingStatus, VehicleFlow } from "@/types/domain";
@@ -37,6 +38,34 @@ const orderStatusLabels: Record<PartOrderStatus, string> = {
   recebido: "Recebido",
   disponivel: "Disponível",
   cancelado: "Cancelado",
+};
+
+const manual: ManualContent = {
+  title: "Manual do Agendamento",
+  audience: "Uso principal: setor de agendamento",
+  objective: "Localizar pedidos de peças, informar clientes sobre status atual e agendar retorno quando a peça estiver disponível.",
+  steps: [
+    "Sem pesquisa, acompanhe a fila de peças disponíveis para agendar.",
+    "Quando o cliente entrar em contato, pesquise por nome, placa, chassi, telefone, ID ou peça.",
+    "Confira o status atual do pedido antes de orientar o cliente.",
+    "Se o pedido estiver disponível e não imobilizado, clique em Agendar.",
+    "Escolha entre Agendamento confirmado, Contato sem sucesso ou Cliente sem disponibilidade.",
+    "Se confirmar agendamento, informe a data do retorno.",
+    "Se não conseguir contato ou o cliente não tiver disponibilidade, registre observação e, se necessário, novo compromisso de contato.",
+  ],
+  rules: [
+    "A pesquisa consulta todos os pedidos, não apenas os disponíveis.",
+    "Somente pedidos disponíveis e não imobilizados podem ser agendados pelo setor.",
+    "Contato sem sucesso sugere data e hora atual da tentativa.",
+    "Novo compromisso de contato vira pendência quando chegar a data marcada.",
+    "Veículos imobilizados são tratados fora do agendamento, diretamente pela oficina.",
+  ],
+  flow: [
+    { title: "Pesquisar", text: "Localiza cliente, placa, chassi, telefone ou peça." },
+    { title: "Consultar status", text: "Informa se está solicitado, B.O, trânsito, recebido, disponível ou cancelado." },
+    { title: "Agendar", text: "Quando disponível, registra retorno ou tentativa de contato." },
+    { title: "Pendência", text: "Novo compromisso aparece quando chega a data combinada." },
+  ],
 };
 
 function toDate(value: unknown) {
@@ -214,7 +243,7 @@ export default function AgendamentoPage() {
   }
 
   return (
-    <ProtectedPage title="Agendamento" subtitle="Retornos de clientes com peças disponíveis.">
+    <ProtectedPage title="Agendamento" subtitle="Retornos de clientes com peças disponíveis." manual={manual}>
       <main className="page-wrap scheduling-page">
         {error && <div className="duplicate-alert"><strong>Erro em agendamento</strong><span>{error}</span></div>}
 
