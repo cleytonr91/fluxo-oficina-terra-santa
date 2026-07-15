@@ -899,6 +899,39 @@ export async function markVehicleNoShow({
   await batch.commit();
 }
 
+export async function cancelVehicleFlow({
+  vehicleFlowId,
+  currentLane,
+  actionBy,
+  actionNote,
+}: {
+  vehicleFlowId: string;
+  currentLane: FlowLane;
+  actionBy?: string;
+  actionNote?: string;
+}) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+
+  batch.set(flowRef, {
+    status: "cancelado",
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(flowEventRef, {
+    vehicleFlowId,
+    fromLane: currentLane,
+    toLane: currentLane,
+    actionBy,
+    actionNote: actionNote || "Chip excluído do fluxo",
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
 type MoveVehicleFlowInput = {
   vehicleFlowId: string;
   fromLane?: FlowLane;

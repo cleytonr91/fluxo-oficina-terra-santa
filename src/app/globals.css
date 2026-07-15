@@ -179,6 +179,16 @@ textarea {
   color: #fff;
 }
 
+.danger-btn {
+  border-color: #f0b8ad;
+  color: #b42318;
+}
+
+.danger-btn:hover {
+  border-color: #df6f5f;
+  background: #fff0ed;
+}
+
 .user-pill {
   display: flex;
   align-items: center;

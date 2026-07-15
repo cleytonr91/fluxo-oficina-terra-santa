@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
-import { completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -500,6 +500,7 @@ function FlowChip({
 
 export default function FluxoPage() {
   const { profile, user } = useAuth();
+  const canDeleteChip = profile?.role === "admin" || profile?.role === "gerente";
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1300,6 +1301,32 @@ export default function FluxoPage() {
     }
   }
 
+  async function submitChipDeletion() {
+    if (!detailVehicle || !canDeleteChip) return;
+
+    const confirmed = window.confirm(`Excluir o chip de ${detailVehicle.clientName ?? "cliente sem nome"} do fluxo? Esta ação remove o chip das telas operacionais e registra a auditoria.`);
+    if (!confirmed) return;
+
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await cancelVehicleFlow({
+        vehicleFlowId: detailVehicle.id,
+        currentLane: detailVehicle.currentLane,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+        actionNote: "Chip excluído pelo usuário autorizado",
+      });
+
+      setVehicles((current) => current.filter((vehicle) => vehicle.id !== detailVehicle.id));
+      setDetailVehicle(null);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível excluir o chip.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   async function submitPlateUpdate() {
     if (!detailVehicle) return;
 
@@ -1487,6 +1514,7 @@ export default function FluxoPage() {
     const normalizedPlateFilter = plateFilter.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 
     return vehicles.filter((vehicle) => {
+      if (vehicle.status === "cancelado") return false;
       const dateMatches = matchesSelectedFlowDate(vehicle, flowDate);
       const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
       const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
@@ -1500,6 +1528,7 @@ export default function FluxoPage() {
 
     return vehicles
       .filter((vehicle) => {
+        if (vehicle.status === "cancelado") return false;
         const dateMatches = matchesNoShowDate(vehicle, flowDate);
         const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
         const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
@@ -2200,6 +2229,16 @@ export default function FluxoPage() {
             </section>
 
             <div className="modal-actions">
+              {canDeleteChip && (
+                <button
+                  type="button"
+                  className="ghost-btn danger-btn"
+                  disabled={movingId === detailVehicle.id}
+                  onClick={submitChipDeletion}
+                >
+                  {movingId === detailVehicle.id ? "Excluindo..." : "Excluir chip"}
+                </button>
+              )}
               <button type="button" className="ghost-btn" onClick={() => setDetailVehicle(null)}>
                 Fechar
               </button>
