@@ -1274,7 +1274,9 @@ export default function FluxoPage() {
       return;
     }
 
-    if (stageCorrectionForm.toLane === detailVehicle.currentLane) {
+    const shouldClearNoShow = Boolean(detailVehicle.noShow);
+
+    if (stageCorrectionForm.toLane === detailVehicle.currentLane && !shouldClearNoShow) {
       setError("Escolha uma etapa diferente da etapa atual.");
       return;
     }
@@ -1293,6 +1295,7 @@ export default function FluxoPage() {
         toLane: stageCorrectionForm.toLane,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
         actionNote,
+        clearNoShow: shouldClearNoShow,
         ...operationalState,
       });
 
@@ -1301,6 +1304,7 @@ export default function FluxoPage() {
           ? {
               ...vehicle,
               currentLane: stageCorrectionForm.toLane,
+              ...(shouldClearNoShow ? { noShow: false, noShowAt: undefined } : {}),
               ...operationalState,
             }
           : vehicle
@@ -1308,6 +1312,7 @@ export default function FluxoPage() {
       setDetailVehicle((current) => current ? {
         ...current,
         currentLane: stageCorrectionForm.toLane,
+        ...(shouldClearNoShow ? { noShow: false, noShowAt: undefined } : {}),
         ...operationalState,
       } : current);
       setStageCorrectionForm((current) => ({ ...current, note: "" }));
