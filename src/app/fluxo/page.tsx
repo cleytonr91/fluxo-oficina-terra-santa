@@ -223,7 +223,7 @@ function isGeneralRepair(vehicle: VehicleFlow) {
 }
 
 function isBeautyService(vehicle: VehicleFlow) {
-  return isWashService(vehicle.serviceLabel ?? "") || (vehicle.washType !== undefined && vehicle.washType !== "nao");
+  return isWashOnlyVehicle(vehicle);
 }
 
 function sameDayDefault(date?: string) {
