@@ -1862,30 +1862,33 @@ export default function FluxoPage() {
           ))}
           </div>
 
-          <label className="flow-filter">
-            <span>Consultor</span>
-            <select value={consultantFilter} onChange={(event) => setConsultantFilter(event.target.value)}>
-              <option>Todos</option>
-              {consultants.map((item) => <option key={item}>{item}</option>)}
-            </select>
-          </label>
+          <div className="flow-filter-stack">
+            <strong>Filtros</strong>
+            <label className="flow-filter compact">
+              <span>Consultor</span>
+              <select value={consultantFilter} onChange={(event) => setConsultantFilter(event.target.value)}>
+                <option>Todos</option>
+                {consultants.map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </label>
 
-          <label className="flow-filter">
-            <span>Técnico</span>
-            <select value={technicianFilter} onChange={(event) => setTechnicianFilter(event.target.value)}>
-              <option>Todos</option>
-              {technicians.map((item) => <option key={item}>{item}</option>)}
-            </select>
-          </label>
+            <label className="flow-filter compact">
+              <span>Técnico</span>
+              <select value={technicianFilter} onChange={(event) => setTechnicianFilter(event.target.value)}>
+                <option>Todos</option>
+                {technicians.map((item) => <option key={item}>{item}</option>)}
+              </select>
+            </label>
 
-          <label className="flow-filter flow-plate-filter">
-            <span>Placa</span>
-            <input
-              value={plateFilter}
-              placeholder="Buscar placa"
-              onChange={(event) => setPlateFilter(event.target.value.toUpperCase())}
-            />
-          </label>
+            <label className="flow-filter compact flow-plate-filter">
+              <span>Placa</span>
+              <input
+                value={plateFilter}
+                placeholder="Buscar placa"
+                onChange={(event) => setPlateFilter(event.target.value.toUpperCase())}
+              />
+            </label>
+          </div>
         </section>
 
         {error && <div className="duplicate-alert"><strong>Erro no fluxo</strong><span>{error}</span></div>}

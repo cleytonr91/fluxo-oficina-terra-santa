@@ -239,9 +239,9 @@ textarea {
 .realtime-status {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 10px;
-  margin: -8px 0 8px;
+  margin: -8px 0 10px 4px;
   color: #1f6a45;
   font-size: 11px;
   font-weight: 900;
@@ -276,7 +276,7 @@ textarea {
 }
 
 .flow-day-panel {
-  grid-template-columns: minmax(150px, 0.9fr) minmax(210px, 1.15fr) minmax(240px, 1.35fr) minmax(420px, 2fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(160px, 0.95fr);
+  grid-template-columns: minmax(150px, 0.85fr) minmax(210px, 1fr) minmax(240px, 1.1fr) minmax(420px, 1.75fr) minmax(210px, 1fr);
   align-items: stretch;
 }
 
@@ -381,6 +381,41 @@ textarea {
 .flow-metric.mini {
   min-height: 54px;
   padding: 6px;
+}
+
+.flow-filter-stack {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 8px;
+}
+
+.flow-filter-stack > strong {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.flow-filter.compact {
+  min-height: auto;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+
+.flow-filter.compact span {
+  margin-bottom: 3px;
+}
+
+.flow-filter.compact select,
+.flow-filter.compact input {
+  min-height: 26px;
+  font-size: 12px;
 }
 
 .flow-metric.active {
