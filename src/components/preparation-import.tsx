@@ -252,8 +252,7 @@ export function PreparationImport() {
     return flowVehicles
       .filter((vehicle) => (
         vehicle.status !== "cancelado"
-        && vehicle.currentLane !== "entregue"
-        && vehicle.currentLane !== "preparacao_confirmada"
+        && (vehicle.currentLane === "aguardando_servico" || vehicle.currentLane === "em_servico")
         && !vehicle.noShow
         && Boolean(vehicle.appointmentDate && vehicle.appointmentDate < selectedDate)
       ))
