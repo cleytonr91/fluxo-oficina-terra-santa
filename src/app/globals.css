@@ -1516,7 +1516,7 @@ textarea {
 
 .prep-summary-row {
   display: grid;
-  grid-template-columns: repeat(5, minmax(120px, 1fr));
+  grid-template-columns: repeat(6, minmax(110px, 1fr));
   gap: 10px;
 }
 
@@ -1530,6 +1530,115 @@ textarea {
 
 .prep-summary-row .metric span {
   font-size: 10px;
+}
+
+.prep-summary-row .metric.danger {
+  border-color: #f0b8ad;
+  background: #fff7f5;
+}
+
+.technician-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.technician-plan-card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 220px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  padding: 9px;
+}
+
+.technician-plan-card header,
+.plan-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.technician-plan-card header {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 7px;
+}
+
+.technician-plan-card header strong {
+  font-size: 13px;
+}
+
+.technician-plan-card header span,
+.plan-section-title b {
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: #edf7f0;
+  color: #1f6a45;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.plan-section {
+  display: grid;
+  gap: 5px;
+}
+
+.plan-section.pending {
+  border-bottom: 1px dashed #d7ded9;
+  padding-bottom: 8px;
+}
+
+.plan-section-title span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.plan-section p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.plan-chip {
+  display: grid;
+  gap: 2px;
+  border-left: 3px solid var(--green);
+  border-radius: 5px;
+  background: #f7faf8;
+  padding: 6px 7px;
+}
+
+.plan-chip.pending {
+  border-left-color: var(--orange);
+  background: #fff8ed;
+}
+
+.plan-chip.confirmed {
+  border-left-color: var(--blue);
+}
+
+.plan-chip strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.plan-chip span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .prep-card-grid {
@@ -2903,6 +3012,10 @@ textarea {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
   }
 
+  .technician-plan-grid {
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+  }
+
   .post-metrics,
   .funnel-grid,
   .consultant-score-grid {
@@ -2989,6 +3102,10 @@ textarea {
 
   .prep-date-confirm,
   .prep-summary-row {
+    grid-template-columns: 1fr;
+  }
+
+  .technician-plan-grid {
     grid-template-columns: 1fr;
   }
 

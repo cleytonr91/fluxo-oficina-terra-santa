@@ -1,11 +1,23 @@
 "use client";
 
-import { ChangeEvent, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
-import { findVehicleFlowConflict, savePreparedVehicle } from "@/services/firestore";
+import { findVehicleFlowConflict, savePreparedVehicle, subscribeActiveVehicleFlows } from "@/services/firestore";
+import type { FlowLane, VehicleFlow } from "@/types/domain";
 
-const technicians = ["Definir", "Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan"];
+const technicians = ["Definir", "Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan", "Igo"];
+
+const laneLabels: Record<FlowLane, string> = {
+  preparacao_confirmada: "Agendamento do dia",
+  aguardando_servico: "Aguardando serviço",
+  em_servico: "Em serviço",
+  orcamento_complementar: "Orçamento complementar",
+  aguardando_lavagem: "Aguardando lavagem",
+  lavagem: "Lavagem",
+  preparacao_entrega: "Preparação de entrega",
+  entregue: "Entregue",
+};
 
 type Appointment = {
   id: string;
@@ -40,6 +52,12 @@ const initialState: ImportState = {
   appointments: [],
   error: "",
 };
+
+function tomorrowDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
 
 function normalize(value: unknown) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -83,6 +101,10 @@ function serviceClass(service: string, note: string) {
   if (text.includes("recall")) return "recall";
   if (text.includes("combinado")) return "combo";
   return "revisao";
+}
+
+function shortName(name?: string) {
+  return String(name ?? "").trim().split(/\s+/)[0] || "-";
 }
 
 function shouldSuggestRoadTest(service: string, note: string) {
@@ -200,10 +222,15 @@ function conflictMessage(conflict: { clientName?: string; plate?: string; chassi
 export function PreparationImport() {
   const { profile, user } = useAuth();
   const [state, setState] = useState<ImportState>(initialState);
-  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState(tomorrowDate);
   const [dateConfirmed, setDateConfirmed] = useState(false);
   const [missingOnly, setMissingOnly] = useState(false);
   const [savingId, setSavingId] = useState("");
+  const [flowVehicles, setFlowVehicles] = useState<VehicleFlow[]>([]);
+
+  useEffect(() => {
+    return subscribeActiveVehicleFlows(setFlowVehicles, undefined, { includeDelivered: true });
+  }, []);
 
   const detectedDates = useMemo(() => {
     return Array.from(new Set(state.appointments.map((item) => item.date).filter(Boolean))).sort();
@@ -216,6 +243,52 @@ export function PreparationImport() {
 
   const duplicatedInFile = useMemo(() => duplicateChassis(state.appointments), [state.appointments]);
   const duplicatedInDate = useMemo(() => duplicateChassis(appointmentsForDate), [appointmentsForDate]);
+
+  const workshopTechnicians = useMemo(() => technicians.filter((name) => name !== "Definir"), []);
+
+  const pendingPreviousVehicles = useMemo(() => {
+    if (!selectedDate) return [];
+
+    return flowVehicles
+      .filter((vehicle) => (
+        vehicle.status !== "cancelado"
+        && vehicle.currentLane !== "entregue"
+        && vehicle.currentLane !== "preparacao_confirmada"
+        && !vehicle.noShow
+        && Boolean(vehicle.appointmentDate && vehicle.appointmentDate < selectedDate)
+      ))
+      .sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`));
+  }, [flowVehicles, selectedDate]);
+
+  const confirmedPreparedVehicles = useMemo(() => {
+    if (!selectedDate) return [];
+
+    return flowVehicles
+      .filter((vehicle) => (
+        vehicle.status !== "cancelado"
+        && vehicle.currentLane === "preparacao_confirmada"
+        && vehicle.appointmentDate === selectedDate
+      ))
+      .sort((a, b) => `${a.appointmentTime ?? ""}${a.clientName ?? ""}`.localeCompare(`${b.appointmentTime ?? ""}${b.clientName ?? ""}`));
+  }, [flowVehicles, selectedDate]);
+
+  const technicianPlanning = useMemo(() => {
+    return workshopTechnicians.map((technician) => {
+      const scheduled = appointmentsForDate.filter((item) => item.technician === technician);
+      const confirmed = confirmedPreparedVehicles.filter((vehicle) => shortName(vehicle.technicianName) === technician);
+      const pending = pendingPreviousVehicles.filter((vehicle) => shortName(vehicle.technicianName) === technician);
+      const confirmedIds = new Set(confirmed.map((vehicle) => vehicle.id));
+      const scheduledOnly = scheduled.filter((item) => !confirmedIds.has(item.id));
+
+      return {
+        technician,
+        scheduled: scheduledOnly,
+        confirmed,
+        pending,
+        total: scheduledOnly.length + confirmed.length + pending.length,
+      };
+    });
+  }, [appointmentsForDate, confirmedPreparedVehicles, pendingPreviousVehicles, workshopTechnicians]);
 
   const filteredAppointments = useMemo(() => {
     return appointmentsForDate.filter((item) => {
@@ -356,13 +429,13 @@ export function PreparationImport() {
       </aside>
 
       <section className="prep-main">
-        {state.appointments.length > 0 && (
+        {true && (
           <section className={`prep-date-confirm ${dateConfirmed ? "confirmed" : ""}`}>
             <div>
-              <strong>Confirme a data que sera preparada</strong>
+              <strong>Calendário da preparação</strong>
               <span>
-                O arquivo possui {state.appointments.length} atendimento(s)
-                {detectedDates.length ? ` em ${detectedDates.length} data(s) encontrada(s).` : "."}
+                Planeje o dia escolhido, acompanhe pendentes de dias anteriores e direcione a agenda por técnico.
+                {state.appointments.length > 0 && ` Arquivo atual: ${state.appointments.length} atendimento(s).`}
               </span>
             </div>
 
@@ -413,11 +486,61 @@ export function PreparationImport() {
 
         <div className="prep-summary-row">
           <div className="metric"><strong>{appointmentsForDate.length}</strong><span>agendamentos</span></div>
+          <div className="metric danger"><strong>{pendingPreviousVehicles.length}</strong><span>pendentes anteriores</span></div>
           <div className="metric"><strong>{appointmentsForDate.filter((item) => item.confirmed).length}</strong><span>confirmados</span></div>
           <div className="metric"><strong>{appointmentsForDate.filter((item) => item.roadTest).length}</strong><span>testes rodagem</span></div>
           <div className="metric"><strong>{appointmentsForDate.filter((item) => item.technician === "Definir").length}</strong><span>sem técnico</span></div>
           <div className="metric"><strong>{duplicatedInDate.size}</strong><span>chassis duplicados</span></div>
         </div>
+
+        <section className="technician-plan panel">
+          <div className="panel-head">
+            <h2 className="panel-title">Distribuição estratégica por técnico - {formatBrDate(selectedDate)}</h2>
+          </div>
+          <div className="panel-body technician-plan-grid">
+            {technicianPlanning.map((group) => (
+              <article key={group.technician} className="technician-plan-card">
+                <header>
+                  <strong>{group.technician}</strong>
+                  <span>{group.total}</span>
+                </header>
+
+                <div className="plan-section pending">
+                  <div className="plan-section-title">
+                    <span>Pendentes</span>
+                    <b>{group.pending.length}</b>
+                  </div>
+                  {group.pending.length ? group.pending.map((vehicle) => (
+                    <div key={`pending-${vehicle.id}`} className="plan-chip pending">
+                      <strong>{vehicle.clientName || "Cliente não identificado"}</strong>
+                      <span>{vehicle.plate || "-"} · {vehicle.serviceLabel || "-"} · {laneLabels[vehicle.currentLane]}</span>
+                    </div>
+                  )) : <p>Nenhum pendente.</p>}
+                </div>
+
+                <div className="plan-section">
+                  <div className="plan-section-title">
+                    <span>Agenda direcionada</span>
+                    <b>{group.scheduled.length + group.confirmed.length}</b>
+                  </div>
+                  {group.confirmed.map((vehicle) => (
+                    <div key={`confirmed-${vehicle.id}`} className="plan-chip confirmed">
+                      <strong>{vehicle.clientName || "Cliente não identificado"}</strong>
+                      <span>{vehicle.appointmentTime || "--:--"} · {vehicle.plate || "-"} · confirmado</span>
+                    </div>
+                  ))}
+                  {group.scheduled.map((item) => (
+                    <div key={`scheduled-${item.id}`} className="plan-chip">
+                      <strong>{item.client}</strong>
+                      <span>{item.time} · {isMissingPlate(item.plate) ? "Sem placa" : item.plate} · {item.service}</span>
+                    </div>
+                  ))}
+                  {!group.confirmed.length && !group.scheduled.length && <p>Nada direcionado.</p>}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className="prep-board panel">
           <div className="panel-head">
