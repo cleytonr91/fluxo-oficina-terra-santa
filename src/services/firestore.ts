@@ -985,9 +985,11 @@ export async function moveVehicleFlow({
   const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
   const flowEventRef = doc(collection(db, collections.flowEvents));
   const promisedDate = promisedDeliveryAt ? Timestamp.fromDate(new Date(promisedDeliveryAt)) : undefined;
+  const startsAttendance = fromLane === "preparacao_confirmada" && toLane !== "preparacao_confirmada";
 
   batch.set(flowRef, {
     currentLane: toLane,
+    ...(startsAttendance ? { attendanceStartedAt: serverTimestamp(), attendanceStartedBy: actionBy } : {}),
     ...(typeof customerWaits === "boolean" ? { customerWaits } : {}),
     ...(promisedDate ? { promisedDeliveryAt: promisedDate } : {}),
     ...(promisedDeliveryAt ? { promiseHistory: arrayUnion(promiseHistoryEntry(promisedDeliveryAt, actionBy, actionNote)) } : {}),

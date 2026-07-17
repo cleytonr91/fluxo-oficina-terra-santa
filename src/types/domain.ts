@@ -184,6 +184,8 @@ export interface VehicleFlow {
   customerWaits: boolean;
   promisedDeliveryAt?: FirestoreTimestamp;
   promiseHistory?: DeliveryPromiseHistory[];
+  attendanceStartedAt?: FirestoreTimestamp;
+  attendanceStartedBy?: string;
   washType: WashType;
   receiveNote?: string;
   serviceCompleted?: boolean;

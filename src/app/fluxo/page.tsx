@@ -408,6 +408,23 @@ function isNoShowDue(vehicle: VehicleFlow, referenceDate: Date) {
   return referenceDate.getTime() - appointment.getTime() > 60 * 60 * 1000;
 }
 
+function hasVehicleStartedAttendance(vehicle: VehicleFlow) {
+  return Boolean(
+    vehicle.attendanceStartedAt
+    || vehicle.promisedDeliveryAt
+    || vehicle.receiveNote
+    || vehicle.promiseHistory?.length,
+  );
+}
+
+function isActiveNoShow(vehicle: VehicleFlow) {
+  return Boolean(
+    vehicle.noShow
+    && vehicle.currentLane === "preparacao_confirmada"
+    && !hasVehicleStartedAttendance(vehicle)
+  );
+}
+
 function washStatusText(vehicle: VehicleFlow) {
   if (vehicle.washType === "nao") return "Não solicitada";
   if (vehicle.washDone) return "Realizada";
@@ -466,7 +483,7 @@ function FlowChip({
         )}
         {vehicle.washingAdvanced && !vehicle.washDone && <span className="tag warn">Lavagem antecipada</span>}
         {vehicle.washingAdvanced && vehicle.washDone && !vehicle.serviceCompleted && <span className="tag warn">Lavagem feita</span>}
-        {vehicle.noShow && <span className="tag bad">NO-SHOW</span>}
+        {isActiveNoShow(vehicle) && <span className="tag bad">NO-SHOW</span>}
         {immobilized && <span className="tag bad">Imobilizado</span>}
         {immobilized && (
           <a
@@ -694,6 +711,7 @@ export default function FluxoPage() {
     const candidates = vehicles.filter((vehicle) => (
       vehicle.currentLane === "preparacao_confirmada"
       && !vehicle.noShow
+      && !hasVehicleStartedAttendance(vehicle)
       && isNoShowDue(vehicle, now)
     ));
 
@@ -1599,7 +1617,7 @@ export default function FluxoPage() {
         const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
         const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
         const plateMatches = !normalizedPlateFilter || (vehicle.plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().includes(normalizedPlateFilter);
-        return vehicle.noShow && dateMatches && consultantMatches && technicianMatches && plateMatches;
+        return isActiveNoShow(vehicle) && dateMatches && consultantMatches && technicianMatches && plateMatches;
       })
       .sort((a, b) => `${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`.localeCompare(`${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`));
   }, [consultantFilter, flowDate, plateFilter, technicianFilter, vehicles]);
@@ -1627,7 +1645,7 @@ export default function FluxoPage() {
   }, [consultantFilter, immobilizedVehicleIds, plateFilter, technicianFilter, vehicles]);
 
   const metricDate = flowDate || new Date().toISOString().slice(0, 10);
-  const visibleFlowVehicles = dateScopedVehicles.filter((vehicle) => !vehicle.noShow && !immobilizedVehicleIds.has(vehicle.id));
+  const visibleFlowVehicles = dateScopedVehicles.filter((vehicle) => !isActiveNoShow(vehicle) && !immobilizedVehicleIds.has(vehicle.id));
   const operationalFlowVehicles = visibleFlowVehicles.filter((vehicle) => vehicle.currentLane !== "entregue");
   const scheduledDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin !== "passante" && vehicle.appointmentDate === metricDate);
   const walkInDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin === "passante" && vehicle.appointmentDate === metricDate);
