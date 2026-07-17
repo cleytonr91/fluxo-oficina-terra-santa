@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -54,6 +54,22 @@ const walkInServices = [
   "Lavagem de Motor",
   "Lavagem Motor + Bancos",
 ];
+
+function duplicateVehicleMessage(conflict: VehicleFlow) {
+  return [
+    "Já existe um chip para esta placa ou chassi neste dia.",
+    "",
+    `Cliente: ${conflict.clientName || "-"}`,
+    `Placa: ${conflict.plate || "-"}`,
+    `Chassi: ${conflict.chassi || "-"}`,
+    `Etapa atual: ${laneNameById[conflict.currentLane] || conflict.currentLane || "-"}`,
+    `Serviço: ${conflict.serviceLabel || "-"}`,
+    "",
+    "Cancelar evita duplicidade. Continuar deve ser usado apenas se for realmente outro atendimento.",
+    "",
+    "Deseja continuar mesmo assim?",
+  ].join("\n");
+}
 
 const manual: ManualContent = {
   title: "Manual do Fluxo da Oficina",
@@ -1178,6 +1194,16 @@ export default function FluxoPage() {
       const selectedDate = flowDate || new Date().toISOString().slice(0, 10);
       const initialLane: FlowLane = isWashService(walkInForm.service) ? "aguardando_lavagem" : "aguardando_servico";
       const normalizedWashType = washTypeFromService(walkInForm.service, walkInForm.washType);
+      const conflict = await findVehicleFlowConflict({
+        plate: walkInForm.plate,
+        chassi: walkInForm.chassi,
+        appointmentDate: selectedDate,
+      });
+
+      if (conflict && !window.confirm(duplicateVehicleMessage(conflict))) {
+        return;
+      }
+
       await createWalkInVehicle({
         ...walkInForm,
         washType: normalizedWashType,

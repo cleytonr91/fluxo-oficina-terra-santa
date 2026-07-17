@@ -63,6 +63,13 @@ type WalkInVehicleInput = {
   note?: string;
 };
 
+type VehicleFlowConflictInput = {
+  plate?: string;
+  chassi?: string;
+  appointmentDate?: string;
+  ignoreId?: string;
+};
+
 type SaveHgsiRecordInput = {
   chassi: string;
   osNumber: string;
@@ -117,6 +124,49 @@ type SavePartOrderInput = {
   vehicleImmobilized?: boolean;
   actionBy?: string;
 };
+
+function normalizeVehicleIdentifier(value?: string) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase();
+}
+
+function timestampToDateInput(value: unknown) {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    return value.slice(0, 10);
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === "object" && value !== null && "seconds" in value) {
+    const seconds = Number((value as { seconds?: number }).seconds);
+    if (Number.isFinite(seconds)) {
+      return new Date(seconds * 1000).toISOString().slice(0, 10);
+    }
+  }
+
+  return "";
+}
+
+function matchesVehicleFlowDate(vehicle: VehicleFlow, appointmentDate?: string) {
+  if (!appointmentDate) return true;
+  if (vehicle.appointmentDate === appointmentDate || timestampToDateInput(vehicle.deliveredAt) === appointmentDate) {
+    return true;
+  }
+
+  return Boolean(
+    vehicle.status === "ativo"
+      && vehicle.appointmentDate
+      && vehicle.appointmentDate < appointmentDate
+      && vehicle.currentLane !== "preparacao_confirmada",
+  );
+}
 
 type UpdatePartOrderInput = {
   orderId: string;
@@ -540,6 +590,38 @@ export async function listActiveVehicleFlows({ includeDelivered = false } = {}) 
   return vehicles.filter((vehicle) => (
     includeDelivered || vehicle.currentLane !== "entregue"
   ));
+}
+
+export async function findVehicleFlowConflict({
+  plate,
+  chassi,
+  appointmentDate,
+  ignoreId,
+}: VehicleFlowConflictInput) {
+  const normalizedPlate = normalizeVehicleIdentifier(plate);
+  const normalizedChassi = normalizeVehicleIdentifier(chassi);
+
+  if (!normalizedPlate && !normalizedChassi) return null;
+
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(collection(db, collections.vehiclesFlow));
+  const vehicles = snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as VehicleFlow[];
+
+  return vehicles.find((vehicle) => {
+    if (vehicle.id === ignoreId || vehicle.status === "cancelado") return false;
+    if (!matchesVehicleFlowDate(vehicle, appointmentDate)) return false;
+
+    const vehiclePlate = normalizeVehicleIdentifier(vehicle.plate);
+    const vehicleChassi = normalizeVehicleIdentifier(vehicle.chassi);
+
+    return Boolean(
+      (normalizedChassi && vehicleChassi && normalizedChassi === vehicleChassi)
+        || (normalizedPlate && vehiclePlate && normalizedPlate === vehiclePlate),
+    );
+  }) ?? null;
 }
 
 export function subscribeActiveVehicleFlows(

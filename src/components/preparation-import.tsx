@@ -3,7 +3,7 @@
 import { ChangeEvent, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
-import { savePreparedVehicle } from "@/services/firestore";
+import { findVehicleFlowConflict, savePreparedVehicle } from "@/services/firestore";
 
 const technicians = ["Definir", "Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan"];
 
@@ -181,6 +181,22 @@ function duplicateChassis(appointments: Appointment[]) {
   );
 }
 
+function conflictMessage(conflict: { clientName?: string; plate?: string; chassi?: string; currentLane?: string; serviceLabel?: string }) {
+  return [
+    "Já existe um chip para esta placa ou chassi neste dia.",
+    "",
+    `Cliente: ${conflict.clientName || "-"}`,
+    `Placa: ${conflict.plate || "-"}`,
+    `Chassi: ${conflict.chassi || "-"}`,
+    `Etapa atual: ${conflict.currentLane || "-"}`,
+    `Serviço: ${conflict.serviceLabel || "-"}`,
+    "",
+    "Cancelar evita duplicidade. Continuar deve ser usado apenas se for realmente outro atendimento.",
+    "",
+    "Deseja continuar mesmo assim?",
+  ].join("\n");
+}
+
 export function PreparationImport() {
   const { profile, user } = useAuth();
   const [state, setState] = useState<ImportState>(initialState);
@@ -268,6 +284,17 @@ export function PreparationImport() {
     localStorage.setItem("selectedFlowDate", selectedDate);
 
     try {
+      const conflict = await findVehicleFlowConflict({
+        plate: item.plate,
+        chassi: item.chassi,
+        appointmentDate: item.date || selectedDate,
+        ignoreId: item.id,
+      });
+
+      if (conflict && !window.confirm(conflictMessage(conflict))) {
+        return;
+      }
+
       await savePreparedVehicle({
         sourceFileName: state.fileName || "agenda-importada",
         selectedDate,
