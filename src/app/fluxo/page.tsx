@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -129,6 +129,10 @@ type StageCorrectionForm = {
 
 type PlateForm = {
   plate: string;
+};
+
+type ConsultantForm = {
+  consultantName: string;
 };
 
 type TechnicianForm = {
@@ -545,6 +549,7 @@ function FlowChip({
 export default function FluxoPage() {
   const { profile, user } = useAuth();
   const canDeleteChip = profile?.role === "admin" || profile?.role === "gerente";
+  const canEditConsultant = profile?.role === "admin" || profile?.role === "gerente";
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -584,6 +589,7 @@ export default function FluxoPage() {
     note: "",
   });
   const [plateForm, setPlateForm] = useState<PlateForm>({ plate: "" });
+  const [consultantForm, setConsultantForm] = useState<ConsultantForm>({ consultantName: "" });
   const [technicianForm, setTechnicianForm] = useState<TechnicianForm>({ technicianName: "" });
   const [serviceForm, setServiceForm] = useState<ServiceForm>({ serviceLabel: "" });
   const [washForm, setWashForm] = useState<WashForm>({ washType: "nao" });
@@ -760,6 +766,7 @@ export default function FluxoPage() {
     setDetailEventsLoading(true);
     setDetailVehicle(vehicle);
     setPlateForm({ plate: vehicle.plate?.startsWith("SEMPLACA") ? "" : vehicle.plate ?? "" });
+    setConsultantForm({ consultantName: consultantDisplayName(vehicle.consultantName) });
     setTechnicianForm({ technicianName: vehicle.technicianName ?? "" });
     setServiceForm({ serviceLabel: vehicle.serviceLabel ?? "" });
     setWashForm({ washType: vehicle.washType ?? "nao" });
@@ -1406,6 +1413,38 @@ export default function FluxoPage() {
       setPlateForm({ plate });
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível atualizar a placa.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
+  async function submitConsultantUpdate() {
+    if (!detailVehicle || !canEditConsultant) return;
+
+    const consultantName = consultantForm.consultantName.trim();
+    if (!consultantName) {
+      setError("Selecione o consultor antes de salvar.");
+      return;
+    }
+
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await updateVehicleConsultant({
+        vehicleFlowId: detailVehicle.id,
+        currentLane: detailVehicle.currentLane,
+        consultantName,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === detailVehicle.id ? { ...vehicle, consultantName } : vehicle
+      )));
+      setDetailVehicle((current) => current ? { ...current, consultantName } : current);
+      setConsultantForm({ consultantName });
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível atualizar o consultor.");
     } finally {
       setMovingId("");
     }
@@ -2172,6 +2211,34 @@ export default function FluxoPage() {
                 </button>
               </div>
             </section>
+
+            {canEditConsultant && (
+              <section className="history-box">
+                <h3>Consultor responsável</h3>
+                <div className="correction-grid">
+                  <label className="field">
+                    <span>Consultor</span>
+                    <select
+                      value={consultantForm.consultantName}
+                      onChange={(event) => setConsultantForm({ consultantName: event.target.value })}
+                    >
+                      <option value="">Selecionar consultor</option>
+                      {fixedConsultants.map((consultant) => (
+                        <option key={consultant} value={consultant}>{consultant}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    disabled={movingId === detailVehicle.id || !consultantForm.consultantName.trim()}
+                    onClick={submitConsultantUpdate}
+                  >
+                    {movingId === detailVehicle.id ? "Salvando..." : "Salvar consultor"}
+                  </button>
+                </div>
+              </section>
+            )}
 
             <section className="history-box">
               <h3>Técnico designado</h3>
