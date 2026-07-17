@@ -1719,6 +1719,10 @@ export default function FluxoPage() {
     vehicle.currentLane === "preparacao_entrega"
     || (vehicle.currentLane === "entregue" && toDateInputValue(vehicle.deliveredAt) === metricDate)
   ));
+  const flowDayTotal = Math.max(
+    0,
+    scheduledDayVehicles.length + walkInDayVehicles.length + previousDayVehicles.length - noShowVehicles.length,
+  );
   const attentionVehicles = operationalFlowVehicles.filter((vehicle) => (
     vehicle.priority === "alta"
     || vehicle.roadTestRequired
@@ -1897,7 +1901,7 @@ export default function FluxoPage() {
             onClick={() => setMetricFilter("todos")}
           >
             <span>Fluxo do dia</span>
-            <strong>{operationalFlowVehicles.length}</strong>
+            <strong>{flowDayTotal}</strong>
             <small>veículos em atuação hoje</small>
           </button>
 
