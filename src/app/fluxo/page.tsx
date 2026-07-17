@@ -1717,6 +1717,11 @@ export default function FluxoPage() {
   const walkInDayMetricVehicles = metricBaseVehicles.filter((vehicle) => vehicle.origin === "passante" && vehicle.appointmentDate === metricDate);
   const previousDayMetricVehicles = metricBaseVehicles.filter((vehicle) => isPreviousDayVehicle(vehicle, metricDate));
   const noShowFlowDayVehicles = noShowVehicles.filter((vehicle) => vehicle.appointmentDate === metricDate);
+  const flowDayMetricVehicles = [
+    ...scheduledDayMetricVehicles,
+    ...walkInDayMetricVehicles,
+    ...previousDayMetricVehicles,
+  ].filter((vehicle) => !isActiveNoShow(vehicle));
   const scheduledDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin !== "passante" && vehicle.appointmentDate === metricDate);
   const walkInDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin === "passante" && vehicle.appointmentDate === metricDate);
   const previousDayVehicles = operationalFlowVehicles.filter((vehicle) => isPreviousDayVehicle(vehicle, metricDate));
@@ -1747,13 +1752,13 @@ export default function FluxoPage() {
           : metricFilter === "anteriores"
             ? previousDayVehicles
             : metricFilter === "revisao"
-              ? operationalFlowVehicles.filter(isRevision)
+              ? flowDayMetricVehicles.filter(isRevision)
               : metricFilter === "diagnostico"
-                ? operationalFlowVehicles.filter(isDiagnostic)
+                ? flowDayMetricVehicles.filter(isDiagnostic)
                 : metricFilter === "reparo"
-                  ? operationalFlowVehicles.filter(isGeneralRepair)
+                  ? flowDayMetricVehicles.filter(isGeneralRepair)
                   : metricFilter === "embelezamento"
-                    ? operationalFlowVehicles.filter(isBeautyService)
+                    ? flowDayMetricVehicles.filter(isBeautyService)
                     : metricFilter === "concluidos"
                       ? concludedDayVehicles
                       : metricFilter === "attention"
@@ -1767,10 +1772,10 @@ export default function FluxoPage() {
   ] as const;
 
   const serviceMetrics = [
-    { value: operationalFlowVehicles.filter(isRevision).length, label: "revisões", filter: "revisao" as MetricFilter },
-    { value: operationalFlowVehicles.filter(isDiagnostic).length, label: "diagnósticos", filter: "diagnostico" as MetricFilter },
-    { value: operationalFlowVehicles.filter(isGeneralRepair).length, label: "reparos gerais", filter: "reparo" as MetricFilter },
-    { value: operationalFlowVehicles.filter(isBeautyService).length, label: "embelezamento", filter: "embelezamento" as MetricFilter },
+    { value: flowDayMetricVehicles.filter(isRevision).length, label: "revisões", filter: "revisao" as MetricFilter },
+    { value: flowDayMetricVehicles.filter(isDiagnostic).length, label: "diagnósticos", filter: "diagnostico" as MetricFilter },
+    { value: flowDayMetricVehicles.filter(isGeneralRepair).length, label: "reparos gerais", filter: "reparo" as MetricFilter },
+    { value: flowDayMetricVehicles.filter(isBeautyService).length, label: "embelezamento", filter: "embelezamento" as MetricFilter },
   ] as const;
 
   const statusMetrics = [
