@@ -1710,8 +1710,13 @@ export default function FluxoPage() {
   }, [consultantFilter, immobilizedVehicleIds, plateFilter, technicianFilter, vehicles]);
 
   const metricDate = flowDate || new Date().toISOString().slice(0, 10);
+  const metricBaseVehicles = dateScopedVehicles.filter((vehicle) => !immobilizedVehicleIds.has(vehicle.id));
   const visibleFlowVehicles = dateScopedVehicles.filter((vehicle) => !isActiveNoShow(vehicle) && !immobilizedVehicleIds.has(vehicle.id));
   const operationalFlowVehicles = visibleFlowVehicles.filter((vehicle) => vehicle.currentLane !== "entregue");
+  const scheduledDayMetricVehicles = metricBaseVehicles.filter((vehicle) => vehicle.origin !== "passante" && vehicle.appointmentDate === metricDate);
+  const walkInDayMetricVehicles = metricBaseVehicles.filter((vehicle) => vehicle.origin === "passante" && vehicle.appointmentDate === metricDate);
+  const previousDayMetricVehicles = metricBaseVehicles.filter((vehicle) => isPreviousDayVehicle(vehicle, metricDate));
+  const noShowFlowDayVehicles = noShowVehicles.filter((vehicle) => vehicle.appointmentDate === metricDate);
   const scheduledDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin !== "passante" && vehicle.appointmentDate === metricDate);
   const walkInDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin === "passante" && vehicle.appointmentDate === metricDate);
   const previousDayVehicles = operationalFlowVehicles.filter((vehicle) => isPreviousDayVehicle(vehicle, metricDate));
@@ -1721,7 +1726,7 @@ export default function FluxoPage() {
   ));
   const flowDayTotal = Math.max(
     0,
-    scheduledDayVehicles.length + walkInDayVehicles.length + previousDayVehicles.length - noShowVehicles.length,
+    scheduledDayMetricVehicles.length + walkInDayMetricVehicles.length + previousDayMetricVehicles.length - noShowFlowDayVehicles.length,
   );
   const attentionVehicles = operationalFlowVehicles.filter((vehicle) => (
     vehicle.priority === "alta"
@@ -1756,9 +1761,9 @@ export default function FluxoPage() {
                         : visibleFlowVehicles;
 
   const originMetrics = [
-    { value: scheduledDayVehicles.length, label: "agendados", filter: "agendados" as MetricFilter },
-    { value: walkInDayVehicles.length, label: "passantes", filter: "passantes" as MetricFilter },
-    { value: previousDayVehicles.length, label: "dias anteriores", filter: "anteriores" as MetricFilter },
+    { value: scheduledDayMetricVehicles.length, label: "agendados", filter: "agendados" as MetricFilter },
+    { value: walkInDayMetricVehicles.length, label: "passantes", filter: "passantes" as MetricFilter },
+    { value: previousDayMetricVehicles.length, label: "dias anteriores", filter: "anteriores" as MetricFilter },
   ] as const;
 
   const serviceMetrics = [
