@@ -403,6 +403,16 @@ function isPreviousDayVehicle(vehicle: VehicleFlow, selectedDate?: string) {
   return Boolean(selectedDate && vehicle.appointmentDate && vehicle.appointmentDate < selectedDate);
 }
 
+function isPreviousDayCarryover(vehicle: VehicleFlow, selectedDate?: string) {
+  return isPreviousDayVehicle(vehicle, selectedDate)
+    && (
+      vehicle.currentLane === "aguardando_servico"
+      || vehicle.currentLane === "em_servico"
+      || vehicle.currentLane === "aguardando_lavagem"
+      || vehicle.currentLane === "lavagem"
+    );
+}
+
 function matchesSelectedFlowDate(vehicle: VehicleFlow, selectedDate?: string) {
   if (!selectedDate) return true;
   const deliveredDate = toDateInputValue(vehicle.deliveredAt);
@@ -1723,16 +1733,16 @@ export default function FluxoPage() {
   const operationalFlowVehicles = visibleFlowVehicles.filter((vehicle) => vehicle.currentLane !== "entregue");
   const scheduledDayMetricVehicles = metricBaseVehicles.filter((vehicle) => vehicle.origin !== "passante" && vehicle.appointmentDate === metricDate);
   const walkInDayMetricVehicles = metricBaseVehicles.filter((vehicle) => vehicle.origin === "passante" && vehicle.appointmentDate === metricDate);
-  const previousDayMetricVehicles = metricBaseVehicles.filter((vehicle) => isPreviousDayVehicle(vehicle, metricDate));
+  const previousDayMetricVehicles = metricBaseVehicles.filter((vehicle) => isPreviousDayCarryover(vehicle, metricDate));
   const noShowFlowDayVehicles = noShowVehicles.filter((vehicle) => vehicle.appointmentDate === metricDate);
+  const scheduledDayFlowVehicles = scheduledDayMetricVehicles.filter((vehicle) => !isActiveNoShow(vehicle));
+  const walkInDayFlowVehicles = walkInDayMetricVehicles.filter((vehicle) => !isActiveNoShow(vehicle));
+  const previousDayFlowVehicles = previousDayMetricVehicles.filter((vehicle) => !isActiveNoShow(vehicle));
   const flowDayMetricVehicles = [
-    ...scheduledDayMetricVehicles,
-    ...walkInDayMetricVehicles,
-    ...previousDayMetricVehicles,
-  ].filter((vehicle) => !isActiveNoShow(vehicle));
-  const scheduledDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin !== "passante" && vehicle.appointmentDate === metricDate);
-  const walkInDayVehicles = operationalFlowVehicles.filter((vehicle) => vehicle.origin === "passante" && vehicle.appointmentDate === metricDate);
-  const previousDayVehicles = operationalFlowVehicles.filter((vehicle) => isPreviousDayVehicle(vehicle, metricDate));
+    ...scheduledDayFlowVehicles,
+    ...walkInDayFlowVehicles,
+    ...previousDayFlowVehicles,
+  ];
   const concludedDayVehicles = visibleFlowVehicles.filter((vehicle) => (
     vehicle.currentLane === "preparacao_entrega"
     || (vehicle.currentLane === "entregue" && toDateInputValue(vehicle.deliveredAt) === metricDate)
@@ -1754,11 +1764,11 @@ export default function FluxoPage() {
     : metricFilter === "immobilized"
       ? immobilizedVehicles
       : metricFilter === "agendados"
-        ? scheduledDayVehicles
+        ? scheduledDayFlowVehicles
         : metricFilter === "passantes"
-          ? walkInDayVehicles
+          ? walkInDayFlowVehicles
           : metricFilter === "anteriores"
-            ? previousDayVehicles
+            ? previousDayFlowVehicles
             : metricFilter === "revisao"
               ? flowDayMetricVehicles.filter(isRevision)
               : metricFilter === "diagnostico"
@@ -1774,9 +1784,9 @@ export default function FluxoPage() {
                         : visibleFlowVehicles;
 
   const originMetrics = [
-    { value: scheduledDayVehicles.length, label: "agendados", filter: "agendados" as MetricFilter },
-    { value: walkInDayVehicles.length, label: "passantes", filter: "passantes" as MetricFilter },
-    { value: previousDayVehicles.length, label: "dias anteriores", filter: "anteriores" as MetricFilter },
+    { value: scheduledDayFlowVehicles.length, label: "agendados", filter: "agendados" as MetricFilter },
+    { value: walkInDayFlowVehicles.length, label: "passantes", filter: "passantes" as MetricFilter },
+    { value: previousDayFlowVehicles.length, label: "dias anteriores", filter: "anteriores" as MetricFilter },
   ] as const;
 
   const serviceMetrics = [
