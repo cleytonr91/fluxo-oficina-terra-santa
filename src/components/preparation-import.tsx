@@ -3,8 +3,8 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
-import { findVehicleFlowConflict, savePreparedVehicle, subscribeActiveVehicleFlows } from "@/services/firestore";
-import type { FlowLane, VehicleFlow } from "@/types/domain";
+import { findVehicleFlowConflict, savePreparedVehicle, subscribeActiveVehicleFlows, subscribePartOrders } from "@/services/firestore";
+import type { FlowLane, PartOrder, VehicleFlow } from "@/types/domain";
 
 const technicians = ["Definir", "Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan", "Igo"];
 
@@ -225,11 +225,17 @@ export function PreparationImport() {
   const [selectedDate, setSelectedDate] = useState(tomorrowDate);
   const [dateConfirmed, setDateConfirmed] = useState(false);
   const [missingOnly, setMissingOnly] = useState(false);
+  const [availableImmobilizedOnly, setAvailableImmobilizedOnly] = useState(false);
   const [savingId, setSavingId] = useState("");
   const [flowVehicles, setFlowVehicles] = useState<VehicleFlow[]>([]);
+  const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
 
   useEffect(() => {
     return subscribeActiveVehicleFlows(setFlowVehicles, undefined, { includeDelivered: true });
+  }, []);
+
+  useEffect(() => {
+    return subscribePartOrders(setPartOrders, () => undefined);
   }, []);
 
   const detectedDates = useMemo(() => {
@@ -259,6 +265,17 @@ export function PreparationImport() {
       .sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`));
   }, [flowVehicles, selectedDate]);
 
+  const availableImmobilizedOrders = useMemo(() => {
+    return partOrders
+      .filter((order) => order.orderStatus === "disponivel" && order.vehicleImmobilized)
+      .map((order) => ({
+        order,
+        vehicle: flowVehicles.find((vehicle) => vehicle.id === order.vehicleFlowId),
+      }))
+      .filter(({ vehicle }) => vehicle?.status !== "cancelado")
+      .sort((a, b) => String(a.order.expectedArrivalDate ?? a.order.updatedAt ?? "").localeCompare(String(b.order.expectedArrivalDate ?? b.order.updatedAt ?? "")));
+  }, [flowVehicles, partOrders]);
+
   const confirmedPreparedVehicles = useMemo(() => {
     if (!selectedDate) return [];
 
@@ -276,6 +293,9 @@ export function PreparationImport() {
       const scheduled = appointmentsForDate.filter((item) => item.technician === technician);
       const confirmed = confirmedPreparedVehicles.filter((vehicle) => shortName(vehicle.technicianName) === technician);
       const pending = pendingPreviousVehicles.filter((vehicle) => shortName(vehicle.technicianName) === technician);
+      const availableImmobilized = availableImmobilizedOrders.filter(({ order, vehicle }) => (
+        shortName(vehicle?.technicianName ?? order.technicianName) === technician
+      ));
       const confirmedIds = new Set(confirmed.map((vehicle) => vehicle.id));
       const scheduledOnly = scheduled.filter((item) => !confirmedIds.has(item.id));
 
@@ -284,17 +304,20 @@ export function PreparationImport() {
         scheduled: scheduledOnly,
         confirmed,
         pending,
-        total: scheduledOnly.length + confirmed.length + pending.length,
+        availableImmobilized,
+        total: scheduledOnly.length + confirmed.length + pending.length + availableImmobilized.length,
       };
     });
-  }, [appointmentsForDate, confirmedPreparedVehicles, pendingPreviousVehicles, workshopTechnicians]);
+  }, [appointmentsForDate, availableImmobilizedOrders, confirmedPreparedVehicles, pendingPreviousVehicles, workshopTechnicians]);
 
   const filteredAppointments = useMemo(() => {
+    if (availableImmobilizedOnly) return [];
+
     return appointmentsForDate.filter((item) => {
       const matchesMissing = !missingOnly || item.technician === "Definir";
       return matchesMissing;
     });
-  }, [appointmentsForDate, missingOnly]);
+  }, [appointmentsForDate, availableImmobilizedOnly, missingOnly]);
 
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -486,11 +509,40 @@ export function PreparationImport() {
         <div className="prep-summary-row">
           <div className="metric"><strong>{appointmentsForDate.length}</strong><span>agendamentos</span></div>
           <div className="metric danger"><strong>{pendingPreviousVehicles.length}</strong><span>pendentes anteriores</span></div>
+          <button
+            className={`metric warning ${availableImmobilizedOnly ? "selected" : ""}`}
+            type="button"
+            onClick={() => setAvailableImmobilizedOnly((value) => !value)}
+          >
+            <strong>{availableImmobilizedOrders.length}</strong>
+            <span>imobilizados com peças disponíveis</span>
+          </button>
           <div className="metric"><strong>{appointmentsForDate.filter((item) => item.confirmed).length}</strong><span>confirmados</span></div>
           <div className="metric"><strong>{appointmentsForDate.filter((item) => item.roadTest).length}</strong><span>testes rodagem</span></div>
           <div className="metric"><strong>{appointmentsForDate.filter((item) => item.technician === "Definir").length}</strong><span>sem técnico</span></div>
           <div className="metric"><strong>{duplicatedInDate.size}</strong><span>chassis duplicados</span></div>
         </div>
+
+        {(availableImmobilizedOnly || availableImmobilizedOrders.length > 0) && (
+          <section className="available-immobilized panel">
+            <div className="panel-head">
+              <h2 className="panel-title">Imobilizados com peças disponíveis</h2>
+              <strong>{availableImmobilizedOrders.length}</strong>
+            </div>
+            <div className="panel-body available-immobilized-grid">
+              {availableImmobilizedOrders.length ? availableImmobilizedOrders.map(({ order, vehicle }) => (
+                <article key={order.id} className="plan-chip immobilized-ready">
+                  <strong>{vehicle?.clientName || order.clientName || "Cliente não identificado"}</strong>
+                  <span>{vehicle?.plate || order.plate || "-"} · Técnico {shortName(vehicle?.technicianName ?? order.technicianName)} · Pedido {order.orderNumber || "-"}</span>
+                  <span>{order.parts?.map((part) => [part.partReference, part.partDescription].filter(Boolean).join(" - ")).filter(Boolean).join(" | ") || order.partDescription || "Peça disponível"}</span>
+                  <a className="tag parts-shortcut" href="/pecas">Ver pedido</a>
+                </article>
+              )) : (
+                <p>Nenhum veículo imobilizado com peças disponíveis no momento.</p>
+              )}
+            </div>
+          </section>
+        )}
 
         <section className="technician-plan panel">
           <div className="panel-head">
@@ -515,6 +567,19 @@ export function PreparationImport() {
                       <span>{vehicle.plate || "-"} · {vehicle.serviceLabel || "-"} · {laneLabels[vehicle.currentLane]}</span>
                     </div>
                   )) : <p>Nenhum pendente.</p>}
+                </div>
+
+                <div className="plan-section immobilized-ready-section">
+                  <div className="plan-section-title">
+                    <span>Imobilizados disponíveis</span>
+                    <b>{group.availableImmobilized.length}</b>
+                  </div>
+                  {group.availableImmobilized.length ? group.availableImmobilized.map(({ order, vehicle }) => (
+                    <div key={`available-immobilized-${order.id}`} className="plan-chip immobilized-ready">
+                      <strong>{vehicle?.clientName || order.clientName || "Cliente não identificado"}</strong>
+                      <span>{vehicle?.plate || order.plate || "-"} · peça disponível</span>
+                    </div>
+                  )) : <p>Nenhum disponível.</p>}
                 </div>
 
                 <div className="plan-section">
