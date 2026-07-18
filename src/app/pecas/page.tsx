@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
@@ -88,6 +88,40 @@ const manual: ManualContent = {
 type PartsFilter = "pendentes" | "todos" | "vor" | PartOrderStatus;
 type PartEditSection = "dados" | "pedido" | "pecas" | "cancelamento" | "info";
 
+type MobisReceiptItem = {
+  id: string;
+  mobisOrder: string;
+  line: string;
+  partReference: string;
+  partDescription: string;
+  quantity: number;
+};
+
+type MobisReceiptMatch = {
+  item: MobisReceiptItem;
+  candidates: PartOrder[];
+  recommended?: PartOrder;
+  reason: string;
+};
+
+type MobisReceiptState = {
+  fileName: string;
+  invoiceNumber: string;
+  safe: MobisReceiptMatch[];
+  doubtful: MobisReceiptMatch[];
+  notFound: MobisReceiptItem[];
+  error: string;
+};
+
+const emptyMobisReceipt: MobisReceiptState = {
+  fileName: "",
+  invoiceNumber: "",
+  safe: [],
+  doubtful: [],
+  notFound: [],
+  error: "",
+};
+
 function formatDate(value?: string) {
   if (!value) return "-";
   const [year, month, day] = value.split("-");
@@ -145,6 +179,48 @@ function orderParts(order: PartOrder) {
   return [{ id: "peca-1", partReference: order.partReference ?? "", partDescription: order.partDescription ?? "" }];
 }
 
+function normalizeCode(value?: string) {
+  return String(value ?? "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
+}
+
+function orderTimeValue(order: PartOrder) {
+  const date = toDate(order.createdAt) ?? toDate(order.updatedAt);
+  return date?.getTime() ?? 0;
+}
+
+function orderHasPart(order: PartOrder, partReference: string) {
+  const reference = normalizeCode(partReference);
+  return orderParts(order).some((part) => normalizeCode(part.partReference) === reference);
+}
+
+function parseMobisReceiptLines(lines: string[]) {
+  const invoiceNumber = lines
+    .map((line) => line.match(/NF-e\s*:\s*([0-9]+)/i)?.[1])
+    .find(Boolean) ?? "";
+  const items: MobisReceiptItem[] = [];
+  const rowPattern = /^([0-9A-Z]+)\s+([0-9]{4})\s+([0-9A-Z]{6,20})\s+(.+?)\s+([0-9]+)$/i;
+
+  lines.forEach((line, index) => {
+    const cleanLine = line.replace(/\s+/g, " ").trim();
+    const match = cleanLine.match(rowPattern);
+    if (!match) return;
+
+    const [, mobisOrder, itemLine, partReference, partDescription, quantity] = match;
+    if (["Pedido", "Total", "Itens", "Peças"].some((term) => cleanLine.startsWith(term))) return;
+
+    items.push({
+      id: `${mobisOrder}-${itemLine}-${partReference}-${index}`,
+      mobisOrder: mobisOrder.toUpperCase(),
+      line: itemLine,
+      partReference: partReference.toUpperCase(),
+      partDescription: partDescription.trim().toUpperCase(),
+      quantity: Number(quantity),
+    });
+  });
+
+  return { invoiceNumber, items };
+}
+
 export default function PecasPage() {
   const { profile, user } = useAuth();
   const initialFocusedOrderId = typeof window === "undefined"
@@ -158,6 +234,8 @@ export default function PecasPage() {
   const [statusFilter, setStatusFilter] = useState<PartsFilter>(initialFocusedOrderId ? "todos" : "pendentes");
   const [focusedOrderId, setFocusedOrderId] = useState(initialFocusedOrderId);
   const [error, setError] = useState("");
+  const [mobisReceipt, setMobisReceipt] = useState<MobisReceiptState>(emptyMobisReceipt);
+  const [applyingReceiptId, setApplyingReceiptId] = useState("");
 
   useEffect(() => {
     const unsubscribe = subscribePartOrders((items) => {
@@ -255,6 +333,123 @@ export default function PecasPage() {
     { label: "disponíveis", value: availableOrders.length, filter: "disponivel" as PartsFilter, state: "" },
     { label: "cancelados", value: canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
   ];
+
+  function classifyMobisReceipt(fileName: string, invoiceNumber: string, items: MobisReceiptItem[]) {
+    const openOrders = mergedOrders.filter((order) => order.orderStatus !== "disponivel" && order.orderStatus !== "cancelado");
+    const safe: MobisReceiptMatch[] = [];
+    const doubtful: MobisReceiptMatch[] = [];
+    const notFound: MobisReceiptItem[] = [];
+
+    items.forEach((item) => {
+      const partCandidates = openOrders.filter((order) => orderHasPart(order, item.partReference));
+      const exactCandidates = partCandidates.filter((order) => normalizeCode(order.orderNumber) === normalizeCode(item.mobisOrder));
+
+      if (exactCandidates.length === 1) {
+        safe.push({
+          item,
+          candidates: exactCandidates,
+          recommended: exactCandidates[0],
+          reason: "Pedido Mobis + referência",
+        });
+        return;
+      }
+
+      if (!exactCandidates.length && partCandidates.length === 1) {
+        safe.push({
+          item,
+          candidates: partCandidates,
+          recommended: partCandidates[0],
+          reason: "Referência única em aberto",
+        });
+        return;
+      }
+
+      const candidates = exactCandidates.length ? exactCandidates : partCandidates;
+      if (candidates.length > 1) {
+        const sortedCandidates = [...candidates].sort((a, b) => orderTimeValue(a) - orderTimeValue(b));
+        doubtful.push({
+          item,
+          candidates: sortedCandidates,
+          recommended: sortedCandidates[0],
+          reason: exactCandidates.length ? "Mais de um pedido com pedido Mobis + referência" : "Mais de um pedido com a mesma referência",
+        });
+        return;
+      }
+
+      notFound.push(item);
+    });
+
+    setMobisReceipt({
+      fileName,
+      invoiceNumber,
+      safe,
+      doubtful,
+      notFound,
+      error: "",
+    });
+  }
+
+  async function handleMobisReceiptFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url).toString();
+      const data = new Uint8Array(await file.arrayBuffer());
+      const documentTask = pdfjs.getDocument({ data });
+      const pdf = await documentTask.promise;
+      const lines: string[] = [];
+
+      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+        const page = await pdf.getPage(pageNumber);
+        const content = await page.getTextContent();
+        const rows = new Map<number, Array<{ x: number; text: string }>>();
+
+        content.items.forEach((item) => {
+          if (!("str" in item) || !item.str.trim()) return;
+          const transform = item.transform as number[];
+          const y = Math.round(transform[5]);
+          const x = transform[4];
+          const current = rows.get(y) ?? [];
+          current.push({ x, text: item.str });
+          rows.set(y, current);
+        });
+
+        Array.from(rows.entries())
+          .sort(([a], [b]) => b - a)
+          .forEach(([, rowItems]) => {
+            const line = rowItems
+              .sort((a, b) => a.x - b.x)
+              .map((rowItem) => rowItem.text)
+              .join(" ")
+              .replace(/\s+/g, " ")
+              .trim();
+            if (line) lines.push(line);
+          });
+      }
+
+      const parsed = parseMobisReceiptLines(lines);
+      if (!parsed.items.length) {
+        setMobisReceipt({
+          ...emptyMobisReceipt,
+          fileName: file.name,
+          error: "Não foi possível identificar itens de recebimento neste PDF.",
+        });
+        return;
+      }
+
+      classifyMobisReceipt(file.name, parsed.invoiceNumber, parsed.items);
+    } catch (currentError) {
+      setMobisReceipt({
+        ...emptyMobisReceipt,
+        fileName: file.name,
+        error: currentError instanceof Error ? currentError.message : "Não foi possível ler o PDF da Mobis.",
+      });
+    } finally {
+      event.target.value = "";
+    }
+  }
 
   function orderFormValues(order: PartOrder): PartOrderFormFields {
     return {
@@ -362,6 +557,63 @@ export default function PecasPage() {
     }
   }
 
+  async function applyMobisReceiptMatch(match: MobisReceiptMatch, order = match.recommended) {
+    if (!order) return;
+
+    const form = orderFormValues(order);
+    const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
+    const receiptKey = `${order.id}-${match.item.id}`;
+    setApplyingReceiptId(receiptKey);
+    setError("");
+
+    try {
+      await updatePartOrder({
+        orderId: order.id,
+        vehicleFlowId: order.vehicleFlowId,
+        plate: order.plate,
+        customerId: form.customerId,
+        clientName: order.clientName,
+        consultantName: order.consultantName,
+        technicianName: order.technicianName,
+        orderKind: form.orderKind || undefined,
+        parts: validParts,
+        orderStatus: "disponivel",
+        orderSource: form.orderSource || "mobis",
+        orderNumber: form.orderNumber || match.item.mobisOrder,
+        orderVor: form.orderVor,
+        orderDate: form.orderDate,
+        invoiceNumber: mobisReceipt.invoiceNumber || form.invoiceNumber,
+        expectedArrivalDate: form.expectedArrivalDate,
+        cancellationReason: form.cancellationReason,
+        updatedBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+
+      setOrders((current) => current.map((item) => (
+        item.id === order.id
+          ? {
+              ...item,
+              orderStatus: "disponivel",
+              orderSource: form.orderSource || "mobis",
+              orderNumber: form.orderNumber || match.item.mobisOrder,
+              invoiceNumber: mobisReceipt.invoiceNumber || form.invoiceNumber,
+              updatedBy: profile?.name ?? user?.email ?? user?.uid,
+              updatedAt: new Date().toISOString(),
+            }
+          : item
+      )));
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível aplicar o recebimento Mobis.");
+    } finally {
+      setApplyingReceiptId("");
+    }
+  }
+
+  async function applySafeMobisMatches() {
+    for (const match of mobisReceipt.safe) {
+      await applyMobisReceiptMatch(match);
+    }
+  }
+
   function updatePartItem(order: PartOrder, partId: string, patch: Partial<PartOrderItem>) {
     const form = orderFormValues(order);
     updateOrderForm(order.id, {
@@ -420,6 +672,117 @@ export default function PecasPage() {
               ))}
             </select>
           </label>
+        </section>
+
+        <section className="panel mobis-receipt-panel">
+          <div className="panel-head">
+            <div>
+              <h2 className="panel-title">Recebimento Mobis</h2>
+              <span className="panel-subtitle">Importe o packing list em PDF para cruzar pedido, referência e nota fiscal.</span>
+            </div>
+            <label className="ghost-btn file-action">
+              <input accept=".pdf" type="file" onChange={handleMobisReceiptFile} />
+              Importar PDF Mobis
+            </label>
+          </div>
+
+          {mobisReceipt.error && (
+            <div className="duplicate-alert">
+              <strong>Recebimento Mobis</strong>
+              <span>{mobisReceipt.error}</span>
+            </div>
+          )}
+
+          {mobisReceipt.fileName && !mobisReceipt.error && (
+            <div className="mobis-review">
+              <div className="mobis-review-head">
+                <div>
+                  <strong>{mobisReceipt.fileName}</strong>
+                  <span>NF-e {mobisReceipt.invoiceNumber || "não identificada"}</span>
+                </div>
+                <button
+                  className="primary-btn"
+                  type="button"
+                  disabled={!mobisReceipt.safe.length || Boolean(applyingReceiptId)}
+                  onClick={applySafeMobisMatches}
+                >
+                  Aplicar encontrados com segurança
+                </button>
+              </div>
+
+              <div className="mobis-review-grid">
+                <div className="mobis-review-column good">
+                  <h3>Encontrados com segurança <span>{mobisReceipt.safe.length}</span></h3>
+                  {mobisReceipt.safe.length ? mobisReceipt.safe.map((match) => (
+                    <div key={`safe-${match.item.id}`} className="mobis-match-card">
+                      <strong>{match.item.partReference}</strong>
+                      <span>{match.item.partDescription}</span>
+                      <small>{match.reason} · {match.recommended?.clientName || "Cliente não identificado"} · {match.recommended?.plate || "-"}</small>
+                      <button
+                        type="button"
+                        className="ghost-btn"
+                        disabled={applyingReceiptId === `${match.recommended?.id}-${match.item.id}`}
+                        onClick={() => applyMobisReceiptMatch(match)}
+                      >
+                        Marcar disponível
+                      </button>
+                    </div>
+                  )) : <p>Nenhum item neste grupo.</p>}
+                </div>
+
+                <div className="mobis-review-column warn">
+                  <h3>Encontrados com dúvida <span>{mobisReceipt.doubtful.length}</span></h3>
+                  {mobisReceipt.doubtful.length ? mobisReceipt.doubtful.map((match) => (
+                    <div key={`doubtful-${match.item.id}`} className="mobis-match-card">
+                      <strong>{match.item.partReference}</strong>
+                      <span>{match.item.partDescription}</span>
+                      <small>{match.reason}</small>
+                      {match.recommended && (
+                        <div className="oldest-request">
+                          <span>Solicitação mais antiga</span>
+                          <strong>{match.recommended.clientName || "Cliente não identificado"} · {match.recommended.plate || "-"}</strong>
+                          <small>{formatDateTime(match.recommended.createdAt)}</small>
+                          <button
+                            type="button"
+                            className="ghost-btn"
+                            disabled={applyingReceiptId === `${match.recommended.id}-${match.item.id}`}
+                            onClick={() => applyMobisReceiptMatch(match, match.recommended)}
+                          >
+                            Aplicar neste cliente
+                          </button>
+                        </div>
+                      )}
+                      <details>
+                        <summary>Ver possíveis clientes</summary>
+                        {match.candidates.map((candidate) => (
+                          <button
+                            key={candidate.id}
+                            type="button"
+                            className="mobis-candidate"
+                            onClick={() => applyMobisReceiptMatch(match, candidate)}
+                          >
+                            <strong>{candidate.clientName || "Cliente não identificado"}</strong>
+                            <span>{candidate.plate || "-"} · {formatDateTime(candidate.createdAt)}</span>
+                          </button>
+                        ))}
+                      </details>
+                    </div>
+                  )) : <p>Nenhum item neste grupo.</p>}
+                </div>
+
+                <div className="mobis-review-column bad">
+                  <h3>Não encontrados <span>{mobisReceipt.notFound.length}</span></h3>
+                  {mobisReceipt.notFound.length ? mobisReceipt.notFound.map((item) => (
+                    <div key={`not-found-${item.id}`} className="mobis-match-card">
+                      <strong>{item.partReference}</strong>
+                      <span>{item.partDescription}</span>
+                      <small>Pedido Mobis {item.mobisOrder} · qtd. {item.quantity}</small>
+                    </div>
+                  )) : <p>Nenhum item neste grupo.</p>}
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         {error && <div className="duplicate-alert"><strong>Erro em peças</strong><span>{error}</span></div>}

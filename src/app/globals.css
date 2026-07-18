@@ -2766,6 +2766,176 @@ textarea {
   flex: 1 1 260px;
 }
 
+.mobis-receipt-panel .panel-head {
+  align-items: center;
+}
+
+.file-action {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.file-action input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.mobis-review {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.mobis-review-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mobis-review-head strong,
+.mobis-review-head span {
+  display: block;
+}
+
+.mobis-review-head span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mobis-review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.mobis-review-column {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.mobis-review-column h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.mobis-review-column h3 span {
+  display: grid;
+  min-width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+}
+
+.mobis-review-column.good {
+  border-top: 4px solid var(--green);
+}
+
+.mobis-review-column.warn {
+  border-top: 4px solid var(--yellow);
+}
+
+.mobis-review-column.bad {
+  border-top: 4px solid var(--red);
+}
+
+.mobis-review-column p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mobis-match-card {
+  display: grid;
+  gap: 5px;
+  border-radius: 7px;
+  background: #f7f9f7;
+  padding: 8px;
+}
+
+.mobis-match-card > strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.mobis-match-card > span,
+.mobis-match-card small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.oldest-request {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #f0d28a;
+  border-left: 4px solid var(--yellow);
+  border-radius: 7px;
+  background: #fff8e7;
+  padding: 7px;
+}
+
+.oldest-request span {
+  color: #8a5a00;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.oldest-request strong {
+  font-size: 12px;
+}
+
+.mobis-match-card details {
+  display: grid;
+  gap: 5px;
+}
+
+.mobis-match-card summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.mobis-candidate {
+  display: grid;
+  width: 100%;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  padding: 6px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mobis-candidate strong,
+.mobis-candidate span {
+  display: block;
+  font-size: 11px;
+}
+
+.mobis-candidate span {
+  color: var(--muted);
+}
+
 .parts-table-row {
   display: grid;
   grid-template-columns:
