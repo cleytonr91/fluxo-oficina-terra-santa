@@ -133,6 +133,79 @@ function normalizeVehicleIdentifier(value?: string) {
     .toUpperCase();
 }
 
+function publicPartLookupId(plate?: string, customerId?: string) {
+  const cleanPlate = normalizeVehicleIdentifier(plate);
+  const cleanCustomerId = normalizeVehicleIdentifier(customerId);
+  if (!cleanPlate || !cleanCustomerId) return "";
+  return `${cleanPlate}_${cleanCustomerId}`;
+}
+
+function publicStatusLabel(status?: PartOrderStatus) {
+  if (status === "pedido_realizado") return "Peça solicitada à montadora";
+  if (status === "back_order") return "Aguardando disponibilidade da montadora";
+  if (status === "em_transito") return "A caminho da concessionária";
+  if (status === "recebido") return "Peça recebida pela concessionária";
+  if (status === "disponivel") return "Disponível para agendamento";
+  if (status === "cancelado") return "Solicitação cancelada";
+  return "Pedido em análise";
+}
+
+function publicPartOrderPayload({
+  orderId,
+  vehicleFlowId,
+  plate,
+  customerId,
+  parts,
+  partReference,
+  partDescription,
+  orderStatus,
+  expectedArrivalDate,
+  invoiceNumber,
+  orderNumber,
+  updatedBy,
+}: {
+  orderId: string;
+  vehicleFlowId?: string;
+  plate?: string;
+  customerId?: string;
+  parts: PartOrderItem[];
+  partReference?: string;
+  partDescription?: string;
+  orderStatus: PartOrderStatus;
+  expectedArrivalDate?: string;
+  invoiceNumber?: string;
+  orderNumber?: string;
+  updatedBy?: string;
+}) {
+  const normalizedParts = parts.length ? parts : [{
+    id: "peca-1",
+    partReference,
+    partDescription,
+  }];
+
+  return withoutUndefined({
+    id: orderId,
+    vehicleFlowId,
+    plate,
+    customerId,
+    parts: normalizedParts.map((part, index) => withoutUndefined({
+      id: part.id || `peca-${index + 1}`,
+      partReference: part.partReference,
+      partDescription: part.partDescription,
+    })),
+    partReference,
+    partDescription,
+    status: publicStatusLabel(orderStatus),
+    internalStatus: orderStatus,
+    expectedArrivalDate: expectedArrivalDate || undefined,
+    invoiceNumber: invoiceNumber || undefined,
+    orderNumber: orderNumber || undefined,
+    availableForScheduling: orderStatus === "disponivel",
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 function timestampToDateInput(value: unknown) {
   if (!value) return "";
 
@@ -730,11 +803,13 @@ export async function savePartOrder({
   const firstPart = normalizedParts[0];
   const normalizedReference = partReference?.trim().toUpperCase() || firstPart?.partReference;
   const normalizedDescription = partDescription?.trim() || firstPart?.partDescription;
+  const cleanCustomerId = customerId?.trim();
+  const lookupId = publicPartLookupId(vehicle.plate, cleanCustomerId);
 
   batch.set(orderRef, withoutUndefined({
     vehicleFlowId: vehicle.id,
     plate: vehicle.plate,
-    customerId: customerId?.trim(),
+    customerId: cleanCustomerId,
     clientName: vehicle.clientName,
     consultantName: vehicle.consultantName,
     technicianName: vehicle.technicianName,
@@ -748,6 +823,27 @@ export async function savePartOrder({
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }), { merge: true });
+
+  if (lookupId) {
+    batch.set(doc(collection(db, collections.publicPartLookups), lookupId), {
+      plate: normalizeVehicleIdentifier(vehicle.plate),
+      customerId: normalizeVehicleIdentifier(cleanCustomerId),
+      updatedAt: serverTimestamp(),
+      orders: {
+        [orderRef.id]: publicPartOrderPayload({
+          orderId: orderRef.id,
+          vehicleFlowId: vehicle.id,
+          plate: vehicle.plate,
+          customerId: cleanCustomerId,
+          parts: normalizedParts,
+          partReference: normalizedReference,
+          partDescription: normalizedDescription,
+          orderStatus: "solicitado_oficina",
+          updatedBy: actionBy,
+        }),
+      },
+    }, { merge: true });
+  }
 
   batch.set(flowRef, {
     partsOrdered: true,
@@ -798,18 +894,22 @@ export async function updatePartOrder({
     }))
     .filter((part) => part.partReference || part.partDescription);
   const firstPart = normalizedParts[0];
+  const cleanCustomerId = customerId?.trim();
+  const normalizedReference = partReference?.trim().toUpperCase() || firstPart?.partReference;
+  const normalizedDescription = partDescription?.trim() || firstPart?.partDescription;
+  const lookupId = publicPartLookupId(plate, cleanCustomerId);
 
   await setDoc(ref, withoutUndefined({
     vehicleFlowId,
     plate,
-    customerId,
+    customerId: cleanCustomerId,
     clientName,
     consultantName,
     technicianName,
     orderKind,
     parts: normalizedParts,
-    partReference: partReference?.trim().toUpperCase() || firstPart?.partReference,
-    partDescription: partDescription?.trim() || firstPart?.partDescription,
+    partReference: normalizedReference,
+    partDescription: normalizedDescription,
     orderStatus,
     orderSource,
     orderNumber: orderNumber?.trim(),
@@ -821,6 +921,30 @@ export async function updatePartOrder({
     updatedBy,
     updatedAt: serverTimestamp(),
   }), { merge: true });
+
+  if (lookupId) {
+    await setDoc(doc(collection(db, collections.publicPartLookups), lookupId), {
+      plate: normalizeVehicleIdentifier(plate),
+      customerId: normalizeVehicleIdentifier(cleanCustomerId),
+      updatedAt: serverTimestamp(),
+      orders: {
+        [orderId]: publicPartOrderPayload({
+          orderId,
+          vehicleFlowId,
+          plate,
+          customerId: cleanCustomerId,
+          parts: normalizedParts,
+          partReference: normalizedReference,
+          partDescription: normalizedDescription,
+          orderStatus,
+          expectedArrivalDate: expectedArrivalDate || undefined,
+          invoiceNumber: invoiceNumber?.trim(),
+          orderNumber: orderNumber?.trim(),
+          updatedBy,
+        }),
+      },
+    }, { merge: true });
+  }
 }
 
 export async function registerPartSchedulingAction({

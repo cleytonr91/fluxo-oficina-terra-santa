@@ -248,6 +248,7 @@ export default function PecasPage() {
   const [error, setError] = useState("");
   const [mobisReceipt, setMobisReceipt] = useState<MobisReceiptState>(emptyMobisReceipt);
   const [applyingReceiptId, setApplyingReceiptId] = useState("");
+  const [syncingPortal, setSyncingPortal] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribePartOrders((items) => {
@@ -645,6 +646,42 @@ export default function PecasPage() {
     }
   }
 
+  async function syncPublicPartsPortal() {
+    const syncableOrders = mergedOrders.filter((order) => order.plate && order.customerId);
+    setSyncingPortal(true);
+    setError("");
+
+    try {
+      for (const order of syncableOrders) {
+        const form = orderFormValues(order);
+        await updatePartOrder({
+          orderId: order.id,
+          vehicleFlowId: order.vehicleFlowId,
+          plate: order.plate,
+          customerId: form.customerId || order.customerId,
+          clientName: order.clientName,
+          consultantName: order.consultantName,
+          technicianName: order.technicianName,
+          orderKind: form.orderKind || undefined,
+          parts: form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim()),
+          orderStatus: form.orderStatus,
+          orderSource: form.orderSource || undefined,
+          orderNumber: form.orderNumber,
+          orderVor: form.orderVor,
+          orderDate: form.orderDate,
+          invoiceNumber: form.invoiceNumber,
+          expectedArrivalDate: form.expectedArrivalDate,
+          cancellationReason: form.cancellationReason,
+          updatedBy: profile?.name ?? user?.email ?? user?.uid,
+        });
+      }
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível sincronizar o Portal Minha Peça.");
+    } finally {
+      setSyncingPortal(false);
+    }
+  }
+
   function updatePartItem(order: PartOrder, partId: string, patch: Partial<PartOrderItem>) {
     const form = orderFormValues(order);
     updateOrderForm(order.id, {
@@ -704,6 +741,17 @@ export default function PecasPage() {
             </select>
           </label>
         </section>
+
+        <div className="parts-portal-sync">
+          <div>
+            <strong>Portal Minha Peça</strong>
+            <span>Sincroniza pedidos com placa e ID Cliente para consulta pública.</span>
+          </div>
+          <a className="ghost-btn" href="/minha-peca" target="_blank" rel="noreferrer">Abrir portal</a>
+          <button className="primary-btn" type="button" disabled={syncingPortal} onClick={syncPublicPartsPortal}>
+            {syncingPortal ? "Sincronizando..." : "Sincronizar portal"}
+          </button>
+        </div>
 
         <section className="panel mobis-receipt-panel">
           <div className="panel-head">
