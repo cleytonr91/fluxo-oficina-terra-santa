@@ -566,6 +566,7 @@ export default function FluxoPage() {
   const { profile, user } = useAuth();
   const canDeleteChip = profile?.role === "admin" || profile?.role === "gerente";
   const canEditConsultant = profile?.role === "admin" || profile?.role === "gerente";
+  const canReducePromisedDelivery = profile?.role === "admin" || profile?.role === "gerente" || user?.email === "cleyton91@gmail.com";
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -903,7 +904,7 @@ export default function FluxoPage() {
       return;
     }
 
-    if (isEarlierThanCurrent(receiveForm.promisedDeliveryAt, receivingVehicle.promisedDeliveryAt)) {
+    if (!canReducePromisedDelivery && isEarlierThanCurrent(receiveForm.promisedDeliveryAt, receivingVehicle.promisedDeliveryAt)) {
       setError("A nova previsão não pode ser menor que a previsão já prometida.");
       return;
     }
@@ -972,7 +973,7 @@ export default function FluxoPage() {
       return;
     }
 
-    if (isEarlierThanCurrent(startServiceForm.promisedDeliveryAt, startServiceVehicle.promisedDeliveryAt)) {
+    if (!canReducePromisedDelivery && isEarlierThanCurrent(startServiceForm.promisedDeliveryAt, startServiceVehicle.promisedDeliveryAt)) {
       setError("A nova previsão não pode ser menor que a previsão já prometida.");
       return;
     }
@@ -1097,7 +1098,7 @@ export default function FluxoPage() {
       return;
     }
 
-    if (isEarlierThanCurrent(budgetReturnForm.promisedDeliveryAt, budgetReturnVehicle.promisedDeliveryAt)) {
+    if (!canReducePromisedDelivery && isEarlierThanCurrent(budgetReturnForm.promisedDeliveryAt, budgetReturnVehicle.promisedDeliveryAt)) {
       setError("A nova previsão não pode ser menor que a previsão já prometida.");
       return;
     }
@@ -1263,7 +1264,7 @@ export default function FluxoPage() {
     event.preventDefault();
     if (!detailVehicle) return;
 
-    if (isEarlierThanCurrent(promiseForm.promisedDeliveryAt, detailVehicle.promisedDeliveryAt)) {
+    if (!canReducePromisedDelivery && isEarlierThanCurrent(promiseForm.promisedDeliveryAt, detailVehicle.promisedDeliveryAt)) {
       setError("A nova previsão não pode ser menor que a previsão já prometida.");
       return;
     }
@@ -2507,7 +2508,7 @@ export default function FluxoPage() {
                   <input
                     required
                     type="datetime-local"
-                    min={toDateTimeLocal(detailVehicle.promisedDeliveryAt) || undefined}
+                    min={canReducePromisedDelivery ? undefined : toDateTimeLocal(detailVehicle.promisedDeliveryAt) || undefined}
                     value={promiseForm.promisedDeliveryAt}
                     onChange={(event) => setPromiseForm((current) => ({ ...current, promisedDeliveryAt: event.target.value }))}
                   />
@@ -2749,7 +2750,7 @@ export default function FluxoPage() {
               <input
                 required
                 type="datetime-local"
-                min={toDateTimeLocal(budgetReturnVehicle.promisedDeliveryAt) || undefined}
+                min={canReducePromisedDelivery ? undefined : toDateTimeLocal(budgetReturnVehicle.promisedDeliveryAt) || undefined}
                 value={budgetReturnForm.promisedDeliveryAt}
                 onChange={(event) => setBudgetReturnForm((current) => ({ ...current, promisedDeliveryAt: event.target.value }))}
               />
@@ -2886,7 +2887,7 @@ export default function FluxoPage() {
               <input
                 required
                 type="datetime-local"
-                min={toDateTimeLocal(startServiceVehicle.promisedDeliveryAt) || undefined}
+                min={canReducePromisedDelivery ? undefined : toDateTimeLocal(startServiceVehicle.promisedDeliveryAt) || undefined}
                 value={startServiceForm.promisedDeliveryAt}
                 onChange={(event) => setStartServiceForm((current) => ({ ...current, promisedDeliveryAt: event.target.value }))}
               />
