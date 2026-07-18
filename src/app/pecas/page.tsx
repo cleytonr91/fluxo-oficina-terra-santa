@@ -160,6 +160,12 @@ function statusTone(status: PartOrderStatus) {
   return "";
 }
 
+function isWorkshopRequestedStatus(order: PartOrder) {
+  return order.orderStatus === "solicitado_oficina"
+    || order.orderStatus === "necessidade_identificada"
+    || order.orderStatus === "aguardando_pecas";
+}
+
 function sourceLabel(value?: PartOrderSource) {
   return sourceOptions.find((option) => option.value === value)?.label ?? "-";
 }
@@ -306,7 +312,7 @@ export default function PecasPage() {
   ), [mergedOrders]);
 
   const pendingOrders = useMemo(() => (
-    mergedOrders.filter((order) => order.orderStatus !== "disponivel" && order.orderStatus !== "cancelado")
+    mergedOrders.filter(isWorkshopRequestedStatus)
   ), [mergedOrders]);
 
   const filteredOrders = useMemo(() => {
@@ -315,7 +321,7 @@ export default function PecasPage() {
     if (statusFilter === "pendentes") return pendingOrders;
     if (statusFilter === "vor") return mergedOrders.filter((order) => order.orderVor);
     if (statusFilter === "solicitado_oficina") {
-      return mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas");
+      return mergedOrders.filter(isWorkshopRequestedStatus);
     }
     return mergedOrders.filter((order) => order.orderStatus === statusFilter);
   }, [focusedOrderId, mergedOrders, pendingOrders, statusFilter]);
@@ -325,7 +331,7 @@ export default function PecasPage() {
 
   const metrics = [
     { label: "pendências", value: pendingOrders.length, filter: "pendentes" as PartsFilter, state: "active" },
-    { label: "solicitado oficina", value: mergedOrders.filter((order) => order.orderStatus === "solicitado_oficina" || order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas").length, filter: "solicitado_oficina" as PartsFilter, state: "" },
+    { label: "solicitado oficina", value: mergedOrders.filter(isWorkshopRequestedStatus).length, filter: "solicitado_oficina" as PartsFilter, state: "" },
     { label: "pedido realizado", value: mergedOrders.filter((order) => order.orderStatus === "pedido_realizado").length, filter: "pedido_realizado" as PartsFilter, state: "" },
     { label: "B.O", value: mergedOrders.filter((order) => order.orderStatus === "back_order").length, filter: "back_order" as PartsFilter, state: "danger" },
     { label: "VOR", value: mergedOrders.filter((order) => order.orderVor).length, filter: "vor" as PartsFilter, state: "danger" },
