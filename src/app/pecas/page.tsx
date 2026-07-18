@@ -334,49 +334,68 @@ export default function PecasPage() {
     { label: "cancelados", value: canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
   ];
 
-  function classifyMobisReceipt(fileName: string, invoiceNumber: string, items: MobisReceiptItem[]) {
+  function classifyMobisReceiptByQuantity(fileName: string, invoiceNumber: string, items: MobisReceiptItem[]) {
     const openOrders = mergedOrders.filter((order) => order.orderStatus !== "disponivel" && order.orderStatus !== "cancelado");
     const safe: MobisReceiptMatch[] = [];
     const doubtful: MobisReceiptMatch[] = [];
     const notFound: MobisReceiptItem[] = [];
+    const groupedItems = new Map<string, MobisReceiptItem>();
 
     items.forEach((item) => {
-      const partCandidates = openOrders.filter((order) => orderHasPart(order, item.partReference));
-      const exactCandidates = partCandidates.filter((order) => normalizeCode(order.orderNumber) === normalizeCode(item.mobisOrder));
+      const key = normalizeCode(item.partReference);
+      const current = groupedItems.get(key);
 
-      if (exactCandidates.length === 1) {
+      if (!current) {
+        groupedItems.set(key, item);
+        return;
+      }
+
+      const mobisOrders = Array.from(new Set([
+        ...current.mobisOrder.split(",").map((value) => value.trim()).filter(Boolean),
+        item.mobisOrder,
+      ]));
+
+      groupedItems.set(key, {
+        ...current,
+        id: `${current.id}-${item.line}`,
+        mobisOrder: mobisOrders.join(", "),
+        quantity: current.quantity + item.quantity,
+      });
+    });
+
+    groupedItems.forEach((item) => {
+      const partCandidates = openOrders
+        .filter((order) => orderHasPart(order, item.partReference))
+        .sort((a, b) => orderTimeValue(a) - orderTimeValue(b));
+
+      if (!partCandidates.length) {
+        notFound.push(item);
+        return;
+      }
+
+      const allocated = partCandidates.slice(0, item.quantity);
+
+      allocated.forEach((order, index) => {
         safe.push({
-          item,
-          candidates: exactCandidates,
-          recommended: exactCandidates[0],
-          reason: "Pedido Mobis + referência",
+          item: {
+            ...item,
+            id: `${item.id}-${order.id}`,
+            quantity: 1,
+          },
+          candidates: [order],
+          recommended: order,
+          reason: `Fila mais antiga por referência (${index + 1}/${Math.min(item.quantity, partCandidates.length)} de ${item.quantity} recebida(s))`,
         });
-        return;
-      }
+      });
 
-      if (!exactCandidates.length && partCandidates.length === 1) {
-        safe.push({
-          item,
-          candidates: partCandidates,
-          recommended: partCandidates[0],
-          reason: "Referência única em aberto",
+      if (item.quantity > partCandidates.length) {
+        notFound.push({
+          ...item,
+          id: `${item.id}-saldo`,
+          quantity: item.quantity - partCandidates.length,
+          partDescription: `${item.partDescription} - SALDO SEM PEDIDO ABERTO`,
         });
-        return;
       }
-
-      const candidates = exactCandidates.length ? exactCandidates : partCandidates;
-      if (candidates.length > 1) {
-        const sortedCandidates = [...candidates].sort((a, b) => orderTimeValue(a) - orderTimeValue(b));
-        doubtful.push({
-          item,
-          candidates: sortedCandidates,
-          recommended: sortedCandidates[0],
-          reason: exactCandidates.length ? "Mais de um pedido com pedido Mobis + referência" : "Mais de um pedido com a mesma referência",
-        });
-        return;
-      }
-
-      notFound.push(item);
     });
 
     setMobisReceipt({
@@ -439,7 +458,7 @@ export default function PecasPage() {
         return;
       }
 
-      classifyMobisReceipt(file.name, parsed.invoiceNumber, parsed.items);
+      classifyMobisReceiptByQuantity(file.name, parsed.invoiceNumber, parsed.items);
     } catch (currentError) {
       setMobisReceipt({
         ...emptyMobisReceipt,
