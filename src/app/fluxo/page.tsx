@@ -190,10 +190,10 @@ type BudgetReturnForm = {
 };
 
 type DeliveryForm = {
-  deliveredOnTime: boolean;
+  deliveredOnTime: boolean | null;
   partsOrdered: boolean;
-  internalNps: number;
-  hasPendingIssue: boolean;
+  internalNps: number | null;
+  hasPendingIssue: boolean | null;
   futureNote: string;
 };
 
@@ -641,10 +641,10 @@ export default function FluxoPage() {
     note: "",
   });
   const [deliveryForm, setDeliveryForm] = useState<DeliveryForm>({
-    deliveredOnTime: true,
+    deliveredOnTime: null,
     partsOrdered: false,
-    internalNps: 10,
-    hasPendingIssue: false,
+    internalNps: null,
+    hasPendingIssue: null,
     futureNote: "",
   });
   const [walkInForm, setWalkInForm] = useState<WalkInForm>({
@@ -842,14 +842,13 @@ export default function FluxoPage() {
   }
 
   function openDeliveryModal(vehicle: VehicleFlow) {
-    const promisedDate = toDate(vehicle.promisedDeliveryAt);
     const hasPartsRequest = Boolean(vehicle.partsOrdered) || hasActivePartOrder(vehicle.id, partOrders);
     setDeliveryVehicle(vehicle);
     setDeliveryForm({
-      deliveredOnTime: promisedDate ? Date.now() <= promisedDate.getTime() : true,
+      deliveredOnTime: null,
       partsOrdered: hasPartsRequest,
-      internalNps: 10,
-      hasPendingIssue: false,
+      internalNps: null,
+      hasPendingIssue: null,
       futureNote: "",
     });
   }
@@ -1164,8 +1163,33 @@ export default function FluxoPage() {
     event.preventDefault();
     if (!deliveryVehicle) return;
 
-    setMovingId(deliveryVehicle.id);
     setError("");
+
+    if (deliveryForm.deliveredOnTime === null) {
+      setError("Informe se o veículo saiu no prazo.");
+      return;
+    }
+
+    if (deliveryForm.hasPendingIssue === null) {
+      setError("Informe se o veículo saiu com alguma pendência.");
+      return;
+    }
+
+    if (deliveryForm.hasPendingIssue && !deliveryForm.futureNote.trim()) {
+      setError("Descreva a pendência antes de registrar a entrega.");
+      return;
+    }
+
+    if (deliveryForm.internalNps === null) {
+      setError("Informe o NPS interno do cliente.");
+      return;
+    }
+
+    const deliveredOnTime = deliveryForm.deliveredOnTime;
+    const hasPendingIssue = deliveryForm.hasPendingIssue;
+    const internalNps = deliveryForm.internalNps;
+
+    setMovingId(deliveryVehicle.id);
 
     try {
       const partsOrderedByFlow = Boolean(deliveryVehicle.partsOrdered) || hasActivePartOrder(deliveryVehicle.id, partOrders);
@@ -1173,10 +1197,10 @@ export default function FluxoPage() {
         vehicleFlowId: deliveryVehicle.id,
         fromLane: deliveryVehicle.currentLane,
         deliveredBy: profile?.name ?? user?.email ?? user?.uid,
-        deliveredOnTime: deliveryForm.deliveredOnTime,
+        deliveredOnTime,
         partsOrdered: partsOrderedByFlow,
-        internalNps: deliveryForm.internalNps,
-        hasPendingIssue: deliveryForm.hasPendingIssue,
+        internalNps,
+        hasPendingIssue,
         futureNote: deliveryForm.futureNote,
       });
 
@@ -1187,10 +1211,10 @@ export default function FluxoPage() {
               currentLane: "entregue",
               status: "entregue",
               deliveredAt: new Date().toISOString(),
-              deliveredOnTime: deliveryForm.deliveredOnTime,
+              deliveredOnTime,
               partsOrdered: partsOrderedByFlow,
-              internalNps: deliveryForm.internalNps,
-              hasPendingIssue: deliveryForm.hasPendingIssue,
+              internalNps,
+              hasPendingIssue,
               futureNote: deliveryForm.futureNote,
             }
           : vehicle
@@ -2807,14 +2831,25 @@ export default function FluxoPage() {
               </button>
             </div>
 
-            <label className="check-line modal-check">
-              <input
-                type="checkbox"
-                checked={deliveryForm.deliveredOnTime}
-                onChange={(event) => setDeliveryForm((current) => ({ ...current, deliveredOnTime: event.target.checked }))}
-              />
-              Veículo entregue no prazo combinado
-            </label>
+            <div className="field">
+              <span>Veículo saiu no prazo?</span>
+              <div className="choice-row" role="radiogroup" aria-label="Veículo saiu no prazo?">
+                <button
+                  type="button"
+                  className={deliveryForm.deliveredOnTime === true ? "choice-btn active" : "choice-btn"}
+                  onClick={() => setDeliveryForm((current) => ({ ...current, deliveredOnTime: true }))}
+                >
+                  Sim
+                </button>
+                <button
+                  type="button"
+                  className={deliveryForm.deliveredOnTime === false ? "choice-btn active danger" : "choice-btn"}
+                  onClick={() => setDeliveryForm((current) => ({ ...current, deliveredOnTime: false }))}
+                >
+                  Não
+                </button>
+              </div>
+            </div>
 
             {deliveryForm.partsOrdered && (
               <div className="delivery-parts-alert">
@@ -2823,29 +2858,46 @@ export default function FluxoPage() {
               </div>
             )}
 
-            <label className="check-line modal-check">
-              <input
-                type="checkbox"
-                checked={deliveryForm.hasPendingIssue}
-                onChange={(event) => setDeliveryForm((current) => ({ ...current, hasPendingIssue: event.target.checked }))}
-              />
-              Cliente saiu com alguma pendência
-            </label>
+            <div className="field">
+              <span>Veículo saiu com alguma pendência?</span>
+              <div className="choice-row" role="radiogroup" aria-label="Veículo saiu com alguma pendência?">
+                <button
+                  type="button"
+                  className={deliveryForm.hasPendingIssue === true ? "choice-btn active danger" : "choice-btn"}
+                  onClick={() => setDeliveryForm((current) => ({ ...current, hasPendingIssue: true }))}
+                >
+                  Sim
+                </button>
+                <button
+                  type="button"
+                  className={deliveryForm.hasPendingIssue === false ? "choice-btn active" : "choice-btn"}
+                  onClick={() => setDeliveryForm((current) => ({ ...current, hasPendingIssue: false }))}
+                >
+                  Não
+                </button>
+              </div>
+            </div>
 
-            <label className="field">
+            <div className="field">
               <span>NPS interno do cliente</span>
-              <input
-                min="0"
-                max="10"
-                type="number"
-                value={deliveryForm.internalNps}
-                onChange={(event) => setDeliveryForm((current) => ({ ...current, internalNps: Number(event.target.value) }))}
-              />
-            </label>
+              <div className="nps-scale" role="radiogroup" aria-label="NPS interno do cliente">
+                {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => (
+                  <button
+                    key={score}
+                    type="button"
+                    className={`nps-score nps-score-${score <= 6 ? "low" : score <= 8 ? "mid" : "high"}${deliveryForm.internalNps === score ? " active" : ""}`}
+                    onClick={() => setDeliveryForm((current) => ({ ...current, internalNps: score }))}
+                  >
+                    {score}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <label className="field">
-              <span>Observação para lembrar no futuro</span>
+              <span>{deliveryForm.hasPendingIssue ? "Observação da pendência" : "Observação para lembrar no futuro"}</span>
               <textarea
+                required={deliveryForm.hasPendingIssue === true}
                 value={deliveryForm.futureNote}
                 onChange={(event) => setDeliveryForm((current) => ({ ...current, futureNote: event.target.value }))}
               />
