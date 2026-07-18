@@ -166,6 +166,12 @@ function isWorkshopRequestedStatus(order: PartOrder) {
     || order.orderStatus === "aguardando_pecas";
 }
 
+function hasArrivalForecastWithoutAvailability(order: PartOrder) {
+  return Boolean(order.expectedArrivalDate)
+    && order.orderStatus !== "disponivel"
+    && order.orderStatus !== "cancelado";
+}
+
 function sourceLabel(value?: PartOrderSource) {
   return sourceOptions.find((option) => option.value === value)?.label ?? "-";
 }
@@ -312,7 +318,7 @@ export default function PecasPage() {
   ), [mergedOrders]);
 
   const pendingOrders = useMemo(() => (
-    mergedOrders.filter(isWorkshopRequestedStatus)
+    mergedOrders.filter((order) => isWorkshopRequestedStatus(order) || hasArrivalForecastWithoutAvailability(order))
   ), [mergedOrders]);
 
   const filteredOrders = useMemo(() => {
