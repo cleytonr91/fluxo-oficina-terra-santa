@@ -2035,7 +2035,7 @@ export default function FluxoPage() {
             const completedBudgetVehicles = laneVehicles.filter((vehicle) => vehicle.budgetStatus === "realizado");
 
             return (
-              <section key={lane.id} className="flow-lane">
+              <section key={lane.id} className={`flow-lane lane-${lane.id}`}>
                 <div className="flow-lane-head">
                   <h2>{lane.label}</h2>
                   <strong>{laneVehicles.length}</strong>

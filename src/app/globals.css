@@ -558,12 +558,55 @@ textarea {
 }
 
 .flow-lane {
+  --lane-color: var(--green);
+  --lane-soft: #edf7f0;
   min-height: 580px;
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--lane-color) 30%, var(--line));
+  border-top: 5px solid var(--lane-color);
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 18px 38px rgba(29, 37, 36, 0.08);
   overflow: hidden;
+}
+
+.lane-preparacao_confirmada {
+  --lane-color: #2f7d55;
+  --lane-soft: #edf7f0;
+}
+
+.lane-aguardando_servico {
+  --lane-color: #7b61c9;
+  --lane-soft: #f1eefb;
+}
+
+.lane-em_servico {
+  --lane-color: #1f6f9f;
+  --lane-soft: #edf6fb;
+}
+
+.lane-orcamento_complementar {
+  --lane-color: #c47a12;
+  --lane-soft: #fff6e8;
+}
+
+.lane-aguardando_lavagem {
+  --lane-color: #167d7f;
+  --lane-soft: #e9f7f7;
+}
+
+.lane-lavagem {
+  --lane-color: #0f8aa8;
+  --lane-soft: #e8f8fc;
+}
+
+.lane-preparacao_entrega {
+  --lane-color: #8f5a14;
+  --lane-soft: #fff4e5;
+}
+
+.lane-entregue {
+  --lane-color: #56616c;
+  --lane-soft: #f1f3f4;
 }
 
 .flow-lane-head {
@@ -572,13 +615,14 @@ textarea {
   gap: 8px;
   align-items: center;
   min-height: 46px;
-  border-bottom: 1px solid var(--line);
-  background: #fbfcfa;
+  border-bottom: 1px solid color-mix(in srgb, var(--lane-color) 24%, var(--line));
+  background: linear-gradient(90deg, var(--lane-soft), #fff 78%);
   padding: 11px 12px;
 }
 
 .flow-lane-head h2 {
   margin: 0;
+  color: #17221f;
   font-size: 15px;
   font-weight: 900;
   text-transform: uppercase;
@@ -591,13 +635,14 @@ textarea {
   height: 24px;
   place-items: center;
   border-radius: 999px;
-  background: var(--soft);
-  color: var(--muted);
+  background: var(--lane-color);
+  color: #fff;
   font-size: 11px;
   font-weight: 900;
 }
 
 .flow-lane-body {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lane-soft) 58%, transparent), transparent 120px);
   padding: 12px 7px;
 }
 
@@ -3097,6 +3142,13 @@ textarea {
 
   .flow-lane {
     min-height: 320px;
+    border-left-width: 7px;
+    border-top-width: 3px;
+  }
+
+  .flow-lane-head {
+    min-height: 52px;
+    padding: 12px 14px;
   }
 
   .parts-edit-grid,
