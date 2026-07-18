@@ -1774,9 +1774,9 @@ export default function FluxoPage() {
                         : visibleFlowVehicles;
 
   const originMetrics = [
-    { value: scheduledDayMetricVehicles.length, label: "agendados", filter: "agendados" as MetricFilter },
-    { value: walkInDayMetricVehicles.length, label: "passantes", filter: "passantes" as MetricFilter },
-    { value: previousDayMetricVehicles.length, label: "dias anteriores", filter: "anteriores" as MetricFilter },
+    { value: scheduledDayVehicles.length, label: "agendados", filter: "agendados" as MetricFilter },
+    { value: walkInDayVehicles.length, label: "passantes", filter: "passantes" as MetricFilter },
+    { value: previousDayVehicles.length, label: "dias anteriores", filter: "anteriores" as MetricFilter },
   ] as const;
 
   const serviceMetrics = [
