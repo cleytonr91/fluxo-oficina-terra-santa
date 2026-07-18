@@ -71,6 +71,11 @@ function duplicateVehicleMessage(conflict: VehicleFlow) {
   ].join("\n");
 }
 
+function hasActivePartOrder(vehicleId?: string, orders: PartOrder[] = []) {
+  if (!vehicleId) return false;
+  return orders.some((order) => order.vehicleFlowId === vehicleId && order.orderStatus !== "cancelado");
+}
+
 const manual: ManualContent = {
   title: "Manual do Fluxo da Oficina",
   audience: "Uso principal: consultores, técnicos, chefe de oficina, lavagem e peças",
@@ -82,7 +87,7 @@ const manual: ManualContent = {
     "Informe consultor que recebeu, se cliente aguarda, previsão prometida, lavagem e observação.",
     "Avance o chip conforme a execução: aguardando serviço, em serviço, orçamento, lavagem, preparação de entrega e entregue.",
     "Use o detalhe do chip para corrigir etapa, alterar previsão, placa, técnico, serviço ou registrar pedido de peças.",
-    "Na entrega, registre prazo, pedido de peças, NPS, pendência e observação futura.",
+    "Na entrega, registre prazo, NPS, pendência e observação futura. Pedido de peças é avisado automaticamente quando já foi lançado no chip.",
   ],
   rules: [
     "A previsão de entrega não pode ser reduzida para ganhar prioridade.",
@@ -828,10 +833,11 @@ export default function FluxoPage() {
 
   function openDeliveryModal(vehicle: VehicleFlow) {
     const promisedDate = toDate(vehicle.promisedDeliveryAt);
+    const hasPartsRequest = Boolean(vehicle.partsOrdered) || hasActivePartOrder(vehicle.id, partOrders);
     setDeliveryVehicle(vehicle);
     setDeliveryForm({
       deliveredOnTime: promisedDate ? Date.now() <= promisedDate.getTime() : true,
-      partsOrdered: vehicle.partsOrdered ?? false,
+      partsOrdered: hasPartsRequest,
       internalNps: 10,
       hasPendingIssue: false,
       futureNote: "",
@@ -1152,12 +1158,13 @@ export default function FluxoPage() {
     setError("");
 
     try {
+      const partsOrderedByFlow = Boolean(deliveryVehicle.partsOrdered) || hasActivePartOrder(deliveryVehicle.id, partOrders);
       await completeVehicleDelivery({
         vehicleFlowId: deliveryVehicle.id,
         fromLane: deliveryVehicle.currentLane,
         deliveredBy: profile?.name ?? user?.email ?? user?.uid,
         deliveredOnTime: deliveryForm.deliveredOnTime,
-        partsOrdered: deliveryForm.partsOrdered,
+        partsOrdered: partsOrderedByFlow,
         internalNps: deliveryForm.internalNps,
         hasPendingIssue: deliveryForm.hasPendingIssue,
         futureNote: deliveryForm.futureNote,
@@ -1171,7 +1178,7 @@ export default function FluxoPage() {
               status: "entregue",
               deliveredAt: new Date().toISOString(),
               deliveredOnTime: deliveryForm.deliveredOnTime,
-              partsOrdered: deliveryForm.partsOrdered,
+              partsOrdered: partsOrderedByFlow,
               internalNps: deliveryForm.internalNps,
               hasPendingIssue: deliveryForm.hasPendingIssue,
               futureNote: deliveryForm.futureNote,
@@ -2799,14 +2806,12 @@ export default function FluxoPage() {
               Veículo entregue no prazo combinado
             </label>
 
-            <label className="check-line modal-check">
-              <input
-                type="checkbox"
-                checked={deliveryForm.partsOrdered}
-                onChange={(event) => setDeliveryForm((current) => ({ ...current, partsOrdered: event.target.checked }))}
-              />
-              Teve pedido de peça
-            </label>
+            {deliveryForm.partsOrdered && (
+              <div className="delivery-parts-alert">
+                <strong>Pedido de peças lançado</strong>
+                <span>Este chip já recebeu solicitação de peças. A entrega será registrada com esse flag ativo automaticamente.</span>
+              </div>
+            )}
 
             <label className="check-line modal-check">
               <input

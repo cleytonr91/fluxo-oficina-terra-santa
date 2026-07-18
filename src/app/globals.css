@@ -802,6 +802,27 @@ textarea {
   padding: 10px 12px;
 }
 
+.delivery-parts-alert {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #8bc5a4;
+  border-left: 5px solid var(--green);
+  border-radius: 7px;
+  background: #edf7f0;
+  padding: 10px 12px;
+}
+
+.delivery-parts-alert strong {
+  color: #1f6a45;
+  font-size: 13px;
+}
+
+.delivery-parts-alert span {
+  color: #355448;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .modal-actions {
   display: flex;
   justify-content: end;
