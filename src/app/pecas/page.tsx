@@ -153,6 +153,21 @@ function formatDateTime(value: unknown) {
   }).format(date);
 }
 
+function formatActionSignature(actionBy: string | undefined, value: unknown, fallback = "Operador") {
+  const operator = actionBy || fallback;
+  const date = toDate(value);
+  if (!date) return operator;
+  if (date.getHours() >= 18) return operator;
+  return `${operator} · ${formatDateTime(value)}`;
+}
+
+function formatOperationalDateTime(value: unknown) {
+  const date = toDate(value);
+  if (!date) return "-";
+  if (date.getHours() >= 18) return "Fora do expediente";
+  return formatDateTime(value);
+}
+
 function statusTone(status: PartOrderStatus) {
   if (status === "disponivel" || status === "recebido") return "good";
   if (status === "cancelado") return "bad";
@@ -820,7 +835,7 @@ export default function PecasPage() {
                         <div className="oldest-request">
                           <span>Solicitação mais antiga</span>
                           <strong>{match.recommended.clientName || "Cliente não identificado"} · {match.recommended.plate || "-"}</strong>
-                          <small>{formatDateTime(match.recommended.createdAt)}</small>
+                          <small>{formatOperationalDateTime(match.recommended.createdAt)}</small>
                           <button
                             type="button"
                             className="ghost-btn"
@@ -841,7 +856,7 @@ export default function PecasPage() {
                             onClick={() => applyMobisReceiptMatch(match, candidate)}
                           >
                             <strong>{candidate.clientName || "Cliente não identificado"}</strong>
-                            <span>{candidate.plate || "-"} · {formatDateTime(candidate.createdAt)}</span>
+                            <span>{candidate.plate || "-"} · {formatOperationalDateTime(candidate.createdAt)}</span>
                           </button>
                         ))}
                       </details>
@@ -971,7 +986,7 @@ export default function PecasPage() {
                     <div><span>Consultor</span><strong>{order.consultantName || "-"}</strong></div>
                     <div><span>Técnico</span><strong>{order.technicianName || "-"}</strong></div>
                   </div>
-                  <div className="parts-cell"><span>Atualizado</span><strong>{order.updatedBy || order.requestedBy || "-"}</strong><small>{formatDateTime(order.updatedAt)}</small></div>
+                  <div className="parts-cell"><span>Atualizado</span><strong>{formatActionSignature(order.updatedBy || order.requestedBy, order.updatedAt, "-")}</strong></div>
                 </div>
 
                 {order.vehicleImmobilized && <span className="tag bad">Veículo imobilizado</span>}
@@ -987,8 +1002,8 @@ export default function PecasPage() {
 
                 {openSection === "info" && (
                   <div className="parts-audit-box">
-                    <div><span>Solicitado por</span><strong>{order.requestedBy || "-"}</strong><small>{formatDateTime(order.createdAt)}</small></div>
-                    <div><span>Atualizado por</span><strong>{order.updatedBy || order.requestedBy || "-"}</strong><small>{formatDateTime(order.updatedAt)}</small></div>
+                    <div><span>Solicitado por</span><strong>{formatActionSignature(order.requestedBy, order.createdAt, "-")}</strong></div>
+                    <div><span>Atualizado por</span><strong>{formatActionSignature(order.updatedBy || order.requestedBy, order.updatedAt, "-")}</strong></div>
                     <div><span>Status atual</span><strong>{statusLabels[order.orderStatus]}</strong></div>
                     <div><span>Pedido</span><strong>{order.orderNumber || "-"}</strong><small>{sourceLabel(order.orderSource)}</small></div>
                     <div><span>Nota / previsao</span><strong>{order.invoiceNumber || "-"}</strong><small>{formatDate(order.expectedArrivalDate)}</small></div>

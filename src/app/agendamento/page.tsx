@@ -98,6 +98,21 @@ function formatDateTime(value: unknown) {
   }).format(date);
 }
 
+function formatActionSignature(actionBy: string | undefined, value: unknown, fallback = "Operador") {
+  const operator = actionBy || fallback;
+  const date = toDate(value);
+  if (!date) return operator;
+  if (date.getHours() >= 18) return operator;
+  return `${operator} · ${formatDateTime(value)}`;
+}
+
+function formatOperationalDateTime(value: unknown) {
+  const date = toDate(value);
+  if (!date) return "-";
+  if (date.getHours() >= 18) return "Fora do expediente";
+  return formatDateTime(value);
+}
+
 function normalizeSearch(value?: string) {
   return (value ?? "")
     .normalize("NFD")
@@ -296,7 +311,7 @@ export default function AgendamentoPage() {
                     <div><span>Telefone</span><strong>{vehicle?.phone ?? "-"}</strong></div>
                     <div><span>Status atual</span><strong>{orderStatusLabels[order.orderStatus]}</strong></div>
                     <div><span>Tipo</span><strong>{order.orderKind === "garantia" ? "Garantia" : order.orderKind === "externo" ? "Externo" : "-"}</strong></div>
-                    <div><span>Disponível desde</span><strong>{formatDateTime(order.updatedAt)}</strong></div>
+                    <div><span>Disponível desde</span><strong>{formatOperationalDateTime(order.updatedAt)}</strong></div>
                     <div><span>Próximo contato</span><strong>{formatDateTime(order.nextContactAt)}</strong></div>
                   </div>
 
@@ -414,9 +429,9 @@ export default function AgendamentoPage() {
                     {[...activeOrder.schedulingHistory].reverse().map((item, index) => (
                       <li key={`${item.actionAt}-${index}`}>
                         <strong>{actionLabels[item.action]}</strong>
-                        <span>{item.actionBy ?? "Operador"} · {formatDateTime(item.actionAt)}</span>
+                        <span>{formatActionSignature(item.actionBy, item.actionAt)}</span>
                         {item.returnDate && <p>Retorno: {formatDateTime(item.returnDate)}</p>}
-                        {item.contactAttemptAt && <p>Tentativa: {formatDateTime(item.contactAttemptAt)}</p>}
+                        {item.contactAttemptAt && <p>Tentativa: {formatOperationalDateTime(item.contactAttemptAt)}</p>}
                         {item.nextContactAt && <p>Novo contato: {formatDateTime(item.nextContactAt)}</p>}
                         {item.note && <p>{item.note}</p>}
                       </li>

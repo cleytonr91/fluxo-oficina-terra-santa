@@ -294,6 +294,14 @@ function formatDateTime(value: unknown) {
   }).format(date);
 }
 
+function formatActionSignature(actionBy: string | undefined, value: unknown, fallback = "Operador") {
+  const operator = actionBy || fallback;
+  const date = toDate(value);
+  if (!date) return operator;
+  if (date.getHours() >= 18) return operator;
+  return `${operator} · ${formatDateTime(value)}`;
+}
+
 function formatDateOnly(value?: string) {
   if (!value) return "-";
   const [year, month, day] = value.split("-");
@@ -2480,7 +2488,7 @@ export default function FluxoPage() {
                   {detailEvents.map((event) => (
                     <li key={event.id}>
                       <strong>{flowEventTitle(event)}</strong>
-                      <span>{event.actionBy ?? "Operador não identificado"} · {formatDateTime(event.createdAt)}</span>
+                      <span>{formatActionSignature(event.actionBy, event.createdAt, "Operador não identificado")}</span>
                       {event.actionNote && <p>{event.actionNote}</p>}
                     </li>
                   ))}
@@ -2497,7 +2505,7 @@ export default function FluxoPage() {
                   {detailVehicle.promiseHistory.map((item, index) => (
                     <li key={`${item.promisedDeliveryAt}-${index}`}>
                       <strong>{formatDateTime(item.promisedDeliveryAt)}</strong>
-                      <span>{item.changedBy ?? "Usuário"} · {formatDateTime(item.changedAt)}</span>
+                      <span>{formatActionSignature(item.changedBy, item.changedAt, "Usuário")}</span>
                       {item.note && <p>{item.note}</p>}
                     </li>
                   ))}
