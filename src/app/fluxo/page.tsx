@@ -435,7 +435,7 @@ function matchesSelectedFlowDate(vehicle: VehicleFlow, selectedDate?: string) {
 
 function matchesNoShowDate(vehicle: VehicleFlow, selectedDate?: string) {
   if (!selectedDate) return true;
-  return vehicle.appointmentDate === selectedDate || toDateInputValue(vehicle.noShowAt) === selectedDate;
+  return vehicle.appointmentDate === selectedDate;
 }
 
 function appointmentDateTime(vehicle: VehicleFlow) {
