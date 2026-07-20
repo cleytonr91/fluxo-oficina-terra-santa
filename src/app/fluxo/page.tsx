@@ -185,6 +185,7 @@ type BudgetCompleteForm = {
 };
 
 type BudgetReturnForm = {
+  authorized: "" | "sim" | "nao";
   promisedDeliveryAt: string;
   note: string;
 };
@@ -475,6 +476,10 @@ function washStatusText(vehicle: VehicleFlow) {
   return "Pendente";
 }
 
+function hasPendingWash(vehicle: VehicleFlow) {
+  return vehicle.washType !== "nao" && !vehicle.washDone;
+}
+
 function FlowChip({
   vehicle,
   immobilized,
@@ -526,6 +531,7 @@ function FlowChip({
         )}
         {vehicle.washingAdvanced && !vehicle.washDone && <span className="tag warn">Lavagem antecipada</span>}
         {vehicle.washingAdvanced && vehicle.washDone && !vehicle.serviceCompleted && <span className="tag warn">Lavagem feita</span>}
+        {vehicle.budgetAuthorized && <span className="tag good">ORÇ Complementar 👍</span>}
         {isActiveNoShow(vehicle) && <span className="tag bad">NO-SHOW</span>}
         {immobilized && <span className="tag bad">Imobilizado</span>}
         {immobilized && (
@@ -645,6 +651,7 @@ export default function FluxoPage() {
     partsNote: "",
   });
   const [budgetReturnForm, setBudgetReturnForm] = useState<BudgetReturnForm>({
+    authorized: "",
     promisedDeliveryAt: "",
     note: "",
   });
@@ -837,13 +844,9 @@ export default function FluxoPage() {
   }
 
   function openBudgetReturnModal(vehicle: VehicleFlow) {
-    if (vehicle.partAvailability !== "sim") {
-      setError("O retorno para Aguardando Serviço só é permitido quando as peças estiverem disponíveis.");
-      return;
-    }
-
     setBudgetReturnVehicle(vehicle);
     setBudgetReturnForm({
+      authorized: "",
       promisedDeliveryAt: "",
       note: "",
     });
@@ -875,7 +878,7 @@ export default function FluxoPage() {
     vehicle: VehicleFlow,
     toLane: FlowLane,
     actionNote: string,
-    extra: Pick<VehicleFlow, "serviceCompleted" | "washingAdvanced" | "washDone"> = {},
+    extra: Pick<VehicleFlow, "serviceCompleted" | "washingAdvanced" | "washDone" | "budgetAuthorized"> = {},
   ) {
     setMovingId(vehicle.id);
     setError("");
@@ -890,6 +893,7 @@ export default function FluxoPage() {
         serviceCompleted: extra.serviceCompleted,
         washingAdvanced: extra.washingAdvanced,
         washDone: extra.washDone,
+        budgetAuthorized: extra.budgetAuthorized,
       });
 
       setVehicles((current) => current.map((item) => (
@@ -908,6 +912,14 @@ export default function FluxoPage() {
       return moveToLane(vehicle, "preparacao_entrega", "Lavagem concluída", {
         washDone: true,
         washingAdvanced: false,
+      });
+    }
+
+    if (vehicle.budgetStatus === "realizado") {
+      return moveToLane(vehicle, "orcamento_complementar", "Lavagem antecipada concluída; retorno para Orçamento Complementar Realizado", {
+        serviceCompleted: false,
+        washingAdvanced: true,
+        washDone: true,
       });
     }
 
@@ -1116,12 +1128,24 @@ export default function FluxoPage() {
     event.preventDefault();
     if (!budgetReturnVehicle) return;
 
-    if (!budgetReturnForm.promisedDeliveryAt) {
+    if (!budgetReturnForm.authorized) {
+      setError("Informe se o orçamento foi autorizado.");
+      return;
+    }
+
+    const budgetAuthorized = budgetReturnForm.authorized === "sim";
+    const nextLane: FlowLane = budgetAuthorized
+      ? "aguardando_servico"
+      : hasPendingWash(budgetReturnVehicle)
+        ? "aguardando_lavagem"
+        : "preparacao_entrega";
+
+    if (budgetAuthorized && !budgetReturnForm.promisedDeliveryAt) {
       setError("Informe a nova previsão de entrega para retornar o veículo ao serviço.");
       return;
     }
 
-    if (!canReducePromisedDelivery && isEarlierThanCurrent(budgetReturnForm.promisedDeliveryAt, budgetReturnVehicle.promisedDeliveryAt)) {
+    if (budgetAuthorized && !canReducePromisedDelivery && isEarlierThanCurrent(budgetReturnForm.promisedDeliveryAt, budgetReturnVehicle.promisedDeliveryAt)) {
       setError("A nova previsão não pode ser menor que a previsão já prometida.");
       return;
     }
@@ -1129,33 +1153,47 @@ export default function FluxoPage() {
     setMovingId(budgetReturnVehicle.id);
     setError("");
 
-    const note = budgetReturnForm.note || "Orçamento realizado com peças em estoque. Retorno para Aguardando Serviço.";
+    const note = budgetReturnForm.note || (budgetAuthorized
+      ? "Orçamento complementar autorizado. Retorno para Aguardando Serviço."
+      : nextLane === "aguardando_lavagem"
+        ? "Orçamento complementar não autorizado. Veículo segue para lavagem."
+        : "Orçamento complementar não autorizado. Veículo segue para preparação de entrega.");
 
     try {
       await moveVehicleFlow({
         vehicleFlowId: budgetReturnVehicle.id,
         fromLane: budgetReturnVehicle.currentLane,
-        toLane: "aguardando_servico",
+        toLane: nextLane,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
         actionNote: note,
-        promisedDeliveryAt: budgetReturnForm.promisedDeliveryAt,
+        promisedDeliveryAt: budgetAuthorized ? budgetReturnForm.promisedDeliveryAt : undefined,
+        serviceCompleted: !budgetAuthorized,
+        washingAdvanced: false,
+        washDone: nextLane === "aguardando_lavagem" ? false : budgetReturnVehicle.washDone,
+        budgetAuthorized,
       });
 
       setVehicles((current) => current.map((vehicle) => (
         vehicle.id === budgetReturnVehicle.id
           ? {
               ...vehicle,
-              currentLane: "aguardando_servico",
-              promisedDeliveryAt: budgetReturnForm.promisedDeliveryAt,
-              promiseHistory: [
-                ...(vehicle.promiseHistory ?? []),
-                {
-                  promisedDeliveryAt: budgetReturnForm.promisedDeliveryAt,
-                  changedAt: new Date().toISOString(),
-                  changedBy: profile?.name ?? user?.email ?? user?.uid,
-                  note,
-                },
-              ],
+              currentLane: nextLane,
+              serviceCompleted: !budgetAuthorized,
+              washingAdvanced: false,
+              washDone: nextLane === "aguardando_lavagem" ? false : vehicle.washDone,
+              budgetAuthorized,
+              ...(budgetAuthorized ? {
+                promisedDeliveryAt: budgetReturnForm.promisedDeliveryAt,
+                promiseHistory: [
+                  ...(vehicle.promiseHistory ?? []),
+                  {
+                    promisedDeliveryAt: budgetReturnForm.promisedDeliveryAt,
+                    changedAt: new Date().toISOString(),
+                    changedBy: profile?.name ?? user?.email ?? user?.uid,
+                    note,
+                  },
+                ],
+              } : {}),
             }
           : vehicle
       )));
@@ -2106,7 +2144,7 @@ export default function FluxoPage() {
                           key={vehicle.id}
                           vehicle={vehicle}
                           immobilized={immobilizedVehicleIds.has(vehicle.id)}
-                          onAdvance={vehicle.partAvailability === "sim" ? openBudgetReturnModal : undefined}
+                          onAdvance={openBudgetReturnModal}
                           onDetails={openDetailModal}
                           now={now}
                           selectedDate={flowDate}
@@ -2781,7 +2819,7 @@ export default function FluxoPage() {
           <form className="flow-modal" onSubmit={submitBudgetReturn}>
             <div className="modal-head">
               <div>
-                <strong>Retornar para Aguardando Serviço</strong>
+                <strong>Definir saída do orçamento</strong>
                 <span>{budgetReturnVehicle.clientName} · {budgetReturnVehicle.plate}</span>
               </div>
               <button type="button" className="ghost-btn icon-btn" aria-label="Fechar" onClick={() => setBudgetReturnVehicle(null)}>
@@ -2794,23 +2832,58 @@ export default function FluxoPage() {
               <div className="detail"><span>Previsão atual</span>{formatDateTime(budgetReturnVehicle.promisedDeliveryAt)}</div>
             </div>
 
-            <label className="field">
-              <span>Nova previsão de entrega prometida</span>
-              <input
-                required
-                type="datetime-local"
-                min={canReducePromisedDelivery ? undefined : toDateTimeLocal(budgetReturnVehicle.promisedDeliveryAt) || undefined}
-                value={budgetReturnForm.promisedDeliveryAt}
-                onChange={(event) => setBudgetReturnForm((current) => ({ ...current, promisedDeliveryAt: event.target.value }))}
-              />
-            </label>
+            {hasPendingWash(budgetReturnVehicle) && (
+              <button
+                type="button"
+                className="ghost-btn"
+                disabled={movingId === budgetReturnVehicle.id}
+                onClick={() => {
+                  moveToLane(budgetReturnVehicle, "aguardando_lavagem", "Lavagem antecipada solicitada durante orçamento complementar", {
+                    serviceCompleted: false,
+                    washingAdvanced: true,
+                    washDone: false,
+                  }).then(() => setBudgetReturnVehicle(null));
+                }}
+              >
+                Adiantar lavagem
+              </button>
+            )}
 
             <label className="field">
-              <span>Observação do retorno</span>
+              <span>Orçamento autorizado?</span>
+              <select
+                required
+                value={budgetReturnForm.authorized}
+                onChange={(event) => setBudgetReturnForm((current) => ({
+                  ...current,
+                  authorized: event.target.value as BudgetReturnForm["authorized"],
+                }))}
+              >
+                <option value="">Selecionar</option>
+                <option value="sim">Sim</option>
+                <option value="nao">Não</option>
+              </select>
+            </label>
+
+            {budgetReturnForm.authorized === "sim" && (
+              <label className="field">
+                <span>Nova previsão de entrega prometida</span>
+                <input
+                  required
+                  type="datetime-local"
+                  min={canReducePromisedDelivery ? undefined : toDateTimeLocal(budgetReturnVehicle.promisedDeliveryAt) || undefined}
+                  value={budgetReturnForm.promisedDeliveryAt}
+                  onChange={(event) => setBudgetReturnForm((current) => ({ ...current, promisedDeliveryAt: event.target.value }))}
+                />
+              </label>
+            )}
+
+            <label className="field">
+              <span>Observação</span>
               <textarea
                 value={budgetReturnForm.note}
                 onChange={(event) => setBudgetReturnForm((current) => ({ ...current, note: event.target.value }))}
-                placeholder="Ex.: Peças separadas pelo estoque, veículo liberado para execução."
+                placeholder="Ex.: Cliente autorizou orçamento, ou recusou e veículo seguirá o fluxo."
               />
             </label>
 
@@ -2819,7 +2892,7 @@ export default function FluxoPage() {
                 Cancelar
               </button>
               <button type="submit" className="primary-btn" disabled={movingId === budgetReturnVehicle.id}>
-                {movingId === budgetReturnVehicle.id ? "Movendo..." : "Voltar para Aguardando Serviço"}
+                {movingId === budgetReturnVehicle.id ? "Movendo..." : "Confirmar decisão"}
               </button>
             </div>
           </form>

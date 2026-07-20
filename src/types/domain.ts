@@ -194,6 +194,7 @@ export interface VehicleFlow {
   budgetStatus?: BudgetStatus;
   budgetRequestedBy?: string;
   budgetQuotedBy?: string;
+  budgetAuthorized?: boolean;
   partAvailability?: PartAvailability;
   partsNote?: string;
   deliveredAt?: FirestoreTimestamp;
