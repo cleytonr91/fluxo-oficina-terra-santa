@@ -234,6 +234,21 @@ function itemKey(item: Pick<FunnelItem, "chassi" | "osNumber" | "id">) {
   return normalizeChassi(item.chassi) || item.osNumber || item.id;
 }
 
+function recordKey(record: Pick<HgsiRecordImport, "chassi" | "osNumber">) {
+  return normalizeChassi(record.chassi) || record.osNumber;
+}
+
+function dedupeByKey<T>(items: T[], keyGetter: (item: T) => string) {
+  const mapped = new Map<string, T>();
+
+  items.forEach((item) => {
+    const key = keyGetter(item);
+    if (key && !mapped.has(key)) mapped.set(key, item);
+  });
+
+  return Array.from(mapped.values());
+}
+
 function vehicleToItem(vehicle: VehicleFlow): FunnelItem {
   return {
     id: vehicle.id,
@@ -534,16 +549,19 @@ export default function PosServicoPage() {
   const hgsiBaseAnswers = useMemo(() => hgsiAnswers.filter(isAnswerInHgsiBase), [hgsiAnswers]);
   const unauthorizedAnswers = useMemo(() => hgsiAnswers.filter((answer) => !isAnswerInHgsiBase(answer)), [hgsiAnswers]);
 
-  const validRecords = useMemo(() => hgsiRecords.filter((record) => record.valid), [hgsiRecords]);
+  const validRecords = useMemo(() => dedupeByKey(
+    hgsiRecords.filter((record) => record.valid),
+    recordKey,
+  ), [hgsiRecords]);
   const validChassis = useMemo(() => new Set(validRecords.map((record) => record.chassi).filter(Boolean)), [validRecords]);
   const flowKeys = useMemo(() => new Set(flowItems.map(itemKey)), [flowItems]);
 
   const validRecordItems = useMemo(() => {
     const matched = flowItems.filter((item) => validChassis.has(normalizeChassi(item.chassi)));
     const basic = validRecords
-      .filter((record) => !flowKeys.has(record.chassi || record.osNumber))
+      .filter((record) => !flowKeys.has(recordKey(record)))
       .map(recordToItem);
-    return [...matched, ...basic];
+    return dedupeByKey([...matched, ...basic], itemKey);
   }, [flowItems, flowKeys, validChassis, validRecords]);
 
   const answeredItems = useMemo(() => {
@@ -552,7 +570,7 @@ export default function PosServicoPage() {
     const basic = hgsiBaseAnswers
       .filter((answer) => !flowKeys.has(answer.chassi || answer.osNumber))
       .map(answerToItem);
-    return [...matched, ...basic];
+    return dedupeByKey([...matched, ...basic], itemKey);
   }, [flowItems, flowKeys, hgsiBaseAnswers]);
 
   const filterByConsultant = (item: FunnelItem) => (
