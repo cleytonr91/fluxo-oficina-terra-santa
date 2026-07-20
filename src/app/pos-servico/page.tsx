@@ -238,6 +238,10 @@ function recordKey(record: Pick<HgsiRecordImport, "chassi" | "osNumber">) {
   return normalizeChassi(record.chassi) || record.osNumber;
 }
 
+function answerKey(answer: Pick<HgsiAnswerImport, "chassi" | "osNumber">) {
+  return normalizeChassi(answer.chassi) || answer.osNumber;
+}
+
 function dedupeByKey<T>(items: T[], keyGetter: (item: T) => string) {
   const mapped = new Map<string, T>();
 
@@ -541,13 +545,16 @@ export default function PosServicoPage() {
 
   const answersByChassi = useMemo(() => {
     const mapped = new Map<string, HgsiAnswerImport>();
-    hgsiAnswers.filter(isAnswerInHgsiBase).forEach((answer) => {
+    dedupeByKey(hgsiAnswers.filter(isAnswerInHgsiBase), answerKey).forEach((answer) => {
       if (answer.chassi) mapped.set(answer.chassi, answer);
     });
     return mapped;
   }, [hgsiAnswers]);
-  const hgsiBaseAnswers = useMemo(() => hgsiAnswers.filter(isAnswerInHgsiBase), [hgsiAnswers]);
-  const unauthorizedAnswers = useMemo(() => hgsiAnswers.filter((answer) => !isAnswerInHgsiBase(answer)), [hgsiAnswers]);
+  const hgsiBaseAnswers = useMemo(() => dedupeByKey(hgsiAnswers.filter(isAnswerInHgsiBase), answerKey), [hgsiAnswers]);
+  const unauthorizedAnswers = useMemo(() => dedupeByKey(
+    hgsiAnswers.filter((answer) => !isAnswerInHgsiBase(answer)),
+    answerKey,
+  ), [hgsiAnswers]);
 
   const validRecords = useMemo(() => dedupeByKey(
     hgsiRecords.filter((record) => record.valid),
@@ -565,10 +572,10 @@ export default function PosServicoPage() {
   }, [flowItems, flowKeys, validChassis, validRecords]);
 
   const answeredItems = useMemo(() => {
-    const answeredKeys = new Set(hgsiBaseAnswers.map((answer) => answer.chassi || answer.osNumber).filter(Boolean));
+    const answeredKeys = new Set(hgsiBaseAnswers.map(answerKey).filter(Boolean));
     const matched = flowItems.filter((item) => answeredKeys.has(normalizeChassi(item.chassi)) || answeredKeys.has(item.osNumber ?? ""));
     const basic = hgsiBaseAnswers
-      .filter((answer) => !flowKeys.has(answer.chassi || answer.osNumber))
+      .filter((answer) => !flowKeys.has(answerKey(answer)))
       .map(answerToItem);
     return dedupeByKey([...matched, ...basic], itemKey);
   }, [flowItems, flowKeys, hgsiBaseAnswers]);
