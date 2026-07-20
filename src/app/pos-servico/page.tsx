@@ -394,6 +394,9 @@ function FunnelCard({
         <div className="detail"><span>Passagem</span>{formatDate(item.deliveredAt)}</div>
         <div className="detail"><span>NPS interno</span>{item.internalNps ?? "-"}</div>
         <div className="detail"><span>Origem</span>{item.source === "fluxo" ? "Fluxo" : "Planilha"}</div>
+        {treatment?.treatmentStatus === "tratado" && (
+          <div className="detail"><span>Tratado por</span>{treatment.treatmentBy || "-"}</div>
+        )}
       </div>
 
       <div className="tag-row">
@@ -558,10 +561,20 @@ export default function PosServicoPage() {
 
   const deliveredItems = flowItems.filter(filterByConsultant);
   const filteredValidRecordItems = validRecordItems.filter(filterByConsultant);
-  const filteredAnsweredItems = answeredItems.filter(filterByConsultant);
   const pendingValidItems = filteredValidRecordItems.filter((item) => !answersByChassi.has(normalizeChassi(item.chassi)));
   const treatmentItems = pendingValidItems.filter(needsTreatment);
   const requestReadyItems = pendingValidItems.filter((item) => !needsTreatment(item));
+  const treatedSourceItems = [...flowItems, ...validRecordItems, ...answeredItems];
+  const treatedItemsByKey = new Map(treatedSourceItems.map((item) => [itemKey(item), item]));
+  const treatedItems = postCases
+    .filter((postCase) => postCase.treatmentStatus === "tratado")
+    .map((postCase) => treatedItemsByKey.get(postCase.vehicleFlowId) ?? ({
+      id: postCase.vehicleFlowId,
+      source: "route" as const,
+      clientName: "Cliente tratado",
+      chassi: postCase.vehicleFlowId,
+    }))
+    .filter(filterByConsultant);
 
   const consultantStats = useMemo(() => {
     return consultants.map((consultant) => {
@@ -640,7 +653,7 @@ export default function PosServicoPage() {
     { label: "Registro válido Route", value: filteredValidRecordItems.length },
     { label: "Solicitar resposta HGSI", value: requestReadyItems.length },
     { label: "Tratar antes", value: treatmentItems.length },
-    { label: "Clientes responderam", value: filteredAnsweredItems.length },
+    { label: "Clientes tratados", value: treatedItems.length },
   ];
 
   function openTreatmentModal(item: FunnelItem) {
@@ -827,7 +840,6 @@ export default function PosServicoPage() {
         <section className="funnel-grid" aria-label="Funil pós-venda HGSI">
           <section className="funnel-stage">
             <div className="funnel-stage-head">
-              <span>Área 01</span>
               <h2>Veículos entregues</h2>
               <strong>{deliveredItems.length}</strong>
             </div>
@@ -851,7 +863,6 @@ export default function PosServicoPage() {
 
           <section className="funnel-stage">
             <div className="funnel-stage-head">
-              <span>Área 02</span>
               <h2>Aptos HGSI</h2>
               <strong>{filteredValidRecordItems.length}</strong>
             </div>
@@ -878,14 +889,11 @@ export default function PosServicoPage() {
 
           <section className="funnel-stage">
             <div className="funnel-stage-head">
-              <span>Área 03</span>
-              <h2>Clientes que responderam</h2>
-              <strong>{filteredAnsweredItems.length}</strong>
+              <h2>Clientes tratados</h2>
+              <strong>{treatedItems.length}</strong>
             </div>
             <div className="funnel-stage-body">
-              {hgsiBaseAnswers.length === 0 ? (
-                <p className="empty">{hgsiAnswers.length ? "Nenhuma resposta válida para a base HGSI." : "Importe a planilha de respostas HGSI."}</p>
-              ) : filteredAnsweredItems.length ? filteredAnsweredItems.map((item) => (
+              {treatedItems.length ? treatedItems.map((item) => (
                 <FunnelCard
                   key={item.id}
                   item={item}
@@ -895,7 +903,7 @@ export default function PosServicoPage() {
                   onTreatment={openTreatmentModal}
                 />
               )) : (
-                <p className="empty">Nenhuma resposta vinculada ao filtro selecionado.</p>
+                <p className="empty">Nenhum cliente tratado no filtro selecionado.</p>
               )}
             </div>
           </section>
