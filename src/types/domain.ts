@@ -315,6 +315,7 @@ export interface HgsiAnswer {
   consultantId?: string;
   answerDate?: string;
   nps?: number;
+  recommendation?: boolean;
   installationScore?: number;
   consultantScore?: number;
   deadlineScore?: number;

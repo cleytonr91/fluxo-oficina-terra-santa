@@ -20,13 +20,13 @@ const manual: ManualContent = {
     "Importe a planilha de entrevistas para atualizar clientes que já responderam.",
     "Analise veículos entregues e registros válidos antes da resposta HGSI.",
     "Registre tratativas, observações do cliente e necessidade de GPV quando houver risco.",
-    "Use os indicadores por consultor para acompanhar meta, nota HGSI, NPS e serviço correto.",
+    "Use os indicadores por consultor para acompanhar meta, nota HGSI, recomendação e serviço correto.",
   ],
   rules: [
     "Chassi com pelo menos um registro válido indica cliente apto à pesquisa.",
     "Registro válido com pendência deve ser tratado antes da solicitação da pesquisa.",
     "Clientes já respondidos devem sair da fila de tratativa pré-pesquisa.",
-    "Pendência real ocorre quando há pedido de peças, NPS baixo ou pendência marcada na entrega.",
+    "Pendência real ocorre quando há pedido de peças, NPS interno baixo ou pendência marcada na entrega.",
   ],
   flow: [
     { title: "Entregues", text: "Clientes vêm do quadro Entregue do fluxo." },
@@ -58,6 +58,7 @@ type HgsiAnswerImport = {
   consultantName?: string;
   answerDate?: string;
   nps?: number;
+  recommendation?: boolean;
   installationScore?: number;
   consultantScore?: number;
   deadlineScore?: number;
@@ -328,11 +329,16 @@ function tenPointValue(value?: number) {
   return value > 10 ? value / 100 : value;
 }
 
-function scoreTone(value: number | null, scale: "ten" | "thousand" = "ten") {
+function scoreTone(value: number | null, scale: "ten" | "thousand" | "percent" = "ten") {
   if (value === null) return "muted";
   if (scale === "thousand") {
     if (value >= 950) return "good";
     if (value >= 800) return "warn";
+    return "bad";
+  }
+  if (scale === "percent") {
+    if (value >= 90) return "good";
+    if (value >= 80) return "warn";
     return "bad";
   }
   if (value >= 9) return "good";
@@ -340,10 +346,16 @@ function scoreTone(value: number | null, scale: "ten" | "thousand" = "ten") {
   return "bad";
 }
 
-function scoreWidth(value: number | null, scale: "ten" | "thousand" = "ten") {
+function scoreWidth(value: number | null, scale: "ten" | "thousand" | "percent" = "ten") {
   if (value === null) return "0%";
-  const max = scale === "thousand" ? 1000 : 10;
+  const max = scale === "thousand" ? 1000 : scale === "percent" ? 100 : 10;
   return `${Math.max(0, Math.min(100, (value / max) * 100))}%`;
+}
+
+function formatIndicator(value: number | null, scale?: "ten" | "percent") {
+  if (value === null) return "-";
+  if (scale === "percent") return `${Math.round(value)}%`;
+  return formatScore(value);
 }
 
 function consultantFullName(name: string) {
@@ -421,7 +433,7 @@ function FunnelCard({
       <div className="tag-row">
         {validRecord && <span className="tag good">Registro válido</span>}
         {answer && <span className="tag">Respondido HGSI</span>}
-        {answer?.nps !== undefined && <span className={`tag ${answer.nps <= 7 ? "bad" : "good"}`}>NPS {answer.nps}</span>}
+        {answer?.nps !== undefined && <span className={`tag ${scoreTone(hgsiValue(answer) ?? null, "thousand")}`}>HGSI {Math.round(hgsiValue(answer) ?? answer.nps)}</span>}
         {item.partsOrdered && <span className="tag warn">Pedido de peça</span>}
         {item.hasPendingIssue && <span className="tag bad">Pendência</span>}
         {internalNpsAttention && <span className="tag bad">NPS interno baixo</span>}
@@ -508,6 +520,7 @@ export default function PosServicoPage() {
           consultantName: (answer as { consultantName?: string }).consultantName,
           answerDate: answer.answerDate,
           nps: answer.nps,
+          recommendation: answer.recommendation,
           installationScore: answer.installationScore,
           consultantScore: (answer as { consultantScore?: number }).consultantScore,
           deadlineScore: answer.deadlineScore,
@@ -626,15 +639,20 @@ export default function PosServicoPage() {
         tenPointValue(answer.correctServiceScore)
         ?? (answer.correctService === undefined ? undefined : answer.correctService ? 10 : 0)
       ));
+      const recommendationAnswers = answered.filter((answer) => answer.recommendation !== undefined);
+      const recommendationPercent = recommendationAnswers.length
+        ? (recommendationAnswers.filter((answer) => answer.recommendation).length / recommendationAnswers.length) * 100
+        : null;
+      const unauthorizedCount = unauthorizedAnswers.filter((answer) => displayAnswerConsultant(answer) === consultant).length;
       const indicatorRows = [
-        { label: "NPS", count: hgsiScores.filter((value) => value !== undefined).length, value: averageNumber(hgsiScores.map((value) => (value === undefined ? undefined : value / 100))) },
-        { label: "Serviço correto", count: correctServiceValues.filter((value) => value !== undefined).length, value: averageNumber(correctServiceValues) },
-        { label: "Instalações", count: answered.filter((answer) => answer.installationScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.installationScore))) },
-        { label: "Consultor", count: answered.filter((answer) => answer.consultantScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.consultantScore))) },
-        { label: "Prazos", count: answered.filter((answer) => answer.deadlineScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.deadlineScore))) },
-        { label: "Qualidade dos Serviços", count: answered.filter((answer) => answer.serviceQualityScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.serviceQualityScore))) },
-        { label: "Alinhamento de Preços", count: answered.filter((answer) => answer.priceAlignmentScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.priceAlignmentScore))) },
-        { label: "Lavagem", count: answered.filter((answer) => answer.washScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.washScore))) },
+        { label: "Recomendação", count: recommendationAnswers.length, value: recommendationPercent, scale: "percent" as const },
+        { label: "Serviço correto", count: correctServiceValues.filter((value) => value !== undefined).length, value: averageNumber(correctServiceValues), scale: "ten" as const },
+        { label: "Instalações", count: answered.filter((answer) => answer.installationScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.installationScore))), scale: "ten" as const },
+        { label: "Consultor", count: answered.filter((answer) => answer.consultantScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.consultantScore))), scale: "ten" as const },
+        { label: "Prazos", count: answered.filter((answer) => answer.deadlineScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.deadlineScore))), scale: "ten" as const },
+        { label: "Qualidade dos Serviços", count: answered.filter((answer) => answer.serviceQualityScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.serviceQualityScore))), scale: "ten" as const },
+        { label: "Alinhamento de Preços", count: answered.filter((answer) => answer.priceAlignmentScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.priceAlignmentScore))), scale: "ten" as const },
+        { label: "Lavagem", count: answered.filter((answer) => answer.washScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.washScore))), scale: "ten" as const },
       ];
       const criticalComments = answered
         .map((answer) => ({
@@ -666,12 +684,14 @@ export default function PosServicoPage() {
         range800,
         rangeUnder800,
         redFlags,
+        recommendationPercent,
+        unauthorizedCount,
         indicatorRows,
         criticalComments,
         answeredClients,
       };
     });
-  }, [hgsiBaseAnswers]);
+  }, [hgsiBaseAnswers, unauthorizedAnswers]);
 
   const metrics = [
     { label: "Veículos entregues", value: deliveredItems.length },
@@ -793,6 +813,7 @@ export default function PosServicoPage() {
           consultantName: consultantDisplayName(textFrom(row, ["consultor responsavel", "consultor tecnico", "consultor"])),
           answerDate: textFrom(row, ["datas entrevista", "data entrevista", "entrevista", "data resposta", "respondido"]),
           nps: numberFrom(row, ["indice hgsi", "índice hgsi", "nps", "nota"]),
+          recommendation: boolFrom(row, ["recomendacao", "recomendação", "recomenda", "recomendaria"]),
           installationScore: numberFrom(row, ["q2 instalacoes", "q2 instalações", "instalacoes", "instalações"]),
           consultantScore: numberFrom(row, ["q3 consultor"]),
           deadlineScore: numberFrom(row, ["q4 tempo", "tempo", "prazo", "prazos"]),
@@ -988,10 +1009,10 @@ export default function PosServicoPage() {
                 </div>
 
                 <div className="score-mini-grid">
-                  <div><span>NPS</span><strong>{formatScore(item.indicatorRows[0].value)}</strong></div>
+                  <div><span>Recomendação</span><strong>{formatIndicator(item.recommendationPercent, "percent")}</strong></div>
                   <div><span>Serviço correto</span><strong>{formatScore(item.indicatorRows[1].value)}</strong></div>
-                  <div><span>Sem autorização</span><strong>0</strong></div>
-                  <div><span>Recomendação</span><strong>{item.hgsiAverage === null ? "-" : `${Math.round(item.hgsiAverage / 10)}%`}</strong></div>
+                  <div><span>Sem autorização</span><strong>{item.unauthorizedCount}</strong></div>
+                  <div><span>Índice HGSI</span><strong>{item.hgsiAverage === null ? "-" : Math.round(item.hgsiAverage)}</strong></div>
                 </div>
 
                 <div className="indicator-list">
@@ -999,10 +1020,10 @@ export default function PosServicoPage() {
                     <div key={indicator.label} className="indicator-row">
                       <div className="indicator-label">
                         <span>{indicator.label} ({indicator.count})</span>
-                        <strong>{formatScore(indicator.value)}</strong>
+                        <strong>{formatIndicator(indicator.value, indicator.scale)}</strong>
                       </div>
-                      <div className={`indicator-track ${scoreTone(indicator.value)}`}>
-                        <span style={{ width: scoreWidth(indicator.value) }} />
+                      <div className={`indicator-track ${scoreTone(indicator.value, indicator.scale)}`}>
+                        <span style={{ width: scoreWidth(indicator.value, indicator.scale) }} />
                       </div>
                     </div>
                   ))}

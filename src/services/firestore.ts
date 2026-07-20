@@ -92,6 +92,7 @@ type SaveHgsiAnswerInput = {
   consultantName?: string;
   answerDate?: string;
   nps?: number;
+  recommendation?: boolean;
   installationScore?: number;
   consultantScore?: number;
   deadlineScore?: number;
@@ -486,6 +487,7 @@ export async function saveHgsiAnswers({
       consultantName: answer.consultantName,
       answerDate: answer.answerDate,
       nps: answer.nps,
+      recommendation: answer.recommendation,
       installationScore: answer.installationScore,
       consultantScore: answer.consultantScore,
       deadlineScore: answer.deadlineScore,
