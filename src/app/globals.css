@@ -3075,6 +3075,20 @@ textarea {
   font-weight: 900;
 }
 
+.post-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.post-card-actions .post-treatment-btn {
+  flex: 1;
+}
+
+.post-indicator-modal {
+  max-width: 720px;
+}
+
 .consultant-scoreboard {
   overflow: hidden;
 }
