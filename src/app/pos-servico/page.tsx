@@ -465,6 +465,7 @@ export default function PosServicoPage() {
     caseType: "tratar_antes_pesquisa",
   });
   const [consultantFilter, setConsultantFilter] = useState("Todos");
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -581,10 +582,21 @@ export default function PosServicoPage() {
   const filterByConsultant = (item: FunnelItem) => (
     consultantFilter === "Todos" || consultantDisplayName(item.consultantName) === consultantFilter
   );
+  const filterBySearch = (item: FunnelItem) => {
+    const query = normalizeText(searchTerm);
+    if (!query) return true;
+    return normalizeText([
+      item.clientName,
+      item.plate,
+      item.chassi,
+      item.osNumber,
+    ].filter(Boolean).join(" ")).includes(query);
+  };
+  const applyFilters = (item: FunnelItem) => filterByConsultant(item) && filterBySearch(item);
 
   const isTreatedItem = (item: FunnelItem) => casesByItemKey.get(itemKey(item))?.treatmentStatus === "tratado";
-  const deliveredItems = flowItems.filter(filterByConsultant);
-  const filteredValidRecordItems = validRecordItems.filter(filterByConsultant);
+  const deliveredItems = flowItems.filter(applyFilters);
+  const filteredValidRecordItems = validRecordItems.filter(applyFilters);
   const pendingValidItems = filteredValidRecordItems
     .filter((item) => !answersByChassi.has(normalizeChassi(item.chassi)))
     .filter((item) => !isTreatedItem(item));
@@ -600,7 +612,7 @@ export default function PosServicoPage() {
       clientName: "Cliente tratado",
       chassi: postCase.vehicleFlowId,
     }))
-    .filter(filterByConsultant);
+    .filter(applyFilters);
 
   const consultantStats = useMemo(() => {
     return consultants.map((consultant) => {
@@ -855,6 +867,15 @@ export default function PosServicoPage() {
               </select>
             </label>
 
+            <label className="flow-filter">
+              <span>Pesquisa</span>
+              <input
+                placeholder="Nome, placa ou chassi"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </label>
+
             <label className="file-button compact-file">
               <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiRecords(event.target.files?.[0])} />
               <strong>Status Route</strong>
@@ -864,7 +885,7 @@ export default function PosServicoPage() {
             <label className="file-button compact-file">
               <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiAnswers(event.target.files?.[0])} />
               <strong>Respostas HGSI</strong>
-              <span>{hgsiBaseAnswers.length} na base{unauthorizedAnswers.length ? ` Â· ${unauthorizedAnswers.length} sem autorizaÃ§Ã£o` : ""}</span>
+              <span>{hgsiBaseAnswers.length} na base{unauthorizedAnswers.length ? ` · ${unauthorizedAnswers.length} sem autorizacao` : ""}</span>
             </label>
           </div>
         </section>
