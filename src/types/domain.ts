@@ -81,6 +81,8 @@ export type BodyShopStatus =
   | "aguardando_pagamento"
   | "pago";
 
+export type BodyShopVehicleLocation = "loja" | "prestador";
+
 export interface PartOrderItem {
   id: string;
   partReference?: string;
@@ -243,6 +245,8 @@ export interface BodyShopProcess {
   model?: string;
   year?: string;
   color?: string;
+  vehicleImmobilized?: boolean;
+  vehicleLocation?: BodyShopVehicleLocation;
   totalValue?: number;
   status: BodyShopStatus;
   billingDate?: string;

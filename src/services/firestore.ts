@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, BodyShopProcess, BodyShopStatus, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -775,6 +775,8 @@ export async function saveBodyShopProcess({
     model?: string;
     year?: string;
     color?: string;
+    vehicleImmobilized?: boolean;
+    vehicleLocation?: BodyShopVehicleLocation;
     totalValue?: number;
     status: BodyShopStatus;
     billingDate?: string;

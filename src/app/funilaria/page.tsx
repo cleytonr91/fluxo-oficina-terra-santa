@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
 import { saveBodyShopProcess, subscribeBodyShopProcesses } from "@/services/firestore";
-import type { BodyShopProcess, BodyShopStatus } from "@/types/domain";
+import type { BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation } from "@/types/domain";
 
 type BodyShopForm = {
   serviceOrder: string;
@@ -19,6 +19,8 @@ type BodyShopForm = {
   insurer: string;
   plate: string;
   status: BodyShopStatus;
+  vehicleImmobilized: boolean;
+  vehicleLocation: BodyShopVehicleLocation;
   note: string;
 };
 
@@ -34,6 +36,11 @@ const statusOptions: Array<{ value: BodyShopStatus; label: string }> = [
 ];
 
 const statusLabels = Object.fromEntries(statusOptions.map((item) => [item.value, item.label])) as Record<BodyShopStatus, string>;
+
+const locationLabels: Record<BodyShopVehicleLocation, string> = {
+  loja: "Loja",
+  prestador: "Prestador",
+};
 
 const insurerOptions = [
   "Bradesco",
@@ -63,6 +70,8 @@ const emptyForm: BodyShopForm = {
   insurer: "",
   plate: "",
   status: "aguardando_aprovacao",
+  vehicleImmobilized: false,
+  vehicleLocation: "loja",
   note: "",
 };
 
@@ -182,6 +191,8 @@ export default function FunilariaPage() {
           insurer: form.insurer.trim(),
           plate: form.plate.trim(),
           status: form.status,
+          vehicleImmobilized: form.vehicleImmobilized,
+          vehicleLocation: form.vehicleLocation,
           note: form.note.trim(),
         },
       });
@@ -272,7 +283,9 @@ export default function FunilariaPage() {
                 <div>
                   <span>Status</span>
                   <strong className={`tag ${statusTone(item.status)}`}>{statusLabels[item.status]}</strong>
-                  <small>{item.note || "Sem observação"}</small>
+                  <small>
+                    {item.vehicleImmobilized ? "Imobilizado" : "Rodando"} · {item.vehicleLocation ? locationLabels[item.vehicleLocation] : "-"}
+                  </small>
                 </div>
               </article>
             )) : (
@@ -315,6 +328,24 @@ export default function FunilariaPage() {
               <label className="field"><span>Ano</span><input value={form.year} onChange={(event) => setForm((current) => ({ ...current, year: event.target.value }))} /></label>
               <label className="field"><span>Cor</span><input value={form.color} onChange={(event) => setForm((current) => ({ ...current, color: event.target.value }))} /></label>
               <label className="field"><span>Status</span><select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as BodyShopStatus }))}>{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+              <label className="check-row bodyshop-check">
+                <input
+                  type="checkbox"
+                  checked={form.vehicleImmobilized}
+                  onChange={(event) => setForm((current) => ({ ...current, vehicleImmobilized: event.target.checked }))}
+                />
+                <span>Imobilizado</span>
+              </label>
+              <label className="field">
+                <span>Local do veículo</span>
+                <select
+                  value={form.vehicleLocation}
+                  onChange={(event) => setForm((current) => ({ ...current, vehicleLocation: event.target.value as BodyShopVehicleLocation }))}
+                >
+                  <option value="loja">Loja</option>
+                  <option value="prestador">Prestador</option>
+                </select>
+              </label>
               <label className="field wide"><span>Observação</span><textarea value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></label>
             </div>
 

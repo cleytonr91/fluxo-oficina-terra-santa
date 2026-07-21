@@ -4792,6 +4792,11 @@ textarea {
   grid-column: span 2;
 }
 
+.bodyshop-check {
+  align-self: end;
+  min-height: 44px;
+}
+
 @media (max-width: 1100px) {
   .bodyshop-metrics,
   .bodyshop-row {
