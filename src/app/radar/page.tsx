@@ -54,6 +54,14 @@ type ProductivityMetric = {
   note: string;
 };
 
+type GrossProfitMonth = {
+  label: string;
+  planned: number;
+  realized: number;
+  previousYear: number;
+  margin: number;
+};
+
 const monthSummary = {
   month: "Julho",
   today: "20/07/2026",
@@ -125,6 +133,16 @@ const monthlyTrend = [
   { label: "Abr/26", total: 589008.96 },
   { label: "Mai/26", total: 663634.82 },
   { label: "Jun/26", total: 658438.67 },
+];
+
+const grossProfitTrend: GrossProfitMonth[] = [
+  { label: "Jan", planned: 282264.93, realized: 306966.65, previousYear: 225188.02, margin: 53.89 },
+  { label: "Fev", planned: 230405.81, realized: 279127.55, previousYear: 216509.83, margin: 46.84 },
+  { label: "Mar", planned: 279191.39, realized: 244476.86, previousYear: 220775.76, margin: 44.97 },
+  { label: "Abr", planned: 266895.83, realized: 235579.73, previousYear: 245068.65, margin: 43.8 },
+  { label: "Mai", planned: 272944.44, realized: 304937.56, previousYear: 262659.27, margin: 49.72 },
+  { label: "Jun", planned: 266895.83, realized: 275505.68, previousYear: 224693.3, margin: 45.17 },
+  { label: "Jul", planned: 288244.79, realized: 184033.77, previousYear: 288424.89, margin: 56.32 },
 ];
 
 const productivityMetrics: ProductivityMetric[] = [
@@ -230,6 +248,7 @@ export default function FarolGerencialPage() {
   const monthProgress = (monthSummary.passedDays / monthSummary.businessDays) * 100;
   const currentTotal = getChannel(june2026, "Total");
   const lastYearTotal = getChannel(june2025, "Total");
+  const currentGrossProfit = grossProfitTrend.find((item) => item.label === "Jun");
 
   return (
     <ProtectedPage
@@ -278,6 +297,33 @@ export default function FarolGerencialPage() {
               <ComparisonCard label="Faturamento total" current={currentTotal.total} previous={lastYearTotal.total} />
             </div>
             <MiniTrendChart />
+          </section>
+        )}
+
+        {currentGrossProfit && (
+          <section className="panel farol-table-panel">
+            <div className="panel-head">
+              <h2 className="panel-title">Lucro Bruto PV4R</h2>
+              <span className="tag">Competência Junho</span>
+            </div>
+            <div className="farol-lb-grid">
+              <ComparisonCard label="LB realizado" current={currentGrossProfit.realized} previous={currentGrossProfit.previousYear} />
+              <article className="farol-comparison-card">
+                <span>Meta LB</span>
+                <strong>{formatCurrency(currentGrossProfit.planned)}</strong>
+                <small>Atingimento</small>
+                <b className={currentGrossProfit.realized >= currentGrossProfit.planned ? "good-text" : "bad-text"}>
+                  {formatPercent((currentGrossProfit.realized / currentGrossProfit.planned) * 100)}
+                </b>
+              </article>
+              <article className="farol-comparison-card">
+                <span>Margem bruta</span>
+                <strong>{currentGrossProfit.margin.toFixed(1).replace(".", ",")}%</strong>
+                <small>LB sobre receita líquida total</small>
+                <b className="good-text">MB</b>
+              </article>
+              <GrossProfitChart />
+            </div>
           </section>
         )}
 
@@ -445,6 +491,33 @@ function MiniTrendChart() {
           <b>{formatCurrency(item.total)}</b>
         </div>
       ))}
+    </div>
+  );
+}
+
+function GrossProfitChart() {
+  const max = Math.max(...grossProfitTrend.flatMap((item) => [item.planned, item.realized]));
+
+  return (
+    <div className="farol-lb-chart" aria-label="Lucro bruto planejado, realizado e margem bruta por mês">
+      <div className="farol-lb-legend">
+        <span><i className="planned" />Planejado</span>
+        <span><i className="realized" />Realizado</span>
+        <span><i className="margin" />MB %</span>
+      </div>
+      <div className="farol-lb-bars">
+        {grossProfitTrend.map((item) => (
+          <div key={item.label} className="farol-lb-month">
+            <div className="farol-lb-columns">
+              <i className="planned" style={{ height: `${Math.max(8, (item.planned / max) * 100)}%` }} />
+              <i className="realized" style={{ height: `${Math.max(8, (item.realized / max) * 100)}%` }} />
+            </div>
+            <strong>{item.label}</strong>
+            <span>{formatPercent((item.realized / item.planned) * 100)}</span>
+            <small>{item.margin.toFixed(0)}% MB</small>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

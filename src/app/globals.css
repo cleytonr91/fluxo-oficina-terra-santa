@@ -409,6 +409,118 @@
   margin: 7px 0 0;
 }
 
+.farol-lb-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 0.8fr 0.8fr 0.8fr minmax(360px, 1.8fr);
+  padding: 14px 16px;
+}
+
+.farol-lb-chart {
+  background: #f7faf7;
+  border: 1px solid #dce4dd;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.farol-lb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.farol-lb-legend span {
+  align-items: center;
+  color: #5d6a66;
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 900;
+  gap: 6px;
+  text-transform: uppercase;
+}
+
+.farol-lb-legend i {
+  border-radius: 999px;
+  display: inline-block;
+  height: 9px;
+  width: 18px;
+}
+
+.farol-lb-legend .planned,
+.farol-lb-columns .planned {
+  background: #d9a441;
+}
+
+.farol-lb-legend .realized,
+.farol-lb-columns .realized {
+  background: #2f7d55;
+}
+
+.farol-lb-legend .margin {
+  background: #2c6fbb;
+}
+
+.farol-lb-bars {
+  align-items: end;
+  display: grid;
+  gap: 9px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  height: 180px;
+}
+
+.farol-lb-month {
+  display: grid;
+  gap: 4px;
+  grid-template-rows: 1fr auto auto auto;
+  height: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
+.farol-lb-columns {
+  align-items: end;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  min-height: 0;
+}
+
+.farol-lb-columns i {
+  border-radius: 6px 6px 2px 2px;
+  display: block;
+  max-width: 22px;
+  min-height: 8px;
+  width: 42%;
+}
+
+.farol-lb-month strong,
+.farol-lb-month span,
+.farol-lb-month small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farol-lb-month strong {
+  color: #101a17;
+  font-size: 0.78rem;
+}
+
+.farol-lb-month span {
+  color: #2f7d55;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.farol-lb-month small {
+  color: #5d6a66;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
 .farol-mini-chart {
   align-items: end;
   border-top: 1px solid #e1e7e2;
@@ -488,6 +600,14 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .farol-lb-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .farol-lb-chart {
+    grid-column: 1 / -1;
+  }
+
   .farol-mini-chart {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     height: auto;
@@ -517,6 +637,19 @@
   .farol-channel-grid,
   .farol-productivity-grid {
     grid-template-columns: 1fr;
+  }
+
+  .farol-lb-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .farol-lb-bars {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    height: auto;
+  }
+
+  .farol-lb-month {
+    height: 145px;
   }
 
   .farol-mini-chart {
