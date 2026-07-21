@@ -380,7 +380,7 @@ function displayAnswerConsultant(answer: HgsiAnswerImport) {
   return consultantDisplayName(answer.consultantName || String(answer.raw?.Consultor ?? answer.raw?.consultor ?? ""));
 }
 
-function FunnelCard({
+function FunnelRow({
   item,
   answer,
   validRecord,
@@ -401,8 +401,8 @@ function FunnelCard({
   const isTreated = treatment?.treatmentStatus === "tratado";
 
   return (
-    <article className={`post-card ${attention ? "attention" : ""}`}>
-      <div className="post-card-top">
+    <article className={`post-list-row ${attention ? "attention" : ""}`}>
+      <div className="post-row-main">
         <div>
           {phoneLink ? (
             <a className="client client-link" href={phoneLink} target="_blank" rel="noreferrer">
@@ -416,14 +416,14 @@ function FunnelCard({
         <span className="plate">{item.plate ?? "-"}</span>
       </div>
 
-      <div className="detail-grid">
+      <div className="post-row-details">
         <div className="detail"><span>Consultor</span>{consultantDisplayName(item.consultantName)}</div>
         {treatment?.treatmentStatus === "tratado" && (
           <div className="detail"><span>Tratado por</span>{treatment.treatmentBy || "-"}</div>
         )}
       </div>
 
-      <div className="tag-row">
+      <div className="tag-row post-row-tags">
         {validRecord && <span className="tag good">Registro válido</span>}
         {answer && <span className="tag">Respondido HGSI</span>}
         {answer?.nps !== undefined && <span className={`tag ${scoreTone(hgsiValue(answer) ?? null, "thousand")}`}>HGSI {Math.round(hgsiValue(answer) ?? answer.nps)}</span>}
@@ -435,7 +435,7 @@ function FunnelCard({
         {!attention && <span className="tag good">Sem pendência</span>}
       </div>
 
-      <div className="post-card-actions">
+      <div className="post-card-actions post-row-actions">
         <button className="ghost-btn post-treatment-btn" type="button" onClick={() => onInspect(item)}>
           Indicadores
         </button>
@@ -464,8 +464,16 @@ export default function PosServicoPage() {
     treatmentStatus: "em_tratativa",
     caseType: "tratar_antes_pesquisa",
   });
-  const [consultantFilter, setConsultantFilter] = useState("Todos");
   const [searchTerm, setSearchTerm] = useState("");
+  const [deliveredConsultantFilter, setDeliveredConsultantFilter] = useState("Todos");
+  const [aptosConsultantFilter, setAptosConsultantFilter] = useState("Todos");
+  const [treatedConsultantFilter, setTreatedConsultantFilter] = useState("Todos");
+  const [treatedByFilter, setTreatedByFilter] = useState("Todos");
+  const [expandedStages, setExpandedStages] = useState({
+    delivered: true,
+    aptos: true,
+    treated: true,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -579,9 +587,13 @@ export default function PosServicoPage() {
     return dedupeByKey([...matched, ...basic], itemKey);
   }, [flowItems, flowKeys, hgsiBaseAnswers]);
 
-  const filterByConsultant = (item: FunnelItem) => (
-    consultantFilter === "Todos" || consultantDisplayName(item.consultantName) === consultantFilter
+  const filterByConsultant = (item: FunnelItem, filter: string) => (
+    filter === "Todos" || consultantDisplayName(item.consultantName) === filter
   );
+  const filterByTreatmentOwner = (item: FunnelItem, filter: string) => {
+    if (filter === "Todos") return true;
+    return (casesByItemKey.get(itemKey(item))?.treatmentBy || "-") === filter;
+  };
   const filterBySearch = (item: FunnelItem) => {
     const query = normalizeText(searchTerm);
     if (!query) return true;
@@ -592,11 +604,12 @@ export default function PosServicoPage() {
       item.osNumber,
     ].filter(Boolean).join(" ")).includes(query);
   };
-  const applyFilters = (item: FunnelItem) => filterByConsultant(item) && filterBySearch(item);
 
   const isTreatedItem = (item: FunnelItem) => casesByItemKey.get(itemKey(item))?.treatmentStatus === "tratado";
-  const deliveredItems = flowItems.filter(applyFilters);
-  const filteredValidRecordItems = validRecordItems.filter(applyFilters);
+  const searchedFlowItems = flowItems.filter(filterBySearch);
+  const searchedValidRecordItems = validRecordItems.filter(filterBySearch);
+  const deliveredItems = searchedFlowItems.filter((item) => filterByConsultant(item, deliveredConsultantFilter));
+  const filteredValidRecordItems = searchedValidRecordItems.filter((item) => filterByConsultant(item, aptosConsultantFilter));
   const pendingValidItems = filteredValidRecordItems
     .filter((item) => !answersByChassi.has(normalizeChassi(item.chassi)))
     .filter((item) => !isTreatedItem(item));
@@ -612,7 +625,14 @@ export default function PosServicoPage() {
       clientName: "Cliente tratado",
       chassi: postCase.vehicleFlowId,
     }))
-    .filter(applyFilters);
+    .filter(filterBySearch)
+    .filter((item) => filterByConsultant(item, treatedConsultantFilter))
+    .filter((item) => filterByTreatmentOwner(item, treatedByFilter));
+  const treatedByOptions = Array.from(new Set(
+    postCases
+      .filter((postCase) => postCase.treatmentStatus === "tratado")
+      .map((postCase) => postCase.treatmentBy || "-"),
+  )).sort((first, second) => first.localeCompare(second));
 
   const consultantStats = useMemo(() => {
     return consultants.map((consultant) => {
@@ -713,6 +733,10 @@ export default function PosServicoPage() {
       treatmentStatus: existing?.treatmentStatus ?? "em_tratativa",
       caseType: existing?.caseType ?? (needsTreatment(item) ? "tratar_antes_pesquisa" : "solicitar_hgsi"),
     });
+  }
+
+  function toggleStage(stage: keyof typeof expandedStages) {
+    setExpandedStages((current) => ({ ...current, [stage]: !current[stage] }));
   }
 
   async function submitTreatment(event: FormEvent<HTMLFormElement>) {
@@ -860,14 +884,6 @@ export default function PosServicoPage() {
 
           <div className="post-controls">
             <label className="flow-filter">
-              <span>Consultor</span>
-              <select value={consultantFilter} onChange={(event) => setConsultantFilter(event.target.value)}>
-                <option>Todos</option>
-                {consultants.map((consultant) => <option key={consultant}>{consultant}</option>)}
-              </select>
-            </label>
-
-            <label className="flow-filter">
               <span>Pesquisa</span>
               <input
                 placeholder="Nome, placa ou chassi"
@@ -892,78 +908,126 @@ export default function PosServicoPage() {
 
         {error && <div className="duplicate-alert"><strong>Erro no pós-serviço</strong><span>{error}</span></div>}
 
-        <section className="funnel-grid" aria-label="Funil pós-venda HGSI">
-          <section className="funnel-stage">
-            <div className="funnel-stage-head">
-              <h2>Veículos entregues</h2>
+        <section className="post-funnel-vertical" aria-label="Funil pós-venda HGSI">
+          <section className="post-funnel-block">
+            <div className="post-funnel-block-head">
+              <button type="button" className="ghost-btn" onClick={() => toggleStage("delivered")}>
+                {expandedStages.delivered ? "Recolher" : "Expandir"}
+              </button>
+              <div>
+                <h2>Veículos entregues</h2>
+                <span>Total de veículos entregues no filtro atual.</span>
+              </div>
               <strong>{deliveredItems.length}</strong>
+              <label className="flow-filter stage-filter">
+                <span>Consultor</span>
+                <select value={deliveredConsultantFilter} onChange={(event) => setDeliveredConsultantFilter(event.target.value)}>
+                  <option>Todos</option>
+                  {consultants.map((consultant) => <option key={consultant}>{consultant}</option>)}
+                </select>
+              </label>
             </div>
-            <div className="funnel-stage-body">
-              {loading ? (
-                <p className="empty">Carregando clientes...</p>
-              ) : deliveredItems.length ? deliveredItems.map((item) => (
-                <FunnelCard
-                  key={item.id}
-                  item={item}
-                  validRecord={validChassis.has(normalizeChassi(item.chassi))}
-                  answer={answersByChassi.get(normalizeChassi(item.chassi))}
-                  treatment={casesByItemKey.get(itemKey(item))}
-                  onTreatment={openTreatmentModal}
-                  onInspect={setIndicatorItem}
-                />
-              )) : (
-                <p className="empty">Sem veículos entregues.</p>
-              )}
-            </div>
+            {expandedStages.delivered && (
+              <div className="post-list">
+                {loading ? (
+                  <p className="empty">Carregando clientes...</p>
+                ) : deliveredItems.length ? deliveredItems.map((item) => (
+                  <FunnelRow
+                    key={item.id}
+                    item={item}
+                    validRecord={validChassis.has(normalizeChassi(item.chassi))}
+                    answer={answersByChassi.get(normalizeChassi(item.chassi))}
+                    treatment={casesByItemKey.get(itemKey(item))}
+                    onTreatment={openTreatmentModal}
+                    onInspect={setIndicatorItem}
+                  />
+                )) : (
+                  <p className="empty">Sem veículos entregues.</p>
+                )}
+              </div>
+            )}
           </section>
 
-          <section className="funnel-stage">
-            <div className="funnel-stage-head">
-              <h2>Aptos HGSI</h2>
+          <section className="post-funnel-block">
+            <div className="post-funnel-block-head">
+              <button type="button" className="ghost-btn" onClick={() => toggleStage("aptos")}>
+                {expandedStages.aptos ? "Recolher" : "Expandir"}
+              </button>
+              <div>
+                <h2>Aptos HGSI</h2>
+                <span>{requestReadyItems.length} solicitar resposta · {treatmentItems.length} tratar antes</span>
+              </div>
               <strong>{pendingValidItems.length}</strong>
+              <label className="flow-filter stage-filter">
+                <span>Consultor</span>
+                <select value={aptosConsultantFilter} onChange={(event) => setAptosConsultantFilter(event.target.value)}>
+                  <option>Todos</option>
+                  {consultants.map((consultant) => <option key={consultant}>{consultant}</option>)}
+                </select>
+              </label>
             </div>
-            <div className="funnel-subhead">
-              <span>{requestReadyItems.length} solicitar resposta</span>
-              <span>{treatmentItems.length} tratar antes</span>
-            </div>
-            <div className="funnel-stage-body">
-              {hgsiRecords.length === 0 ? (
-                <p className="empty">Importe o Status Route para identificar registros válidos.</p>
-              ) : pendingValidItems.length ? pendingValidItems.map((item) => (
-                <FunnelCard
-                  key={item.id}
-                  item={item}
-                  validRecord
-                  treatment={casesByItemKey.get(itemKey(item))}
-                  onTreatment={openTreatmentModal}
-                  onInspect={setIndicatorItem}
-                />
-              )) : (
-                <p className="empty">Nenhum cliente pendente com registro válido.</p>
-              )}
-            </div>
+            {expandedStages.aptos && (
+              <div className="post-list">
+                {hgsiRecords.length === 0 ? (
+                  <p className="empty">Importe o Status Route para identificar registros válidos.</p>
+                ) : pendingValidItems.length ? pendingValidItems.map((item) => (
+                  <FunnelRow
+                    key={item.id}
+                    item={item}
+                    validRecord
+                    treatment={casesByItemKey.get(itemKey(item))}
+                    onTreatment={openTreatmentModal}
+                    onInspect={setIndicatorItem}
+                  />
+                )) : (
+                  <p className="empty">Nenhum cliente pendente com registro válido.</p>
+                )}
+              </div>
+            )}
           </section>
 
-          <section className="funnel-stage">
-            <div className="funnel-stage-head">
-              <h2>Clientes tratados</h2>
+          <section className="post-funnel-block">
+            <div className="post-funnel-block-head treated-head">
+              <button type="button" className="ghost-btn" onClick={() => toggleStage("treated")}>
+                {expandedStages.treated ? "Recolher" : "Expandir"}
+              </button>
+              <div>
+                <h2>Clientes tratados</h2>
+                <span>Clientes que já tiveram tratativa confirmada.</span>
+              </div>
               <strong>{treatedItems.length}</strong>
+              <label className="flow-filter stage-filter">
+                <span>Consultor</span>
+                <select value={treatedConsultantFilter} onChange={(event) => setTreatedConsultantFilter(event.target.value)}>
+                  <option>Todos</option>
+                  {consultants.map((consultant) => <option key={consultant}>{consultant}</option>)}
+                </select>
+              </label>
+              <label className="flow-filter stage-filter">
+                <span>Tratado por</span>
+                <select value={treatedByFilter} onChange={(event) => setTreatedByFilter(event.target.value)}>
+                  <option>Todos</option>
+                  {treatedByOptions.map((name) => <option key={name}>{name}</option>)}
+                </select>
+              </label>
             </div>
-            <div className="funnel-stage-body">
-              {treatedItems.length ? treatedItems.map((item) => (
-                <FunnelCard
-                  key={item.id}
-                  item={item}
-                  validRecord={validChassis.has(normalizeChassi(item.chassi))}
-                  answer={answersByChassi.get(normalizeChassi(item.chassi))}
-                  treatment={casesByItemKey.get(itemKey(item))}
-                  onTreatment={openTreatmentModal}
-                  onInspect={setIndicatorItem}
-                />
-              )) : (
-                <p className="empty">Nenhum cliente tratado no filtro selecionado.</p>
-              )}
-            </div>
+            {expandedStages.treated && (
+              <div className="post-list">
+                {treatedItems.length ? treatedItems.map((item) => (
+                  <FunnelRow
+                    key={item.id}
+                    item={item}
+                    validRecord={validChassis.has(normalizeChassi(item.chassi))}
+                    answer={answersByChassi.get(normalizeChassi(item.chassi))}
+                    treatment={casesByItemKey.get(itemKey(item))}
+                    onTreatment={openTreatmentModal}
+                    onInspect={setIndicatorItem}
+                  />
+                )) : (
+                  <p className="empty">Nenhum cliente tratado no filtro selecionado.</p>
+                )}
+              </div>
+            )}
           </section>
         </section>
 

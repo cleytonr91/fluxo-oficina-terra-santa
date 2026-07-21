@@ -2938,7 +2938,7 @@ textarea {
 
 .post-controls {
   display: grid;
-  grid-template-columns: minmax(160px, 200px) minmax(240px, 1.2fr) repeat(2, minmax(220px, 1fr));
+  grid-template-columns: minmax(280px, 1.2fr) repeat(2, minmax(220px, 1fr));
   gap: 10px;
   align-items: stretch;
 }
@@ -3029,6 +3029,126 @@ textarea {
   max-height: 620px;
   overflow: auto;
   padding: 10px;
+}
+
+.post-funnel-vertical {
+  display: grid;
+  gap: 12px;
+}
+
+.post-funnel-block {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 38px rgba(29, 37, 36, 0.08);
+  overflow: hidden;
+}
+
+.post-funnel-block-head {
+  align-items: center;
+  background: #fbfcfa;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(220px, 1fr) auto minmax(180px, 220px);
+  padding: 10px 12px;
+}
+
+.post-funnel-block-head.treated-head {
+  grid-template-columns: auto minmax(220px, 1fr) auto minmax(180px, 220px) minmax(180px, 220px);
+}
+
+.post-funnel-block-head h2 {
+  font-size: 18px;
+  font-weight: 950;
+  line-height: 1.05;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.post-funnel-block-head > div > span {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.post-funnel-block-head > strong {
+  align-items: center;
+  background: var(--soft);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 18px;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 36px;
+  min-width: 44px;
+  padding: 0 12px;
+}
+
+.stage-filter {
+  min-height: 52px;
+}
+
+.post-list {
+  display: grid;
+  gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.post-list-row {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--green);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(260px, 1.2fr) minmax(170px, 0.7fr) minmax(220px, 1fr) minmax(170px, auto);
+  padding: 8px 10px;
+}
+
+.post-list-row.attention {
+  border-left-color: var(--orange);
+}
+
+.post-row-main {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+.post-row-main .client {
+  font-size: 14px;
+  line-height: 1.05;
+  margin: 0;
+}
+
+.post-row-main .model {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 3px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post-row-details {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
+.post-row-tags {
+  align-content: center;
+}
+
+.post-row-actions {
+  margin-top: 0;
 }
 
 .post-card {
@@ -4295,6 +4415,16 @@ textarea {
 
   .post-controls {
     grid-template-columns: 1fr;
+  }
+
+  .post-funnel-block-head,
+  .post-funnel-block-head.treated-head,
+  .post-list-row {
+    grid-template-columns: 1fr;
+  }
+
+  .post-row-actions {
+    width: 100%;
   }
 
   .parts-edit-grid,
