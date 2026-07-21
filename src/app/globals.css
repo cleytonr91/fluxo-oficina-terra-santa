@@ -3247,47 +3247,47 @@ textarea {
 
 .consultant-score-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(320px, 1fr));
-  gap: 14px;
-  padding: 12px;
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  gap: 8px;
+  padding: 8px;
 }
 
 .consultant-score-card {
   display: grid;
-  gap: 12px;
+  gap: 7px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
-  padding: 14px 16px 16px;
+  padding: 10px 12px;
 }
 
 .consultant-score-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
 }
 
 .consultant-score-head strong {
   display: block;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .consultant-score-head span {
   display: block;
-  margin-top: 2px;
+  margin-top: 1px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
 .hgsi-pill {
   border-radius: 999px;
   border: 0;
-  min-width: 72px;
-  padding: 8px 13px;
+  min-width: 62px;
+  padding: 6px 10px;
   text-align: center;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 900;
 }
 
@@ -3313,7 +3313,7 @@ textarea {
 
 .score-progress-block {
   display: grid;
-  gap: 6px;
+  gap: 3px;
 }
 
 .score-progress-label,
@@ -3321,24 +3321,24 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 6px;
 }
 
 .score-progress-label span,
 .indicator-label span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
 .score-progress-label strong,
 .indicator-label strong {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 900;
 }
 
 .goal-track {
-  height: 8px;
+  height: 7px;
   overflow: hidden;
   border-radius: 999px;
   background: #e7ece8;
@@ -3353,7 +3353,7 @@ textarea {
 
 .hgsi-track,
 .indicator-track {
-  height: 9px;
+  height: 7px;
   overflow: hidden;
   border-radius: 999px;
   background: #e8ede9;
@@ -3390,14 +3390,14 @@ textarea {
 .score-mini-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
 }
 
 .score-range-grid div,
 .score-mini-grid div {
-  border-radius: 7px;
+  border-radius: 6px;
   background: #f7f9f7;
-  padding: 8px;
+  padding: 5px 6px;
 }
 
 .score-range-grid span,
@@ -3412,13 +3412,13 @@ textarea {
 .score-range-grid strong,
 .score-mini-grid strong {
   display: block;
-  margin-top: 3px;
-  font-size: 15px;
+  margin-top: 1px;
+  font-size: 13px;
 }
 
 .score-stack {
   display: flex;
-  height: 11px;
+  height: 8px;
   overflow: hidden;
   border-radius: 999px;
   background: #e8ede9;
@@ -3442,12 +3442,19 @@ textarea {
 
 .indicator-list {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 8px;
 }
 
 .indicator-row {
   display: grid;
-  gap: 4px;
+  gap: 2px;
+  min-width: 0;
+}
+
+.consultant-score-card .critical-list,
+.consultant-score-card .answered-client-list {
+  display: none;
 }
 
 .critical-list {
@@ -4545,6 +4552,10 @@ textarea {
   .post-metrics,
   .funnel-grid,
   .consultant-score-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .indicator-list {
     grid-template-columns: 1fr;
   }
 
