@@ -355,6 +355,27 @@
   height: 100%;
 }
 
+.farol-stack-bar {
+  background: #e8eeea;
+  border-radius: 999px;
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+}
+
+.farol-stack-bar i {
+  display: block;
+  height: 100%;
+}
+
+.farol-stack-bar .parts {
+  background: #2f7d55;
+}
+
+.farol-stack-bar .services {
+  background: #2c6fbb;
+}
+
 .farol-channel-values {
   display: grid;
   gap: 6px;
@@ -388,6 +409,70 @@
   margin: 7px 0 0;
 }
 
+.farol-mini-chart {
+  align-items: end;
+  border-top: 1px solid #e1e7e2;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  height: 190px;
+  padding: 18px 16px 14px;
+}
+
+.farol-mini-bar {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-rows: 1fr auto auto;
+  height: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
+.farol-mini-bar span {
+  align-self: end;
+  background: linear-gradient(180deg, #65ad42, #2f7d55);
+  border-radius: 8px 8px 2px 2px;
+  display: block;
+  min-height: 8px;
+  width: 100%;
+}
+
+.farol-mini-bar small,
+.farol-sparkline span {
+  color: #5d6a66;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.farol-mini-bar b {
+  color: #101a17;
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farol-sparkline {
+  align-items: center;
+  color: #2f7d55;
+  display: grid;
+  gap: 0 4px;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 2px;
+}
+
+.farol-sparkline svg {
+  grid-column: 1 / -1;
+  height: 34px;
+  width: 100%;
+}
+
+.farol-sparkline span {
+  text-align: center;
+}
+
 @media (max-width: 1100px) {
   .farol-main-grid {
     grid-template-columns: 1fr;
@@ -401,6 +486,15 @@
   .farol-channel-grid,
   .farol-productivity-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .farol-mini-chart {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    height: auto;
+  }
+
+  .farol-mini-bar {
+    height: 150px;
   }
 }
 
@@ -423,6 +517,10 @@
   .farol-channel-grid,
   .farol-productivity-grid {
     grid-template-columns: 1fr;
+  }
+
+  .farol-mini-chart {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

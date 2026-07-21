@@ -118,6 +118,15 @@ const june2025: ChannelRevenue[] = [
   { channel: "Total", parts: 284073.81, services: 209736.28, total: 493810.09 },
 ];
 
+const monthlyTrend = [
+  { label: "Jan/26", total: 633691.08 },
+  { label: "Fev/26", total: 639068.4 },
+  { label: "Mar/26", total: 559610.54 },
+  { label: "Abr/26", total: 589008.96 },
+  { label: "Mai/26", total: 663634.82 },
+  { label: "Jun/26", total: 658438.67 },
+];
+
 const productivityMetrics: ProductivityMetric[] = [
   { label: "Revisões", current: 138, lastYear: 263, type: "number", note: "Base usada para calcular TKM." },
   { label: "TKM serviços", current: 869, lastYear: 682, type: "currency", note: "Serviços totais divididos por revisões." },
@@ -268,6 +277,7 @@ export default function FarolGerencialPage() {
               <ComparisonCard label="Serviços" current={currentTotal.services} previous={lastYearTotal.services} />
               <ComparisonCard label="Faturamento total" current={currentTotal.total} previous={lastYearTotal.total} />
             </div>
+            <MiniTrendChart />
           </section>
         )}
 
@@ -291,6 +301,10 @@ export default function FarolGerencialPage() {
                     <span>{formatPercent(share)}</span>
                   </div>
                   <div className="farol-channel-bar"><i style={{ width: `${Math.max(4, share)}%` }} /></div>
+                  <div className="farol-stack-bar" aria-label={`Composição de ${item.channel}`}>
+                    <i className="parts" style={{ width: `${item.total ? (item.parts / item.total) * 100 : 0}%` }} />
+                    <i className="services" style={{ width: `${item.total ? (item.services / item.total) * 100 : 0}%` }} />
+                  </div>
                   <div className="farol-channel-values">
                     <div><span>Peças</span><strong>{formatCurrency(item.parts)}</strong></div>
                     <div><span>Serviços</span><strong>{formatCurrency(item.services)}</strong></div>
@@ -300,6 +314,7 @@ export default function FarolGerencialPage() {
                     <span className={monthDelta >= 0 ? "good-text" : "bad-text"}>Mês: {formatDeltaPercent(monthDelta)}</span>
                     <span className={yearDelta >= 0 ? "good-text" : "bad-text"}>Ano anterior: {formatDeltaPercent(yearDelta)}</span>
                   </div>
+                  {previousMonth && lastYear && <MiniSparkline values={[lastYear.total, previousMonth.total, item.total]} />}
                 </article>
               );
             })}
@@ -415,5 +430,47 @@ function ComparisonCard({ label, current, previous }: { label: string; current: 
       <small>2025: {formatCurrency(previous)}</small>
       <b className={delta >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(delta)}</b>
     </article>
+  );
+}
+
+function MiniTrendChart() {
+  const max = Math.max(...monthlyTrend.map((item) => item.total));
+
+  return (
+    <div className="farol-mini-chart" aria-label="Evolução mensal do faturamento total em 2026">
+      {monthlyTrend.map((item) => (
+        <div key={item.label} className="farol-mini-bar">
+          <span style={{ height: `${Math.max(8, (item.total / max) * 100)}%` }} />
+          <small>{item.label}</small>
+          <b>{formatCurrency(item.total)}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MiniSparkline({ values }: { values: number[] }) {
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const points = values
+    .map((value, index) => {
+      const x = 8 + index * 42;
+      const y = 34 - ((value - min) / range) * 24;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <div className="farol-sparkline">
+      <svg viewBox="0 0 100 40" role="img" aria-label="Tendência: ano anterior, mês anterior e mês atual">
+        <polyline points={points} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        {points.split(" ").map((point) => {
+          const [cx, cy] = point.split(",");
+          return <circle key={point} cx={cx} cy={cy} r="3.5" fill="currentColor" />;
+        })}
+      </svg>
+      <span>2025</span><span>Mai</span><span>Jun</span>
+    </div>
   );
 }
