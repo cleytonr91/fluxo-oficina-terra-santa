@@ -1258,7 +1258,7 @@ textarea {
 
 .no-show-row {
   display: grid;
-  grid-template-columns: minmax(190px, 1.4fr) 92px 150px 130px minmax(160px, 1fr);
+  grid-template-columns: minmax(190px, 1.4fr) 92px 150px 130px minmax(160px, 1fr) minmax(210px, auto);
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -1268,7 +1268,6 @@ textarea {
   background: #fff;
   padding: 10px 12px;
   text-align: left;
-  cursor: pointer;
 }
 
 .no-show-row:hover {
@@ -1283,6 +1282,19 @@ textarea {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+}
+
+.no-show-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.no-show-row-actions .ghost-btn,
+.no-show-row-actions .dark-btn {
+  min-height: 34px;
+  padding: 7px 10px;
+  white-space: normal;
 }
 
 .flow-board {
@@ -4490,6 +4502,11 @@ textarea {
     grid-template-columns: minmax(180px, 1fr) 90px 130px;
   }
 
+  .no-show-row-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
   .prep-card-grid {
     grid-template-columns: repeat(2, minmax(320px, 1fr));
   }
@@ -4574,6 +4591,12 @@ textarea {
 
   .no-show-row {
     grid-template-columns: 1fr;
+  }
+
+  .no-show-row-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .flow-lane {

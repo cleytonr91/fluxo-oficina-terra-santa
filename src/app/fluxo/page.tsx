@@ -1474,6 +1474,44 @@ export default function FluxoPage() {
     }
   }
 
+  async function reactivateNoShowVehicle(vehicle: VehicleFlow) {
+    setMovingId(vehicle.id);
+    setError("");
+
+    try {
+      await moveVehicleFlow({
+        vehicleFlowId: vehicle.id,
+        fromLane: vehicle.currentLane,
+        toLane: "preparacao_confirmada",
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+        actionNote: "No-show reativado para Agendamento do Dia.",
+        clearNoShow: true,
+        serviceCompleted: false,
+        washingAdvanced: false,
+        washDone: false,
+      });
+
+      setVehicles((current) => current.map((currentVehicle) => (
+        currentVehicle.id === vehicle.id
+          ? {
+              ...currentVehicle,
+              currentLane: "preparacao_confirmada",
+              noShow: false,
+              noShowAt: undefined,
+              serviceCompleted: false,
+              washingAdvanced: false,
+              washDone: false,
+            }
+          : currentVehicle
+      )));
+      setMetricFilter("todos");
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível reativar o no-show.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   async function submitChipDeletion() {
     if (!detailVehicle || !canDeleteChip) return;
 
@@ -2095,13 +2133,26 @@ export default function FluxoPage() {
 
             <div className="no-show-list">
               {noShowVehicles.length ? noShowVehicles.map((vehicle) => (
-                <button key={vehicle.id} className="no-show-row" type="button" onClick={() => openDetailModal(vehicle)}>
+                <article key={vehicle.id} className="no-show-row">
                   <strong>{vehicle.clientName ?? "Cliente não identificado"}</strong>
                   <span>{vehicle.plate ?? "-"}</span>
                   <span>{formatDateOnly(vehicle.appointmentDate)} {vehicle.appointmentTime ?? ""}</span>
                   <span>{consultantDisplayName(vehicle.consultantName)}</span>
                   <span>{vehicle.serviceLabel ?? "-"}</span>
-                </button>
+                  <div className="no-show-row-actions">
+                    <button className="ghost-btn" type="button" onClick={() => openDetailModal(vehicle)}>
+                      Detalhes
+                    </button>
+                    <button
+                      className="dark-btn"
+                      type="button"
+                      disabled={movingId === vehicle.id}
+                      onClick={() => reactivateNoShowVehicle(vehicle)}
+                    >
+                      Voltar ao Agendamento do Dia
+                    </button>
+                  </div>
+                </article>
               )) : (
                 <EmptyLane text="Nenhum no-show encontrado." />
               )}
@@ -3176,6 +3227,7 @@ export default function FluxoPage() {
     </ProtectedPage>
   );
 }
+
 
 
 
