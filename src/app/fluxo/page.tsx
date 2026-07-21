@@ -311,14 +311,13 @@ function formatDateOnly(value?: string) {
 }
 
 function flowEventTitle(event: FlowEvent) {
-  const fromLane = event.fromLane ? laneNameById[event.fromLane] : "Início";
   const toLane = laneNameById[event.toLane] ?? event.toLane;
 
   if (event.fromLane && event.fromLane === event.toLane) {
     return `Atualização em ${toLane}`;
   }
 
-  return `${fromLane} → ${toLane}`;
+  return toLane;
 }
 
 function isAutomaticNoShowEvent(event: FlowEvent) {
@@ -326,6 +325,14 @@ function isAutomaticNoShowEvent(event: FlowEvent) {
     && event.toLane === "preparacao_confirmada"
     && (event.actionNote ?? "").toUpperCase().includes("NO-SHOW");
 }
+
+type ChipTimelineItem = {
+  id: string;
+  title: string;
+  actionBy?: string;
+  createdAt: unknown;
+  note?: string;
+};
 
 function escapeHtml(value: unknown) {
   return String(value ?? "")
@@ -1847,6 +1854,30 @@ export default function FluxoPage() {
       : detailEvents.filter((event) => !isAutomaticNoShowEvent(event))
   ), [detailEvents, detailVehicle?.noShow]);
 
+  const chipTimeline = useMemo<ChipTimelineItem[]>(() => {
+    const laneEvents = visibleDetailEvents.map((event) => ({
+      id: `event-${event.id}`,
+      title: flowEventTitle(event),
+      actionBy: event.actionBy,
+      createdAt: event.createdAt,
+      note: event.actionNote,
+    }));
+
+    const promiseEvents = (detailVehicle?.promiseHistory ?? []).map((item, index) => ({
+      id: `promise-${index}-${String(item.changedAt)}`,
+      title: "Previsão de entrega",
+      actionBy: item.changedBy,
+      createdAt: item.changedAt,
+      note: `${formatDateTime(item.promisedDeliveryAt)}${item.note ? ` · ${item.note}` : ""}`,
+    }));
+
+    return [...laneEvents, ...promiseEvents].sort((a, b) => {
+      const aDate = toDate(a.createdAt)?.getTime() ?? 0;
+      const bDate = toDate(b.createdAt)?.getTime() ?? 0;
+      return bDate - aDate;
+    });
+  }, [detailVehicle?.promiseHistory, visibleDetailEvents]);
+
   const metricDate = flowDate || new Date().toISOString().slice(0, 10);
   const metricBaseVehicles = dateScopedVehicles.filter((vehicle) => !immobilizedVehicleIds.has(vehicle.id));
   const visibleFlowVehicles = dateScopedVehicles.filter((vehicle) => !isActiveNoShow(vehicle) && !immobilizedVehicleIds.has(vehicle.id));
@@ -2584,35 +2615,18 @@ export default function FluxoPage() {
               <h3>Histórico do chip</h3>
               {detailEventsLoading ? (
                 <p>Carregando histórico...</p>
-              ) : visibleDetailEvents.length ? (
+              ) : chipTimeline.length ? (
                 <ul className="chip-history-list">
-                  {visibleDetailEvents.map((event) => (
-                    <li key={event.id}>
-                      <strong>{flowEventTitle(event)}</strong>
-                      <span>{formatActionSignature(event.actionBy, event.createdAt, "Operador não identificado")}</span>
-                      {event.actionNote && <p>{event.actionNote}</p>}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>Nenhuma movimentação registrada para este chip.</p>
-              )}
-            </section>
-
-            <section className="history-box">
-              <h3>Histórico de previsão</h3>
-              {detailVehicle.promiseHistory?.length ? (
-                <ul>
-                  {detailVehicle.promiseHistory.map((item, index) => (
-                    <li key={`${item.promisedDeliveryAt}-${index}`}>
-                      <strong>{formatDateTime(item.promisedDeliveryAt)}</strong>
-                      <span>{formatActionSignature(item.changedBy, item.changedAt, "Usuário")}</span>
+                  {chipTimeline.map((item) => (
+                    <li key={item.id}>
+                      <strong>{item.title}</strong>
+                      <span>{formatActionSignature(item.actionBy, item.createdAt, "Operador não identificado")}</span>
                       {item.note && <p>{item.note}</p>}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p>Nenhuma alteração de previsão registrada.</p>
+                <p>Nenhuma movimentação registrada para este chip.</p>
               )}
             </section>
 
