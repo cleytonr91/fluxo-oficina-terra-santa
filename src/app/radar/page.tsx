@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
@@ -8,24 +8,24 @@ import type { VehicleFlow } from "@/types/domain";
 
 const manual: ManualContent = {
   title: "Manual do Farol Gerencial",
-  audience: "Uso principal: gerência e coordenação",
-  objective: "Acompanhar resultado financeiro diário, ritmo da oficina, gargalos do fluxo e metas do mês.",
+  audience: "Uso principal: gerÃªncia e coordenaÃ§Ã£o",
+  objective: "Acompanhar resultado financeiro diÃ¡rio, ritmo da oficina, gargalos do fluxo e metas do mÃªs.",
   steps: [
-    "Abra o Farol para uma visão consolidada da operação.",
-    "Confira meta, realizado, diferença, projeção e percentual atingido por área.",
-    "Compare o resultado financeiro com volume, entrega, no-show, orçamento e pedidos de peças.",
-    "Use os desvios em vermelho para cobrar ação das áreas responsáveis.",
+    "Abra o Farol para uma visÃ£o consolidada da operaÃ§Ã£o.",
+    "Confira meta, realizado, diferenÃ§a, projeÃ§Ã£o e percentual atingido por Ã¡rea.",
+    "Compare o resultado financeiro com volume, entrega, no-show, orÃ§amento e pedidos de peÃ§as.",
+    "Use os desvios em vermelho para cobrar aÃ§Ã£o das Ã¡reas responsÃ¡veis.",
   ],
   rules: [
-    "O Farol é uma página de leitura gerencial, não de movimentação de chips.",
-    "Os valores financeiros serão alimentados por importação do acompanhamento ou integração com o Linx.",
-    "Indicadores operacionais dependem da disciplina de uso nas páginas Fluxo, Peças e Pós-serviço.",
+    "O Farol Ã© uma pÃ¡gina de leitura gerencial, nÃ£o de movimentaÃ§Ã£o de chips.",
+    "Os valores financeiros serÃ£o alimentados por importaÃ§Ã£o do acompanhamento ou integraÃ§Ã£o com o Linx.",
+    "Indicadores operacionais dependem da disciplina de uso nas pÃ¡ginas Fluxo, PeÃ§as e PÃ³s-serviÃ§o.",
   ],
   flow: [
-    { title: "Coletar dados", text: "Sistema reúne valores financeiros e dados do fluxo." },
-    { title: "Comparar metas", text: "Calcula meta, realizado, diferença e projeção." },
-    { title: "Analisar gargalos", text: "Cruza resultado com volume, atrasos, no-show e peças." },
-    { title: "Agir", text: "Gerência direciona cobrança para consultores, oficina, peças ou lavagem." },
+    { title: "Coletar dados", text: "Sistema reÃºne valores financeiros e dados do fluxo." },
+    { title: "Comparar metas", text: "Calcula meta, realizado, diferenÃ§a e projeÃ§Ã£o." },
+    { title: "Analisar gargalos", text: "Cruza resultado com volume, atrasos, no-show e peÃ§as." },
+    { title: "Agir", text: "GerÃªncia direciona cobranÃ§a para consultores, oficina, peÃ§as ou lavagem." },
   ],
 };
 
@@ -40,7 +40,7 @@ type DailyResult = {
 };
 
 type ChannelRevenue = {
-  channel: "Oficina Produtiva" | "Funilaria" | "Acessórios" | "Embelezamento" | "Balcão" | "Total";
+  channel: "Oficina Produtiva" | "Funilaria" | "AcessÃ³rios" | "Embelezamento" | "BalcÃ£o" | "Total";
   parts: number;
   services: number;
   total: number;
@@ -102,27 +102,27 @@ const financialRows: DailyResult[] = [
 const june2026: ChannelRevenue[] = [
   { channel: "Oficina Produtiva", parts: 260324.95, services: 174513.33, total: 434838.28 },
   { channel: "Funilaria", parts: 56504.55, services: 11265.24, total: 67769.79 },
-  { channel: "Acessórios", parts: 59829, services: 22800, total: 82629 },
+  { channel: "AcessÃ³rios", parts: 59829, services: 22800, total: 82629 },
   { channel: "Embelezamento", parts: 0, services: 41050.4, total: 41050.4 },
-  { channel: "Balcão", parts: 32151.2, services: 0, total: 32151.2 },
+  { channel: "BalcÃ£o", parts: 32151.2, services: 0, total: 32151.2 },
   { channel: "Total", parts: 408809.7, services: 249628.97, total: 658438.67 },
 ];
 
 const may2026: ChannelRevenue[] = [
   { channel: "Oficina Produtiva", parts: 230577.29, services: 161491.16, total: 392068.45 },
   { channel: "Funilaria", parts: 54298.61, services: 22297.69, total: 76596.3 },
-  { channel: "Acessórios", parts: 64811.71, services: 38370, total: 103181.71 },
+  { channel: "AcessÃ³rios", parts: 64811.71, services: 38370, total: 103181.71 },
   { channel: "Embelezamento", parts: 0, services: 48145.48, total: 48145.48 },
-  { channel: "Balcão", parts: 43642.88, services: 0, total: 43642.88 },
+  { channel: "BalcÃ£o", parts: 43642.88, services: 0, total: 43642.88 },
   { channel: "Total", parts: 393330.49, services: 270304.33, total: 663634.82 },
 ];
 
 const june2025: ChannelRevenue[] = [
   { channel: "Oficina Produtiva", parts: 199167.2, services: 119002.99, total: 318170.19 },
   { channel: "Funilaria", parts: 66881.67, services: 23566, total: 90447.67 },
-  { channel: "Acessórios", parts: 14392.1, services: 18457.9, total: 32850 },
+  { channel: "AcessÃ³rios", parts: 14392.1, services: 18457.9, total: 32850 },
   { channel: "Embelezamento", parts: 0, services: 48709.39, total: 48709.39 },
-  { channel: "Balcão", parts: 3632.84, services: 0, total: 3632.84 },
+  { channel: "BalcÃ£o", parts: 3632.84, services: 0, total: 3632.84 },
   { channel: "Total", parts: 284073.81, services: 209736.28, total: 493810.09 },
 ];
 
@@ -146,12 +146,12 @@ const grossProfitTrend: GrossProfitMonth[] = [
 ];
 
 const productivityMetrics: ProductivityMetric[] = [
-  { label: "Revisões", current: 138, lastYear: 263, type: "number", note: "Base usada para calcular TKM." },
-  { label: "TKM serviços", current: 869, lastYear: 682, type: "currency", note: "Serviços totais divididos por revisões." },
-  { label: "TKM serv. adicionais", current: 319, lastYear: 171, type: "currency", note: "Adicionais divididos por revisões." },
-  { label: "TKM estética", current: 143, lastYear: 178, type: "currency", note: "Embelezamento oficina dividido por revisões." },
-  { label: "Oficina produtiva", current: 109600, lastYear: 169230, type: "currency", note: "Mão de obra e serviços da oficina." },
-  { label: "Fat. total serviços", current: 155204, lastYear: 274673, type: "currency", note: "Serviços totais do período." },
+  { label: "RevisÃµes", current: 138, lastYear: 263, type: "number", note: "Base usada para calcular TKM." },
+  { label: "TKM serviÃ§os", current: 869, lastYear: 682, type: "currency", note: "ServiÃ§os totais divididos por revisÃµes." },
+  { label: "TKM serv. adicionais", current: 319, lastYear: 171, type: "currency", note: "Adicionais divididos por revisÃµes." },
+  { label: "TKM estÃ©tica", current: 143, lastYear: 178, type: "currency", note: "Embelezamento oficina dividido por revisÃµes." },
+  { label: "Oficina produtiva", current: 109600, lastYear: 169230, type: "currency", note: "MÃ£o de obra e serviÃ§os da oficina." },
+  { label: "Fat. total serviÃ§os", current: 155204, lastYear: 274673, type: "currency", note: "ServiÃ§os totais do perÃ­odo." },
 ];
 
 function formatCurrency(value: number | null) {
@@ -216,7 +216,7 @@ export default function FarolGerencialPage() {
         setVehicles(data);
       } catch (currentError) {
         if (!active) return;
-        setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar o farol gerencial.");
+        setError(currentError instanceof Error ? currentError.message : "NÃ£o foi possÃ­vel carregar o farol gerencial.");
       } finally {
         if (active) setLoading(false);
       }
@@ -239,8 +239,8 @@ export default function FarolGerencialPage() {
       { label: "Recebidos", value: vehicles.filter((vehicle) => vehicle.attendanceStartedAt).length },
       { label: "Entregues", value: delivered.length },
       { label: "No-show", value: vehicles.filter((vehicle) => vehicle.noShow).length },
-      { label: "Orçamentos", value: vehicles.filter((vehicle) => vehicle.budgetStatus).length },
-      { label: "Peças", value: vehicles.filter((vehicle) => vehicle.partsOrdered).length },
+      { label: "OrÃ§amentos", value: vehicles.filter((vehicle) => vehicle.budgetStatus).length },
+      { label: "PeÃ§as", value: vehicles.filter((vehicle) => vehicle.partsOrdered).length },
       { label: "No prazo", value: delivered.length ? formatPercent((onTime / delivered.length) * 100) : "0%" },
     ];
   }, [vehicles]);
@@ -253,19 +253,19 @@ export default function FarolGerencialPage() {
   return (
     <ProtectedPage
       title="Farol Gerencial"
-      subtitle="Acompanhamento diário de metas, realizado, projeção e operação."
+      subtitle="Acompanhamento diÃ¡rio de metas, realizado, projeÃ§Ã£o e operaÃ§Ã£o."
       manual={manual}
     >
       <main className="page-wrap farol-page">
         {error && <div className="duplicate-alert"><strong>Erro no farol gerencial</strong><span>{error}</span></div>}
 
         <section className="farol-period-bar">
-          <div><span>Mês</span><strong>{monthSummary.month}</strong></div>
+          <div><span>MÃªs</span><strong>{monthSummary.month}</strong></div>
           <div><span>Hoje</span><strong>{monthSummary.today}</strong></div>
-          <div><span>Dias úteis</span><strong>{monthSummary.businessDays}</strong></div>
+          <div><span>Dias Ãºteis</span><strong>{monthSummary.businessDays}</strong></div>
           <div><span>Passados</span><strong>{monthSummary.passedDays}</strong></div>
           <div><span>Restantes</span><strong>{monthSummary.remainingDays}</strong></div>
-          <div><span>Avanço do mês</span><strong>{formatPercent(monthProgress)}</strong></div>
+          <div><span>AvanÃ§o do mÃªs</span><strong>{formatPercent(monthProgress)}</strong></div>
         </section>
 
         <section className="farol-main-grid">
@@ -273,7 +273,7 @@ export default function FarolGerencialPage() {
           <GoalCard title="Embelezamento Oficina" tone="beauty" summary={beauty} dailyGoal={1591} />
           <aside className="farol-operation-panel">
             <div className="panel-head">
-              <h2 className="panel-title">Operação do Dia</h2>
+              <h2 className="panel-title">OperaÃ§Ã£o do Dia</h2>
               <span className="tag good">{loading ? "..." : "ao vivo"}</span>
             </div>
             <div className="farol-operation-grid">
@@ -288,12 +288,12 @@ export default function FarolGerencialPage() {
         {currentTotal && lastYearTotal && (
           <section className="panel farol-table-panel">
             <div className="panel-head">
-              <h2 className="panel-title">Comparativo com a própria operação</h2>
+              <h2 className="panel-title">Comparativo com a prÃ³pria operaÃ§Ã£o</h2>
               <span className="tag">Junho 2026 x Junho 2025</span>
             </div>
             <div className="farol-history-grid">
-              <ComparisonCard label="Peças" current={currentTotal.parts} previous={lastYearTotal.parts} />
-              <ComparisonCard label="Serviços" current={currentTotal.services} previous={lastYearTotal.services} />
+              <ComparisonCard label="PeÃ§as" current={currentTotal.parts} previous={lastYearTotal.parts} />
+              <ComparisonCard label="ServiÃ§os" current={currentTotal.services} previous={lastYearTotal.services} />
               <ComparisonCard label="Faturamento total" current={currentTotal.total} previous={lastYearTotal.total} />
             </div>
             <MiniTrendChart />
@@ -304,7 +304,7 @@ export default function FarolGerencialPage() {
           <section className="panel farol-table-panel">
             <div className="panel-head">
               <h2 className="panel-title">Lucro Bruto PV4R</h2>
-              <span className="tag">Competência Junho</span>
+              <span className="tag">CompetÃªncia Junho</span>
             </div>
             <div className="farol-lb-grid">
               <ComparisonCard label="LB realizado" current={currentGrossProfit.realized} previous={currentGrossProfit.previousYear} />
@@ -319,7 +319,7 @@ export default function FarolGerencialPage() {
               <article className="farol-comparison-card">
                 <span>Margem bruta</span>
                 <strong>{currentGrossProfit.margin.toFixed(1).replace(".", ",")}%</strong>
-                <small>LB sobre receita líquida total</small>
+                <small>LB sobre receita lÃ­quida total</small>
                 <b className="good-text">MB</b>
               </article>
               <GrossProfitChart />
@@ -347,17 +347,17 @@ export default function FarolGerencialPage() {
                     <span>{formatPercent(share)}</span>
                   </div>
                   <div className="farol-channel-bar"><i style={{ width: `${Math.max(4, share)}%` }} /></div>
-                  <div className="farol-stack-bar" aria-label={`Composição de ${item.channel}`}>
+                  <div className="farol-stack-bar" aria-label={`ComposiÃ§Ã£o de ${item.channel}`}>
                     <i className="parts" style={{ width: `${item.total ? (item.parts / item.total) * 100 : 0}%` }} />
                     <i className="services" style={{ width: `${item.total ? (item.services / item.total) * 100 : 0}%` }} />
                   </div>
                   <div className="farol-channel-values">
-                    <div><span>Peças</span><strong>{formatCurrency(item.parts)}</strong></div>
-                    <div><span>Serviços</span><strong>{formatCurrency(item.services)}</strong></div>
+                    <div><span>PeÃ§as</span><strong>{formatCurrency(item.parts)}</strong></div>
+                    <div><span>ServiÃ§os</span><strong>{formatCurrency(item.services)}</strong></div>
                     <div><span>Total</span><strong>{formatCurrency(item.total)}</strong></div>
                   </div>
                   <div className="farol-channel-deltas">
-                    <span className={monthDelta >= 0 ? "good-text" : "bad-text"}>Mês: {formatDeltaPercent(monthDelta)}</span>
+                    <span className={monthDelta >= 0 ? "good-text" : "bad-text"}>MÃªs: {formatDeltaPercent(monthDelta)}</span>
                     <span className={yearDelta >= 0 ? "good-text" : "bad-text"}>Ano anterior: {formatDeltaPercent(yearDelta)}</span>
                   </div>
                   {previousMonth && lastYear && <MiniSparkline values={[lastYear.total, previousMonth.total, item.total]} />}
@@ -396,32 +396,36 @@ export default function FarolGerencialPage() {
             <h2 className="panel-title">Tabela do Mês</h2>
             <span className="tag">dados demonstrativos</span>
           </div>
-          <div className="farol-table-wrap">
-            <table className="farol-table">
-              <thead>
-                <tr>
-                  <th>Dia</th><th>Semana</th><th>Meta oficina</th><th>Realizado oficina</th><th>Diferença</th>
-                  <th>Meta embelez.</th><th>Real. embelez.</th><th>Diferença</th>
-                </tr>
-              </thead>
-              <tbody>
-                {financialRows.map((row) => {
-                  const shopDiff = row.shopDone === null ? null : row.shopDone - row.shopGoal;
-                  const beautyDiff = row.beautyDone === null ? null : row.beautyDone - row.beautyGoal;
+          <div className="farol-month-grid">
+            {financialRows.map((row) => {
+              const shopDiff = row.shopDone === null ? null : row.shopDone - row.shopGoal;
+              const beautyDiff = row.beautyDone === null ? null : row.beautyDone - row.beautyGoal;
 
-                  return (
-                    <tr key={row.day} className={row.special ? `row-${row.special}` : ""}>
-                      <td>{row.day}</td><td>{row.weekDay}</td><td>{formatCurrency(row.shopGoal)}</td>
-                      <td className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-cell" : row.shopDone === null ? "" : "bad-cell"}>{formatCurrency(row.shopDone)}</td>
-                      <td className={shopDiff !== null && shopDiff >= 0 ? "good-text" : shopDiff === null ? "" : "bad-text"}>{formatCurrency(shopDiff)}</td>
-                      <td>{formatCurrency(row.beautyGoal)}</td>
-                      <td className={row.beautyDone !== null && row.beautyDone >= row.beautyGoal ? "good-cell" : row.beautyDone === null ? "" : "bad-cell"}>{formatCurrency(row.beautyDone)}</td>
-                      <td className={beautyDiff !== null && beautyDiff >= 0 ? "good-text" : beautyDiff === null ? "" : "bad-text"}>{formatCurrency(beautyDiff)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+              return (
+                <article key={row.day} className={`farol-day-card ${row.special ? `row-${row.special}` : ""}`}>
+                  <div className="farol-day-head">
+                    <strong>{row.day}</strong>
+                    <span>{row.weekDay}</span>
+                  </div>
+                  <div className="farol-day-lines">
+                    <div>
+                      <span>Oficina</span>
+                      <strong className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-text" : row.shopDone === null ? "" : "bad-text"}>
+                        {formatCurrency(row.shopDone)}
+                      </strong>
+                      <small>{formatCurrency(shopDiff)}</small>
+                    </div>
+                    <div>
+                      <span>Embelez.</span>
+                      <strong className={row.beautyDone !== null && row.beautyDone >= row.beautyGoal ? "good-text" : row.beautyDone === null ? "" : "bad-text"}>
+                        {formatCurrency(row.beautyDone)}
+                      </strong>
+                      <small>{formatCurrency(beautyDiff)}</small>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       </main>
@@ -483,7 +487,7 @@ function MiniTrendChart() {
   const max = Math.max(...monthlyTrend.map((item) => item.total));
 
   return (
-    <div className="farol-mini-chart" aria-label="Evolução mensal do faturamento total em 2026">
+    <div className="farol-mini-chart" aria-label="EvoluÃ§Ã£o mensal do faturamento total em 2026">
       {monthlyTrend.map((item) => (
         <div key={item.label} className="farol-mini-bar">
           <span style={{ height: `${Math.max(8, (item.total / max) * 100)}%` }} />
@@ -499,7 +503,7 @@ function GrossProfitChart() {
   const max = Math.max(...grossProfitTrend.flatMap((item) => [item.planned, item.realized]));
 
   return (
-    <div className="farol-lb-chart" aria-label="Lucro bruto planejado, realizado e margem bruta por mês">
+    <div className="farol-lb-chart" aria-label="Lucro bruto planejado, realizado e margem bruta por mÃªs">
       <div className="farol-lb-legend">
         <span><i className="planned" />Planejado</span>
         <span><i className="realized" />Realizado</span>
@@ -536,7 +540,7 @@ function MiniSparkline({ values }: { values: number[] }) {
 
   return (
     <div className="farol-sparkline">
-      <svg viewBox="0 0 100 40" role="img" aria-label="Tendência: ano anterior, mês anterior e mês atual">
+      <svg viewBox="0 0 100 40" role="img" aria-label="TendÃªncia: ano anterior, mÃªs anterior e mÃªs atual">
         <polyline points={points} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
         {points.split(" ").map((point) => {
           const [cx, cy] = point.split(",");
@@ -547,3 +551,4 @@ function MiniSparkline({ values }: { values: number[] }) {
     </div>
   );
 }
+

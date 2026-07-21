@@ -222,8 +222,86 @@
   background: #f8faf8;
 }
 
+.farol-month-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  padding: 10px 12px 12px;
+}
+
+.farol-day-card {
+  border: 1px solid #dce4dd;
+  border-left: 4px solid #2f7d55;
+  border-radius: 7px;
+  background: #fff;
+  min-width: 0;
+  padding: 7px;
+}
+
+.farol-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  border-bottom: 1px solid #e5ebe6;
+  padding-bottom: 5px;
+}
+
+.farol-day-head strong {
+  color: #101a17;
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.farol-day-head span {
+  color: #5d6a66;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.farol-day-lines {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.farol-day-lines div {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
+  gap: 2px 6px;
+  align-items: baseline;
+}
+
+.farol-day-lines span {
+  color: #5d6a66;
+  font-size: 0.63rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.farol-day-lines strong {
+  overflow: hidden;
+  font-size: 0.74rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farol-day-lines small {
+  grid-column: 2;
+  color: #5d6a66;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-align: right;
+}
+
 .farol-table .row-today {
   background: #fff5d6;
+}
+
+.farol-day-card.row-today {
+  border-color: #d9a441;
+  background: #fff9e6;
 }
 
 .farol-table .row-holiday {
@@ -231,7 +309,18 @@
   color: #68726e;
 }
 
+.farol-day-card.row-holiday {
+  border-left-color: #9aa39f;
+  background: #f0f2f0;
+}
+
 .farol-table .row-future {
+  color: #7b8581;
+}
+
+.farol-day-card.row-future {
+  border-left-color: #bac4bf;
+  background: #f8faf8;
   color: #7b8581;
 }
 
