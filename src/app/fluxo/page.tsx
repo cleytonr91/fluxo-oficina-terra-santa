@@ -321,6 +321,12 @@ function flowEventTitle(event: FlowEvent) {
   return `${fromLane} → ${toLane}`;
 }
 
+function isAutomaticNoShowEvent(event: FlowEvent) {
+  return event.fromLane === event.toLane
+    && event.toLane === "preparacao_confirmada"
+    && (event.actionNote ?? "").toUpperCase().includes("NO-SHOW");
+}
+
 function escapeHtml(value: unknown) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -1835,6 +1841,12 @@ export default function FluxoPage() {
       .sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`));
   }, [consultantFilter, immobilizedVehicleIds, plateFilter, technicianFilter, vehicles]);
 
+  const visibleDetailEvents = useMemo(() => (
+    detailVehicle?.noShow
+      ? detailEvents
+      : detailEvents.filter((event) => !isAutomaticNoShowEvent(event))
+  ), [detailEvents, detailVehicle?.noShow]);
+
   const metricDate = flowDate || new Date().toISOString().slice(0, 10);
   const metricBaseVehicles = dateScopedVehicles.filter((vehicle) => !immobilizedVehicleIds.has(vehicle.id));
   const visibleFlowVehicles = dateScopedVehicles.filter((vehicle) => !isActiveNoShow(vehicle) && !immobilizedVehicleIds.has(vehicle.id));
@@ -2572,9 +2584,9 @@ export default function FluxoPage() {
               <h3>Histórico do chip</h3>
               {detailEventsLoading ? (
                 <p>Carregando histórico...</p>
-              ) : detailEvents.length ? (
+              ) : visibleDetailEvents.length ? (
                 <ul className="chip-history-list">
-                  {detailEvents.map((event) => (
+                  {visibleDetailEvents.map((event) => (
                     <li key={event.id}>
                       <strong>{flowEventTitle(event)}</strong>
                       <span>{formatActionSignature(event.actionBy, event.createdAt, "Operador não identificado")}</span>
