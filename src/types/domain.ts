@@ -236,9 +236,13 @@ export interface BodyShopProcess {
   entryDate?: string;
   documents?: string;
   claimNumber?: string;
+  customerCode?: string;
   clientName: string;
   insurer?: string;
   plate?: string;
+  model?: string;
+  year?: string;
+  color?: string;
   totalValue?: number;
   status: BodyShopStatus;
   billingDate?: string;

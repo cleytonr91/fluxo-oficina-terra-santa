@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
@@ -10,19 +10,15 @@ import type { BodyShopProcess, BodyShopStatus } from "@/types/domain";
 type BodyShopForm = {
   serviceOrder: string;
   entryDate: string;
-  documents: string;
+  customerCode: string;
+  model: string;
+  year: string;
+  color: string;
   claimNumber: string;
   clientName: string;
   insurer: string;
   plate: string;
-  totalValue: string;
   status: BodyShopStatus;
-  billingDate: string;
-  invoiceSentDate: string;
-  paymentDate: string;
-  receiptMonth: string;
-  paidValue: string;
-  deductibleValue: string;
   note: string;
 };
 
@@ -39,22 +35,34 @@ const statusOptions: Array<{ value: BodyShopStatus; label: string }> = [
 
 const statusLabels = Object.fromEntries(statusOptions.map((item) => [item.value, item.label])) as Record<BodyShopStatus, string>;
 
+const insurerOptions = [
+  "Bradesco",
+  "Azul",
+  "Mapfre",
+  "Yelum",
+  "Porto",
+  "Tokio",
+  "Sura",
+  "Zurich",
+  "HDI",
+  "Caixa",
+  "Youse",
+  "Allianz",
+  "Itaú",
+];
+
 const emptyForm: BodyShopForm = {
   serviceOrder: "",
   entryDate: "",
-  documents: "",
+  customerCode: "",
+  model: "",
+  year: "",
+  color: "",
   claimNumber: "",
   clientName: "",
   insurer: "",
   plate: "",
-  totalValue: "",
   status: "aguardando_aprovacao",
-  billingDate: "",
-  invoiceSentDate: "",
-  paymentDate: "",
-  receiptMonth: "",
-  paidValue: "",
-  deductibleValue: "",
   note: "",
 };
 
@@ -82,18 +90,6 @@ const manual: ManualContent = {
     { title: "Financeiro", text: "Faturamento, envio de NF, pagamento e franquia." },
   ],
 };
-
-function parseMoney(value: string) {
-  if (!value.trim()) return undefined;
-  const normalized = value.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".");
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function formatMoney(value?: number) {
-  if (typeof value !== "number") return "-";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-}
 
 function formatDate(value?: string) {
   if (!value) return "-";
@@ -131,10 +127,6 @@ export default function FunilariaPage() {
     return unsubscribe;
   }, []);
 
-  const insurers = useMemo(() => (
-    Array.from(new Set(processes.map((item) => item.insurer).filter(Boolean) as string[])).sort()
-  ), [processes]);
-
   const filteredProcesses = useMemo(() => {
     const normalizedSearch = search.trim().toUpperCase();
 
@@ -147,6 +139,8 @@ export default function FunilariaPage() {
         item.clientName,
         item.insurer,
         item.plate,
+        item.customerCode,
+        item.model,
       ].join(" ").toUpperCase();
 
       return statusMatches && insurerMatches && (!normalizedSearch || text.includes(normalizedSearch));
@@ -158,14 +152,9 @@ export default function FunilariaPage() {
     const waitingApproval = processes.filter((item) => item.status === "aguardando_aprovacao" || item.status === "complemento").length;
     const inProduction = processes.filter((item) => item.status === "aprovado" || item.status === "pecas_pendentes" || item.status === "em_servico").length;
     const waitingPayment = processes.filter((item) => item.status === "aguardando_pagamento").length;
-    const waitingPaymentValue = processes
-      .filter((item) => item.status === "aguardando_pagamento")
-      .reduce((sum, item) => sum + (item.totalValue ?? 0), 0);
-    const paidValue = processes
-      .filter((item) => item.status === "pago")
-      .reduce((sum, item) => sum + (item.paidValue ?? item.totalValue ?? 0), 0);
+    const paid = processes.filter((item) => item.status === "pago").length;
 
-    return { open, waitingApproval, inProduction, waitingPayment, waitingPaymentValue, paidValue };
+    return { open, waitingApproval, inProduction, waitingPayment, paid };
   }, [processes]);
 
   async function submitProcess(event: FormEvent<HTMLFormElement>) {
@@ -184,19 +173,15 @@ export default function FunilariaPage() {
         process: {
           serviceOrder: form.serviceOrder.trim(),
           entryDate: form.entryDate,
-          documents: form.documents.trim(),
+          customerCode: form.customerCode.trim(),
+          model: form.model.trim(),
+          year: form.year.trim(),
+          color: form.color.trim(),
           claimNumber: form.claimNumber.trim(),
           clientName: form.clientName.trim(),
           insurer: form.insurer.trim(),
           plate: form.plate.trim(),
-          totalValue: parseMoney(form.totalValue),
           status: form.status,
-          billingDate: form.billingDate,
-          invoiceSentDate: form.invoiceSentDate,
-          paymentDate: form.paymentDate,
-          receiptMonth: form.receiptMonth.trim(),
-          paidValue: parseMoney(form.paidValue),
-          deductibleValue: parseMoney(form.deductibleValue),
           note: form.note.trim(),
         },
       });
@@ -242,8 +227,9 @@ export default function FunilariaPage() {
           <button type="button" className="metric compact" onClick={() => setStatusFilter("aguardando_pagamento")}>
             <strong>{metrics.waitingPayment}</strong><span>aguardando pagamento</span>
           </button>
-          <div className="metric compact"><strong>{formatMoney(metrics.waitingPaymentValue)}</strong><span>a receber</span></div>
-          <div className="metric compact"><strong>{formatMoney(metrics.paidValue)}</strong><span>pago</span></div>
+          <button type="button" className="metric compact" onClick={() => setStatusFilter("pago")}>
+            <strong>{metrics.paid}</strong><span>pagos</span>
+          </button>
         </section>
 
         <section className="panel">
@@ -261,14 +247,14 @@ export default function FunilariaPage() {
               <span>Seguradora</span>
               <select value={insurerFilter} onChange={(event) => setInsurerFilter(event.target.value)}>
                 <option value="todos">Todas</option>
-                {insurers.map((item) => (
+                {insurerOptions.map((item) => (
                   <option key={item} value={item}>{item}</option>
                 ))}
               </select>
             </label>
             <label className="field">
               <span>Busca</span>
-              <input value={search} placeholder="Cliente, placa, O.S. ou sinistro" onChange={(event) => setSearch(event.target.value)} />
+              <input value={search} placeholder="Cliente, placa, código, O.S. ou sinistro" onChange={(event) => setSearch(event.target.value)} />
             </label>
           </div>
 
@@ -280,10 +266,9 @@ export default function FunilariaPage() {
                   <strong>{item.clientName}</strong>
                   <small>{item.plate || "-"} · O.S. {item.serviceOrder || "-"}</small>
                 </div>
-                <div><span>Sinistro</span><strong>{item.claimNumber || "-"}</strong><small>{item.insurer || "-"}</small></div>
-                <div><span>Entrada</span><strong>{formatDate(item.entryDate)}</strong><small>NF {formatDate(item.invoiceSentDate)}</small></div>
-                <div><span>Total</span><strong>{formatMoney(item.totalValue)}</strong><small>Franquia {formatMoney(item.deductibleValue)}</small></div>
-                <div><span>Pago</span><strong>{formatMoney(item.paidValue)}</strong><small>{item.receiptMonth || "-"}</small></div>
+                <div><span>Cód. Cliente</span><strong>{item.customerCode || "-"}</strong><small>{item.insurer || "-"}</small></div>
+                <div><span>Sinistro</span><strong>{item.claimNumber || "-"}</strong><small>Entrada {formatDate(item.entryDate)}</small></div>
+                <div><span>Veículo</span><strong>{item.model || "-"}</strong><small>{[item.year, item.color].filter(Boolean).join(" · ") || "-"}</small></div>
                 <div>
                   <span>Status</span>
                   <strong className={`tag ${statusTone(item.status)}`}>{statusLabels[item.status]}</strong>
@@ -303,7 +288,7 @@ export default function FunilariaPage() {
             <div className="modal-head">
               <div>
                 <strong>Novo processo de funilaria</strong>
-                <span>Dados para acompanhar operação e financeiro.</span>
+                <span>Dados iniciais para identificar processo, cliente e veículo.</span>
               </div>
               <button type="button" className="ghost-btn icon-btn" aria-label="Fechar" onClick={() => setFormOpen(false)}>
                 ×
@@ -313,19 +298,23 @@ export default function FunilariaPage() {
             <div className="bodyshop-form-grid">
               <label className="field"><span>O.S.</span><input value={form.serviceOrder} onChange={(event) => setForm((current) => ({ ...current, serviceOrder: event.target.value }))} /></label>
               <label className="field"><span>Data de entrada</span><input type="date" value={form.entryDate} onChange={(event) => setForm((current) => ({ ...current, entryDate: event.target.value }))} /></label>
-              <label className="field"><span>Documentos</span><input value={form.documents} onChange={(event) => setForm((current) => ({ ...current, documents: event.target.value }))} /></label>
               <label className="field"><span>N° sinistro</span><input value={form.claimNumber} onChange={(event) => setForm((current) => ({ ...current, claimNumber: event.target.value }))} /></label>
+              <label className="field"><span>Cód. Cliente</span><input value={form.customerCode} onChange={(event) => setForm((current) => ({ ...current, customerCode: event.target.value }))} /></label>
               <label className="field wide"><span>Cliente</span><input required value={form.clientName} onChange={(event) => setForm((current) => ({ ...current, clientName: event.target.value }))} /></label>
-              <label className="field"><span>Seguradora</span><input value={form.insurer} onChange={(event) => setForm((current) => ({ ...current, insurer: event.target.value }))} /></label>
+              <label className="field">
+                <span>Seguradora</span>
+                <select value={form.insurer} onChange={(event) => setForm((current) => ({ ...current, insurer: event.target.value }))}>
+                  <option value="">Selecionar</option>
+                  {insurerOptions.map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+              </label>
               <label className="field"><span>Placa</span><input value={form.plate} onChange={(event) => setForm((current) => ({ ...current, plate: event.target.value.toUpperCase() }))} /></label>
+              <label className="field"><span>Modelo</span><input value={form.model} onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))} /></label>
+              <label className="field"><span>Ano</span><input value={form.year} onChange={(event) => setForm((current) => ({ ...current, year: event.target.value }))} /></label>
+              <label className="field"><span>Cor</span><input value={form.color} onChange={(event) => setForm((current) => ({ ...current, color: event.target.value }))} /></label>
               <label className="field"><span>Status</span><select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as BodyShopStatus }))}>{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
-              <label className="field"><span>Valor total</span><input value={form.totalValue} placeholder="R$ 0,00" onChange={(event) => setForm((current) => ({ ...current, totalValue: event.target.value }))} /></label>
-              <label className="field"><span>Franquia</span><input value={form.deductibleValue} placeholder="R$ 0,00" onChange={(event) => setForm((current) => ({ ...current, deductibleValue: event.target.value }))} /></label>
-              <label className="field"><span>Faturamento</span><input type="date" value={form.billingDate} onChange={(event) => setForm((current) => ({ ...current, billingDate: event.target.value }))} /></label>
-              <label className="field"><span>Envio NF</span><input type="date" value={form.invoiceSentDate} onChange={(event) => setForm((current) => ({ ...current, invoiceSentDate: event.target.value }))} /></label>
-              <label className="field"><span>Data pagamento</span><input type="date" value={form.paymentDate} onChange={(event) => setForm((current) => ({ ...current, paymentDate: event.target.value }))} /></label>
-              <label className="field"><span>Mês recebimento</span><input value={form.receiptMonth} placeholder="Ex.: Julho" onChange={(event) => setForm((current) => ({ ...current, receiptMonth: event.target.value }))} /></label>
-              <label className="field"><span>Valor pago</span><input value={form.paidValue} placeholder="R$ 0,00" onChange={(event) => setForm((current) => ({ ...current, paidValue: event.target.value }))} /></label>
               <label className="field wide"><span>Observação</span><textarea value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></label>
             </div>
 
@@ -339,3 +328,7 @@ export default function FunilariaPage() {
     </ProtectedPage>
   );
 }
+
+
+
+

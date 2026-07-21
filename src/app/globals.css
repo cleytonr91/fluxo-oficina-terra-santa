@@ -4711,7 +4711,7 @@ textarea {
 
 .bodyshop-metrics {
   display: grid;
-  grid-template-columns: repeat(6, minmax(140px, 1fr));
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
   gap: 8px;
 }
 
@@ -4736,7 +4736,7 @@ textarea {
 
 .bodyshop-row {
   display: grid;
-  grid-template-columns: minmax(210px, 1.2fr) minmax(150px, 0.8fr) 130px 150px 140px minmax(180px, 1fr);
+  grid-template-columns: minmax(210px, 1.2fr) minmax(150px, 0.8fr) minmax(150px, 0.8fr) minmax(150px, 0.8fr) minmax(180px, 1fr);
   gap: 8px;
   align-items: stretch;
   border: 1px solid var(--line);
