@@ -255,6 +255,10 @@ export interface BodyShopProcess {
   receiptMonth?: string;
   paidValue?: number;
   deductibleValue?: number;
+  partsRequested?: boolean;
+  partsNote?: string;
+  workshopVehicleFlowId?: string;
+  sentToWorkshopAt?: FirestoreTimestamp;
   note?: string;
   createdBy?: string;
   updatedBy?: string;

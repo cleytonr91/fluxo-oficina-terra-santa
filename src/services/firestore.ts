@@ -785,6 +785,10 @@ export async function saveBodyShopProcess({
     receiptMonth?: string;
     paidValue?: number;
     deductibleValue?: number;
+    partsRequested?: boolean;
+    partsNote?: string;
+    workshopVehicleFlowId?: string;
+    sentToWorkshopAt?: unknown;
     note?: string;
   };
 }) {

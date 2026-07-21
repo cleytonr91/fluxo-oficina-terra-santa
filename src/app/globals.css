@@ -4734,9 +4734,184 @@ textarea {
   padding: 12px;
 }
 
+.bodyshop-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bodyshop-flow-lane {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fbf9;
+}
+
+.bodyshop-flow-head,
+.bodyshop-bureaucracy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.bodyshop-flow-head strong,
+.bodyshop-bureaucracy-head strong {
+  display: block;
+  color: var(--ink);
+  font-size: 17px;
+}
+
+.bodyshop-flow-head span,
+.bodyshop-bureaucracy-head b {
+  display: grid;
+  min-width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 999px;
+  background: #eef4ef;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.bodyshop-bureaucracy-head span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bodyshop-chip-list {
+  display: grid;
+  gap: 8px;
+  min-height: 180px;
+  padding: 10px;
+}
+
+.bodyshop-chip {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--green);
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px;
+}
+
+.bodyshop-chip.is-service {
+  border-left-color: #0b7bbf;
+}
+
+.bodyshop-chip.is-approved {
+  border-left-color: #2f8f5b;
+}
+
+.bodyshop-chip.is-parts,
+.bodyshop-chip.is-complement {
+  border-left-color: #c47a12;
+}
+
+.bodyshop-chip.is-bureaucracy {
+  border-left-color: #6b7280;
+}
+
+.bodyshop-chip.is-paid {
+  border-left-color: #2f8f5b;
+}
+
+.bodyshop-chip-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bodyshop-chip-head strong {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.05;
+  text-transform: uppercase;
+}
+
+.bodyshop-chip-head span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.bodyshop-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.bodyshop-chip-grid span {
+  min-width: 0;
+  border-radius: 6px;
+  background: #f4f7f5;
+  padding: 6px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bodyshop-chip-grid b {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.bodyshop-alert {
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.bodyshop-alert.neutral {
+  background: #fff4d6;
+  color: #8a5a00;
+}
+
+.bodyshop-chip-actions,
+.bodyshop-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.bodyshop-chip-actions .ghost-btn,
+.bodyshop-chip-actions .primary-btn,
+.bodyshop-row-actions .ghost-btn {
+  min-height: 34px;
+  padding: 0 10px;
+}
+
+.bodyshop-bureaucracy {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
 .bodyshop-row {
   display: grid;
-  grid-template-columns: minmax(210px, 1.2fr) minmax(150px, 0.8fr) minmax(150px, 0.8fr) minmax(150px, 0.8fr) minmax(180px, 1fr);
+  grid-template-columns: minmax(210px, 1.2fr) minmax(140px, 0.8fr) minmax(140px, 0.8fr) minmax(150px, 0.8fr) minmax(170px, 1fr) auto;
   gap: 8px;
   align-items: stretch;
   border: 1px solid var(--line);
@@ -4799,8 +4974,13 @@ textarea {
 
 @media (max-width: 1100px) {
   .bodyshop-metrics,
+  .bodyshop-flow-grid,
   .bodyshop-row {
     grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .bodyshop-chip-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .bodyshop-filters,
@@ -4817,6 +4997,8 @@ textarea {
 
   .bodyshop-metrics,
   .bodyshop-filters,
+  .bodyshop-flow-grid,
+  .bodyshop-chip-grid,
   .bodyshop-row,
   .bodyshop-form-grid {
     grid-template-columns: 1fr;
