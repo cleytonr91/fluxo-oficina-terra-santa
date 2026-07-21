@@ -19,6 +19,266 @@
   --foreground: var(--ink);
 }
 
+.farol-page {
+  display: grid;
+  gap: 14px;
+}
+
+.farol-period-bar {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.farol-period-bar > div,
+.farol-operation-grid > div,
+.farol-money-grid > div {
+  background: #f4f7f3;
+  border: 1px solid #d8ded8;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.farol-period-bar span,
+.farol-money-grid span,
+.farol-operation-grid span {
+  display: block;
+  color: #5d6a66;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.farol-period-bar strong {
+  color: #16211e;
+  display: block;
+  font-size: 1.05rem;
+  margin-top: 4px;
+}
+
+.farol-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.15fr) minmax(260px, 0.7fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.farol-goal-card,
+.farol-operation-panel,
+.farol-table-panel {
+  background: #ffffff;
+  border: 1px solid #d4dbd5;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(32, 43, 38, 0.05);
+}
+
+.farol-goal-card {
+  overflow: hidden;
+}
+
+.farol-goal-head {
+  align-items: center;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.farol-goal-card.shop .farol-goal-head {
+  background: #65ad42;
+}
+
+.farol-goal-card.beauty .farol-goal-head {
+  background: #0c72b8;
+}
+
+.farol-goal-head span {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.farol-goal-head h2 {
+  font-size: 1.35rem;
+  margin: 2px 0 0;
+}
+
+.farol-goal-head strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.farol-goal-body {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px;
+}
+
+.farol-donut {
+  align-items: center;
+  aspect-ratio: 1;
+  background:
+    radial-gradient(circle at center, #fff 0 58%, transparent 59%),
+    conic-gradient(var(--accent) 0 var(--value), #dfe5df var(--value) 360deg);
+  border-radius: 999px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.farol-donut strong {
+  color: #050807;
+  font-size: 2.35rem;
+  line-height: 1;
+}
+
+.farol-donut span {
+  color: #5d6a66;
+  font-size: 0.72rem;
+  font-weight: 900;
+  margin-top: 5px;
+  text-transform: uppercase;
+}
+
+.farol-money-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.farol-money-grid strong,
+.farol-operation-grid strong {
+  color: #101a17;
+  display: block;
+  font-size: 1rem;
+  margin-top: 4px;
+}
+
+.farol-operation-panel {
+  padding: 14px;
+}
+
+.farol-operation-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 12px 0;
+}
+
+.farol-operation-grid strong {
+  font-size: 1.45rem;
+}
+
+.farol-table-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.farol-table-panel .panel-head {
+  border-bottom: 1px solid #dfe5df;
+  padding: 14px 16px;
+}
+
+.farol-table-wrap {
+  overflow-x: auto;
+}
+
+.farol-table {
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  min-width: 980px;
+  width: 100%;
+}
+
+.farol-table th,
+.farol-table td {
+  border-bottom: 1px solid #e1e6e1;
+  padding: 8px 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.farol-table th:first-child,
+.farol-table th:nth-child(2),
+.farol-table td:first-child,
+.farol-table td:nth-child(2) {
+  text-align: left;
+}
+
+.farol-table th {
+  background: #eef3ef;
+  color: #4e5b57;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.farol-table tbody tr:hover {
+  background: #f8faf8;
+}
+
+.farol-table .row-today {
+  background: #fff5d6;
+}
+
+.farol-table .row-holiday {
+  background: #ededed;
+  color: #68726e;
+}
+
+.farol-table .row-future {
+  color: #7b8581;
+}
+
+.good-cell {
+  background: #dff1e3;
+}
+
+.bad-cell {
+  background: #ffdede;
+}
+
+.good-text {
+  color: #217849;
+  font-weight: 900;
+}
+
+.bad-text {
+  color: #bd2c21;
+  font-weight: 900;
+}
+
+@media (max-width: 1100px) {
+  .farol-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .farol-period-bar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .farol-period-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .farol-goal-body {
+    grid-template-columns: 1fr;
+  }
+
+  .farol-donut {
+    margin: 0 auto;
+    max-width: 220px;
+    width: 100%;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
