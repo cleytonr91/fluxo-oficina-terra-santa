@@ -13,6 +13,7 @@ export const collections = {
   postServiceCases: "postServiceCases",
   hgsiRecords: "hgsiRecords",
   hgsiAnswers: "hgsiAnswers",
+  bodyShopProcesses: "bodyShopProcesses",
 } as const;
 
 export type CollectionName = (typeof collections)[keyof typeof collections];

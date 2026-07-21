@@ -1,31 +1,32 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ProtectedPage } from "@/components/protected-page";
 
 const modules = [
-  ["Preparação", "Chefe de oficina", "Agenda importada, técnico, prioridade e teste de rodagem.", "/preparacao"],
-  ["Fluxo", "Equipe operacional", "Recebimento, serviço, orçamento, lavagem e entrega.", "/fluxo"],
-  ["Pós-serviço", "Qualidade", "Tratativas, pendências, HGSI e clientes respondidos.", "/pos-servico"],
-  ["Farol", "Gestão", "Prazo, volume, no-show, consultores, técnicos e NPS.", "/radar"],
+  ["PreparaÃ§Ã£o", "Chefe de oficina", "Agenda importada, tÃ©cnico, prioridade e teste de rodagem.", "/preparacao"],
+  ["Fluxo", "Equipe operacional", "Recebimento, serviÃ§o, orÃ§amento, lavagem e entrega.", "/fluxo"],
+  ["Funilaria", "Sinistro", "Processos, aprovações, execução, faturamento e pagamento.", "/funilaria"],
+  ["PÃ³s-serviÃ§o", "Qualidade", "Tratativas, pendÃªncias, HGSI e clientes respondidos.", "/pos-servico"],
+  ["Farol", "GestÃ£o", "Prazo, volume, no-show, consultores, tÃ©cnicos e NPS.", "/radar"],
 ];
 
 const activity = [
-  ["DANIEL ALMEIDA SANTOS", "QMI8B56", "Revisão 06 + Recall", "Gilvan", "preparado"],
+  ["DANIEL ALMEIDA SANTOS", "QMI8B56", "RevisÃ£o 06 + Recall", "Gilvan", "preparado"],
   ["TATIANA TATIANA", "SUC9B66", "Reparo geral", "Elimarcos", "passante"],
-  ["RENATA", "STJ9I62", "Pós-serviço HGSI", "Eliane", "atenção"],
+  ["RENATA", "STJ9I62", "PÃ³s-serviÃ§o HGSI", "Eliane", "atenÃ§Ã£o"],
 ];
 
 export default function Home() {
   return (
     <ProtectedPage
       title="Painel da Oficina"
-      subtitle="Visão inicial do sistema oficial, com os atalhos do fluxo e os próximos blocos do MVP."
+      subtitle="VisÃ£o inicial do sistema oficial, com os atalhos do fluxo e os prÃ³ximos blocos do MVP."
     >
       <main className="page-wrap">
         <section className="metrics-grid">
           <div className="metric"><strong>0</strong><span>agenda importada</span></div>
           <div className="metric"><strong>0</strong><span>em fluxo hoje</span></div>
-          <div className="metric"><strong>0</strong><span>pós-serviço aberto</span></div>
-          <div className="metric"><strong>4</strong><span>módulos oficiais</span></div>
+          <div className="metric"><strong>0</strong><span>pÃ³s-serviÃ§o aberto</span></div>
+          <div className="metric"><strong>4</strong><span>mÃ³dulos oficiais</span></div>
         </section>
 
         <section className="compact-grid">
@@ -50,7 +51,7 @@ export default function Home() {
             </div>
             <div className="panel-body">
               <div className="kanban">
-                {["Preparação", "Fluxo", "Pós-serviço", "Farol"].map((lane, index) => (
+                {["PreparaÃ§Ã£o", "Fluxo", "PÃ³s-serviÃ§o", "Farol"].map((lane, index) => (
                   <section key={lane} className="lane">
                     <div className="lane-head">
                       <h3 className="lane-title">{lane}</h3>
@@ -60,7 +61,7 @@ export default function Home() {
                       {activity
                         .filter((_, itemIndex) => itemIndex === index || (index === 0 && itemIndex === 1))
                         .map(([client, plate, service, owner, status]) => (
-                          <article key={`${client}-${lane}`} className={`chip ${status === "atenção" ? "atencao" : ""}`}>
+                          <article key={`${client}-${lane}`} className={`chip ${status === "atenÃ§Ã£o" ? "atencao" : ""}`}>
                             <div className="chip-top">
                               <div>
                                 <h4 className="client">{client}</h4>
@@ -69,7 +70,7 @@ export default function Home() {
                               <span className="plate">{plate}</span>
                             </div>
                             <div className="detail-grid">
-                              <div className="detail"><span>Responsável</span>{owner}</div>
+                              <div className="detail"><span>ResponsÃ¡vel</span>{owner}</div>
                               <div className="detail"><span>Status</span>{status}</div>
                             </div>
                           </article>
@@ -85,13 +86,13 @@ export default function Home() {
           <aside className="stack">
             <section className="panel">
               <div className="panel-head">
-                <h2 className="panel-title">Próximos blocos</h2>
+                <h2 className="panel-title">PrÃ³ximos blocos</h2>
               </div>
               <div className="panel-body stack">
                 {[
-                  "Importação real da planilha Excel",
-                  "Cadastro controlado de usuários",
-                  "Permissões por função",
+                  "ImportaÃ§Ã£o real da planilha Excel",
+                  "Cadastro controlado de usuÃ¡rios",
+                  "PermissÃµes por funÃ§Ã£o",
                   "Chips reais vindos do Firestore",
                 ].map((item, index) => (
                   <div key={item} className="detail">

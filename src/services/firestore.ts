@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, BodyShopProcess, BodyShopStatus, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -735,8 +735,67 @@ export function subscribePartOrders(
       ...item.data(),
     })) as PartOrder[];
 
-    onChange(orders.sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))));
+  onChange(orders.sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))));
   }, onError);
+}
+
+export function subscribeBodyShopProcesses(
+  onChange: (processes: BodyShopProcess[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.bodyShopProcesses);
+
+  return onSnapshot(ref, (snapshot) => {
+    const processes = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as BodyShopProcess[];
+
+    onChange(processes.sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))));
+  }, onError);
+}
+
+export async function saveBodyShopProcess({
+  id,
+  actionBy,
+  process,
+}: {
+  id?: string;
+  actionBy?: string;
+  process: {
+    serviceOrder?: string;
+    entryDate?: string;
+    documents?: string;
+    claimNumber?: string;
+    clientName: string;
+    insurer?: string;
+    plate?: string;
+    totalValue?: number;
+    status: BodyShopStatus;
+    billingDate?: string;
+    invoiceSentDate?: string;
+    paymentDate?: string;
+    receiptMonth?: string;
+    paidValue?: number;
+    deductibleValue?: number;
+    note?: string;
+  };
+}) {
+  const db = getFirebaseDb();
+  const ref = id
+    ? doc(collection(db, collections.bodyShopProcesses), id)
+    : doc(collection(db, collections.bodyShopProcesses));
+
+  await setDoc(ref, {
+    ...process,
+    plate: process.plate?.toUpperCase(),
+    updatedBy: actionBy,
+    updatedAt: serverTimestamp(),
+    ...(!id ? { createdBy: actionBy, createdAt: serverTimestamp() } : {}),
+  }, { merge: true });
+
+  return ref.id;
 }
 
 export async function listRecentFlowEvents(maxEvents = 150) {

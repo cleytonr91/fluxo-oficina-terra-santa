@@ -4679,3 +4679,145 @@ textarea {
     max-height: none;
   }
 }
+
+.bodyshop-page {
+  display: grid;
+  gap: 14px;
+}
+
+.bodyshop-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px 14px;
+}
+
+.bodyshop-toolbar strong {
+  display: block;
+  font-size: 16px;
+}
+
+.bodyshop-toolbar span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bodyshop-metrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.bodyshop-metrics .metric {
+  width: 100%;
+  text-align: left;
+}
+
+.bodyshop-filters {
+  display: grid;
+  grid-template-columns: 220px 220px minmax(240px, 1fr);
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding: 12px;
+}
+
+.bodyshop-list {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.bodyshop-row {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.2fr) minmax(150px, 0.8fr) 130px 150px 140px minmax(180px, 1fr);
+  gap: 8px;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: 8px;
+  background: #fff;
+  padding: 8px;
+}
+
+.bodyshop-row > div {
+  min-width: 0;
+  border-radius: 6px;
+  background: #f7f9f7;
+  padding: 7px 8px;
+}
+
+.bodyshop-row span,
+.bodyshop-row small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.bodyshop-row strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bodyshop-row small {
+  margin-top: 5px;
+  font-size: 11px;
+  text-transform: none;
+}
+
+.bodyshop-modal {
+  max-width: 980px;
+}
+
+.bodyshop-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bodyshop-form-grid .wide {
+  grid-column: span 2;
+}
+
+@media (max-width: 1100px) {
+  .bodyshop-metrics,
+  .bodyshop-row {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+
+  .bodyshop-filters,
+  .bodyshop-form-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .bodyshop-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .bodyshop-metrics,
+  .bodyshop-filters,
+  .bodyshop-row,
+  .bodyshop-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bodyshop-form-grid .wide {
+    grid-column: span 1;
+  }
+}

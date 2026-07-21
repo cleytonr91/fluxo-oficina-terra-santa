@@ -100,5 +100,10 @@ service cloud.firestore {
       allow read: if operations();
       allow write: if hasRole(['admin', 'gerente', 'qualidade']);
     }
+
+    match /bodyShopProcesses/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor']);
+    }
   }
 }

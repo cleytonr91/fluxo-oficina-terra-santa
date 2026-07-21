@@ -71,6 +71,16 @@ export type PartSchedulingActionType =
   | "contato_sem_sucesso"
   | "cliente_sem_disponibilidade";
 
+export type BodyShopStatus =
+  | "aguardando_aprovacao"
+  | "aprovado"
+  | "pecas_pendentes"
+  | "em_servico"
+  | "complemento"
+  | "finalizado"
+  | "aguardando_pagamento"
+  | "pago";
+
 export interface PartOrderItem {
   id: string;
   partReference?: string;
@@ -218,6 +228,30 @@ export interface FlowEvent {
   actionBy?: string;
   actionNote?: string;
   createdAt: FirestoreTimestamp;
+}
+
+export interface BodyShopProcess {
+  id: string;
+  serviceOrder?: string;
+  entryDate?: string;
+  documents?: string;
+  claimNumber?: string;
+  clientName: string;
+  insurer?: string;
+  plate?: string;
+  totalValue?: number;
+  status: BodyShopStatus;
+  billingDate?: string;
+  invoiceSentDate?: string;
+  paymentDate?: string;
+  receiptMonth?: string;
+  paidValue?: number;
+  deductibleValue?: number;
+  note?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: FirestoreTimestamp;
+  updatedAt: FirestoreTimestamp;
 }
 
 export interface ComplementaryBudget {

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -11,6 +11,7 @@ const navigation = [
   { href: "/fluxo", label: "Fluxo do dia" },
   { href: "/agendamento", label: "Agendamento" },
   { href: "/pecas", label: "Peças" },
+  { href: "/funilaria", label: "Funilaria" },
   { href: "/pos-servico", label: "Pós-serviço" },
 ];
 
@@ -37,7 +38,7 @@ export function AppHeader({
 }) {
   const pathname = usePathname();
   const { profile, user, logout } = useAuth();
-  const isPreparation = pathname === "/preparacao";
+  const isPreparaçãon = pathname === "/Preparação";
   const isFlow = pathname === "/fluxo";
   const [flowDate, setFlowDate] = useState(todayDate);
   const [clock, setClock] = useState(currentTime);
@@ -89,7 +90,7 @@ export function AppHeader({
               </Link>
             );
           })}
-          {isPreparation ? (
+          {isPreparaçãon ? (
             <span className="save-status">Salva ao confirmar</span>
           ) : isFlow ? (
             <>
@@ -100,7 +101,7 @@ export function AppHeader({
                 title="Atualizar página"
                 onClick={() => window.location.reload()}
               >
-                ↻
+                â†»
               </button>
               <button
                 className="primary-btn"
@@ -121,7 +122,7 @@ export function AppHeader({
           )}
         </nav>
 
-        {!isPreparation && !isFlow && (
+        {!isPreparaçãon && !isFlow && (
           <div className="user-pill">
             <div>
               <strong>{profile?.name ?? user?.email}</strong>
@@ -142,3 +143,4 @@ export function AppHeader({
     </header>
   );
 }
+
