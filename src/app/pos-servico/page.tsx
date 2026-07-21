@@ -12,26 +12,26 @@ const consultants = ["Cleverton", "Rosangela", "Eliane"];
 const surveyGoal = 15;
 
 const manual: ManualContent = {
-  title: "Manual do PÃ³s-serviÃ§o HGSI",
+  title: "Manual do Pós-serviço HGSI",
   audience: "Uso principal: coordenador de qualidade",
-  objective: "Acompanhar clientes entregues, cruzar registros vÃ¡lidos e respostas HGSI, tratar pendÃªncias e medir impacto por consultor.",
+  objective: "Acompanhar clientes entregues, cruzar registros válidos e respostas HGSI, tratar pendências e medir impacto por consultor.",
   steps: [
-    "Importe a planilha de Status Registro para identificar clientes aptos Ã  pesquisa.",
-    "Importe a planilha de entrevistas para atualizar clientes que jÃ¡ responderam.",
-    "Analise veÃ­culos entregues e registros vÃ¡lidos antes da resposta HGSI.",
-    "Registre tratativas, observaÃ§Ãµes do cliente e necessidade de GPV quando houver risco.",
-    "Use os indicadores por consultor para acompanhar meta, nota HGSI, recomendaÃ§Ã£o e serviÃ§o correto.",
+    "Importe a planilha de Status Registro para identificar clientes aptos à pesquisa.",
+    "Importe a planilha de entrevistas para atualizar clientes que já responderam.",
+    "Analise veículos entregues e registros válidos antes da resposta HGSI.",
+    "Registre tratativas, observações do cliente e necessidade de GPV quando houver risco.",
+    "Use os indicadores por consultor para acompanhar meta, nota HGSI, recomendação e serviço correto.",
   ],
   rules: [
-    "Chassi com pelo menos um registro vÃ¡lido indica cliente apto Ã  pesquisa.",
-    "Registro vÃ¡lido com pendÃªncia deve ser tratado antes da solicitaÃ§Ã£o da pesquisa.",
-    "Clientes jÃ¡ respondidos devem sair da fila de tratativa prÃ©-pesquisa.",
-    "PendÃªncia real ocorre quando hÃ¡ pedido de peÃ§as, NPS interno baixo ou pendÃªncia marcada na entrega.",
+    "Chassi com pelo menos um registro válido indica cliente apto à pesquisa.",
+    "Registro válido com pendência deve ser tratado antes da solicitação da pesquisa.",
+    "Clientes já respondidos devem sair da fila de tratativa pré-pesquisa.",
+    "Pendência real ocorre quando há pedido de peças, NPS interno baixo ou pendência marcada na entrega.",
   ],
   flow: [
-    { title: "Entregues", text: "Clientes vÃªm do quadro Entregue do fluxo." },
-    { title: "Registro vÃ¡lido", text: "Planilha Route/HGSI define aptidÃ£o." },
-    { title: "Tratativa", text: "Qualidade registra aÃ§Ã£o e observaÃ§Ã£o." },
+    { title: "Entregues", text: "Clientes vêm do quadro Entregue do fluxo." },
+    { title: "Registro válido", text: "Planilha Route/HGSI define aptidão." },
+    { title: "Tratativa", text: "Qualidade registra ação e observação." },
     { title: "Resposta HGSI", text: "Planilha de entrevistas alimenta indicadores por consultor." },
   ],
 };
@@ -132,7 +132,7 @@ function boolFrom(row: Record<string, unknown>, terms: string[]) {
 }
 
 function isUnauthorizedAnswerStatus(status?: string) {
-  return normalizeText(status).includes("realizada sem autorizacao");
+  return normalizeText(status).includes("realizada sem autorização");
 }
 
 function isAnswerInHgsiBase(answer: HgsiAnswerImport) {
@@ -368,7 +368,7 @@ function consultantFullName(name: string) {
 function answerComment(answer: HgsiAnswerImport) {
   return textFrom(answer.raw, [
     "comentarios ou sugestao",
-    "comentÃ¡rio",
+    "comentário",
     "comentarios",
     "sugestao",
     "qual motivo",
@@ -424,15 +424,15 @@ function FunnelCard({
       </div>
 
       <div className="tag-row">
-        {validRecord && <span className="tag good">Registro valido</span>}
+        {validRecord && <span className="tag good">Registro válido</span>}
         {answer && <span className="tag">Respondido HGSI</span>}
         {answer?.nps !== undefined && <span className={`tag ${scoreTone(hgsiValue(answer) ?? null, "thousand")}`}>HGSI {Math.round(hgsiValue(answer) ?? answer.nps)}</span>}
-        {item.partsOrdered && <span className="tag warn">Pedido de peca</span>}
-        {item.hasPendingIssue && <span className="tag bad">Pendencia</span>}
+        {item.partsOrdered && <span className="tag warn">Pedido de peça</span>}
+        {item.hasPendingIssue && <span className="tag bad">Pendência</span>}
         {internalNpsAttention && <span className="tag bad">NPS interno baixo</span>}
         {treatment && <span className="tag good">Tratativa registrada</span>}
         {treatment?.gpvRequired && <span className="tag bad">GPV</span>}
-        {!attention && <span className="tag good">Sem pendencia</span>}
+        {!attention && <span className="tag good">Sem pendência</span>}
       </div>
 
       <div className="post-card-actions">
@@ -520,7 +520,7 @@ export default function PosServicoPage() {
         setPostCases(savedCases);
       } catch (currentError) {
         if (!active) return;
-        setError(currentError instanceof Error ? currentError.message : "NÃ£o foi possÃ­vel carregar o pÃ³s-serviÃ§o.");
+        setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar o pós-serviço.");
       } finally {
         if (active) setLoading(false);
       }
@@ -645,20 +645,20 @@ export default function PosServicoPage() {
         : null;
       const unauthorizedCount = unauthorizedAnswers.filter((answer) => displayAnswerConsultant(answer) === consultant).length;
       const indicatorRows = [
-        { label: "RecomendaÃ§Ã£o", count: recommendationAnswers.length, value: recommendationPercent, scale: "percent" as const },
-        { label: "ServiÃ§o correto", count: correctServiceValues.filter((value) => value !== undefined).length, value: averageNumber(correctServiceValues), scale: "ten" as const },
-        { label: "InstalaÃ§Ãµes", count: answered.filter((answer) => answer.installationScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.installationScore))), scale: "ten" as const },
+        { label: "Recomendação", count: recommendationAnswers.length, value: recommendationPercent, scale: "percent" as const },
+        { label: "Serviço correto", count: correctServiceValues.filter((value) => value !== undefined).length, value: averageNumber(correctServiceValues), scale: "ten" as const },
+        { label: "Instalações", count: answered.filter((answer) => answer.installationScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.installationScore))), scale: "ten" as const },
         { label: "Consultor", count: answered.filter((answer) => answer.consultantScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.consultantScore))), scale: "ten" as const },
         { label: "Prazos", count: answered.filter((answer) => answer.deadlineScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.deadlineScore))), scale: "ten" as const },
-        { label: "Qualidade dos ServiÃ§os", count: answered.filter((answer) => answer.serviceQualityScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.serviceQualityScore))), scale: "ten" as const },
-        { label: "Alinhamento de PreÃ§os", count: answered.filter((answer) => answer.priceAlignmentScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.priceAlignmentScore))), scale: "ten" as const },
+        { label: "Qualidade dos Serviços", count: answered.filter((answer) => answer.serviceQualityScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.serviceQualityScore))), scale: "ten" as const },
+        { label: "Alinhamento de Preços", count: answered.filter((answer) => answer.priceAlignmentScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.priceAlignmentScore))), scale: "ten" as const },
         { label: "Lavagem", count: answered.filter((answer) => answer.washScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.washScore))), scale: "ten" as const },
       ];
       const criticalComments = answered
         .map((answer) => ({
           score: hgsiValue(answer),
           clientName: answer.clientName || "Cliente",
-          comment: answerComment(answer) || "Sem comentÃ¡rio crÃ­tico",
+          comment: answerComment(answer) || "Sem comentário crítico",
         }))
         .filter((item) => item.score !== undefined)
         .sort((first, second) => (first.score ?? 0) - (second.score ?? 0))
@@ -694,8 +694,8 @@ export default function PosServicoPage() {
   }, [hgsiBaseAnswers, unauthorizedAnswers]);
 
   const metrics = [
-    { label: "VeÃ­culos entregues", value: deliveredItems.length },
-    { label: "Registro vÃ¡lido Route", value: filteredValidRecordItems.length },
+    { label: "Veículos entregues", value: deliveredItems.length },
+    { label: "Registro válido Route", value: filteredValidRecordItems.length },
     { label: "Solicitar resposta HGSI", value: requestReadyItems.length },
     { label: "Tratar antes", value: treatmentItems.length },
     { label: "Clientes tratados", value: treatedItems.length },
@@ -755,7 +755,7 @@ export default function PosServicoPage() {
       });
       setTreatmentItem(null);
     } catch (currentError) {
-      setError(currentError instanceof Error ? currentError.message : "NÃ£o foi possÃ­vel salvar a tratativa.");
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar a tratativa.");
     }
   }
 
@@ -776,7 +776,7 @@ export default function PosServicoPage() {
           valid: normalizeText(status).includes("valido"),
           clientName: textFrom(row, ["cliente", "nome"]),
           plate: textFrom(row, ["placa"]),
-          serviceLabel: textFrom(row, ["servico", "serviÃ§o", "tipo"]),
+          serviceLabel: textFrom(row, ["servico", "serviço", "tipo"]),
           consultantName: consultantDisplayName(textFrom(row, ["consultor responsavel", "consultor tecnico", "consultor"])),
           rawPayload: row,
         };
@@ -790,7 +790,7 @@ export default function PosServicoPage() {
 
       setHgsiRecords(records.map((record) => ({ ...record, raw: record.rawPayload })));
     } catch (currentError) {
-      setError(currentError instanceof Error ? currentError.message : "NÃ£o foi possÃ­vel ler a planilha de status HGSI.");
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível ler a planilha de status HGSI.");
     }
   }
 
@@ -806,22 +806,22 @@ export default function PosServicoPage() {
         return {
           chassi,
           osNumber,
-          responseStatus: textFrom(row, ["status da pesquisa", "status entrevista", "status", "situacao", "situaÃ§Ã£o"]),
+          responseStatus: textFrom(row, ["status da pesquisa", "status entrevista", "status", "situacao", "situação"]),
           clientName: textFrom(row, ["dados do cliente nome", "cliente nome"]),
           plate: textFrom(row, ["placa"]),
-          serviceLabel: textFrom(row, ["dados do cliente veiculo", "veiculo", "veÃ­culo", "servico", "serviÃ§o", "tipo"]),
+          serviceLabel: textFrom(row, ["dados do cliente veiculo", "veiculo", "veículo", "servico", "serviço", "tipo"]),
           consultantName: consultantDisplayName(textFrom(row, ["consultor responsavel", "consultor tecnico", "consultor"])),
           answerDate: textFrom(row, ["datas entrevista", "data entrevista", "entrevista", "data resposta", "respondido"]),
-          nps: numberFrom(row, ["indice hgsi", "Ã­ndice hgsi", "nps", "nota"]),
-          recommendation: boolFrom(row, ["recomendacao", "recomendaÃ§Ã£o", "recomenda", "recomendaria"]),
-          installationScore: numberFrom(row, ["q2 instalacoes", "q2 instalaÃ§Ãµes", "instalacoes", "instalaÃ§Ãµes"]),
+          nps: numberFrom(row, ["indice hgsi", "índice hgsi", "nps", "nota"]),
+          recommendation: boolFrom(row, ["recomendacao", "recomendação", "recomenda", "recomendaria"]),
+          installationScore: numberFrom(row, ["q2 instalacoes", "q2 instalações", "instalacoes", "instalações"]),
           consultantScore: numberFrom(row, ["q3 consultor"]),
           deadlineScore: numberFrom(row, ["q4 tempo", "tempo", "prazo", "prazos"]),
           serviceQualityScore: numberFrom(row, ["q5 qualidade", "qualidade"]),
-          priceAlignmentScore: numberFrom(row, ["q6 preco", "q6 preÃ§o", "preco", "preÃ§os", "alinhamento"]),
+          priceAlignmentScore: numberFrom(row, ["q6 preco", "q6 preço", "preco", "preço", "preços", "alinhamento"]),
           washScore: numberFrom(row, ["q5.3.2 lavagem", "lavagem"]),
-          correctServiceScore: numberFrom(row, ["q14.3 correto na primeira vez", "correto na primeira vez", "servico correto", "serviÃ§o correto"]),
-          correctService: boolFrom(row, ["correto na primeira vez", "servico correto", "serviÃ§o correto", "servico realizado"]),
+          correctServiceScore: numberFrom(row, ["q14.3 correto na primeira vez", "correto na primeira vez", "servico correto", "serviço correto"]),
+          correctService: boolFrom(row, ["correto na primeira vez", "servico correto", "serviço correto", "servico realizado"]),
           rawPayload: row,
         };
       }).filter((answer) => answer.chassi || answer.osNumber);
@@ -837,14 +837,14 @@ export default function PosServicoPage() {
         raw: answer.rawPayload ?? {},
       })));
     } catch (currentError) {
-      setError(currentError instanceof Error ? currentError.message : "NÃ£o foi possÃ­vel ler a planilha de respostas HGSI.");
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível ler a planilha de respostas HGSI.");
     }
   }
 
   return (
     <ProtectedPage
       title="Funil HGSI"
-      subtitle="VeÃ­culos entregues, registros vÃ¡lidos Route, clientes respondidos e indicadores por consultor."
+      subtitle="Veículos entregues, registros válidos Route, clientes respondidos e indicadores por consultor."
       manual={manual}
     >
       <main className="page-wrap post-funnel-page">
@@ -885,17 +885,17 @@ export default function PosServicoPage() {
             <label className="file-button compact-file">
               <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiAnswers(event.target.files?.[0])} />
               <strong>Respostas HGSI</strong>
-              <span>{hgsiBaseAnswers.length} na base{unauthorizedAnswers.length ? ` · ${unauthorizedAnswers.length} sem autorizacao` : ""}</span>
+              <span>{hgsiBaseAnswers.length} na base{unauthorizedAnswers.length ? ` · ${unauthorizedAnswers.length} sem autorização` : ""}</span>
             </label>
           </div>
         </section>
 
-        {error && <div className="duplicate-alert"><strong>Erro no pÃ³s-serviÃ§o</strong><span>{error}</span></div>}
+        {error && <div className="duplicate-alert"><strong>Erro no pós-serviço</strong><span>{error}</span></div>}
 
-        <section className="funnel-grid" aria-label="Funil pÃ³s-venda HGSI">
+        <section className="funnel-grid" aria-label="Funil pós-venda HGSI">
           <section className="funnel-stage">
             <div className="funnel-stage-head">
-              <h2>VeÃ­culos entregues</h2>
+              <h2>Veículos entregues</h2>
               <strong>{deliveredItems.length}</strong>
             </div>
             <div className="funnel-stage-body">
@@ -912,7 +912,7 @@ export default function PosServicoPage() {
                   onInspect={setIndicatorItem}
                 />
               )) : (
-                <p className="empty">Sem veÃ­culos entregues.</p>
+                <p className="empty">Sem veículos entregues.</p>
               )}
             </div>
           </section>
@@ -928,7 +928,7 @@ export default function PosServicoPage() {
             </div>
             <div className="funnel-stage-body">
               {hgsiRecords.length === 0 ? (
-                <p className="empty">Importe o Status Route para identificar registros vÃ¡lidos.</p>
+                <p className="empty">Importe o Status Route para identificar registros válidos.</p>
               ) : pendingValidItems.length ? pendingValidItems.map((item) => (
                 <FunnelCard
                   key={item.id}
@@ -939,7 +939,7 @@ export default function PosServicoPage() {
                   onInspect={setIndicatorItem}
                 />
               )) : (
-                <p className="empty">Nenhum cliente pendente com registro vÃ¡lido.</p>
+                <p className="empty">Nenhum cliente pendente com registro válido.</p>
               )}
             </div>
           </section>
@@ -999,7 +999,7 @@ export default function PosServicoPage() {
 
                 <div className="score-progress-block">
                   <div className="score-progress-label">
-                    <span>Ãndice HGSI mÃ©dio</span>
+                    <span>Índice HGSI médio</span>
                     <strong>{item.hgsiAverage === null ? "-" : `${Math.round(item.hgsiAverage)}/1000`}</strong>
                   </div>
                   <div className={`hgsi-track ${scoreTone(item.hgsiAverage, "thousand")}`}>
@@ -1014,17 +1014,17 @@ export default function PosServicoPage() {
                   <div><strong>{item.redFlags}</strong><span>Red Flag</span></div>
                 </div>
 
-                <div className="score-stack" aria-label={`DistribuiÃ§Ã£o de notas de ${item.consultant}`}>
+                <div className="score-stack" aria-label={`Distribuição de notas de ${item.consultant}`}>
                   <span className="good" style={{ width: `${item.answered ? (item.range950 / item.answered) * 100 : 0}%` }} />
                   <span className="warn" style={{ width: `${item.answered ? (item.range800 / item.answered) * 100 : 0}%` }} />
                   <span className="bad" style={{ width: `${item.answered ? (item.rangeUnder800 / item.answered) * 100 : 0}%` }} />
                 </div>
 
                 <div className="score-mini-grid">
-                  <div><span>RecomendaÃ§Ã£o</span><strong>{formatIndicator(item.recommendationPercent, "percent")}</strong></div>
-                  <div><span>ServiÃ§o correto</span><strong>{formatScore(item.indicatorRows[1].value)}</strong></div>
-                  <div><span>Sem autorizaÃ§Ã£o</span><strong>{item.unauthorizedCount}</strong></div>
-                  <div><span>Ãndice HGSI</span><strong>{item.hgsiAverage === null ? "-" : Math.round(item.hgsiAverage)}</strong></div>
+                  <div><span>Recomendação</span><strong>{formatIndicator(item.recommendationPercent, "percent")}</strong></div>
+                  <div><span>Serviço correto</span><strong>{formatScore(item.indicatorRows[1].value)}</strong></div>
+                  <div><span>Sem autorização</span><strong>{item.unauthorizedCount}</strong></div>
+                  <div><span>Índice HGSI</span><strong>{item.hgsiAverage === null ? "-" : Math.round(item.hgsiAverage)}</strong></div>
                 </div>
 
                 <div className="indicator-list">
@@ -1050,7 +1050,7 @@ export default function PosServicoPage() {
                   )) : (
                     <div className="critical-item muted">
                       <strong>-</strong>
-                      <span>Sem comentÃ¡rios crÃ­ticos</span>
+                      <span>Sem comentários críticos</span>
                     </div>
                   )}
                 </div>
@@ -1063,7 +1063,7 @@ export default function PosServicoPage() {
                   {item.answeredClients.length ? item.answeredClients.map((client) => (
                     <div key={client.id} className="answered-client-row">
                       <span>{client.clientName}</span>
-                      <small>{client.plate} Â· {formatDate(client.answerDate)} Â· {client.score === undefined ? "-" : Math.round(client.score)}</small>
+                      <small>{client.plate} · {formatDate(client.answerDate)} · {client.score === undefined ? "-" : Math.round(client.score)}</small>
                     </div>
                   )) : (
                     <p className="empty answered-empty">Nenhum cliente respondeu ainda.</p>
@@ -1123,10 +1123,10 @@ export default function PosServicoPage() {
               <div className="modal-head">
                 <div>
                   <strong>Registrar tratativa</strong>
-                  <span>{treatmentItem.clientName ?? "Cliente sem nome"} Â· {treatmentItem.plate ?? treatmentItem.chassi ?? treatmentItem.osNumber ?? "-"}</span>
+                  <span>{treatmentItem.clientName ?? "Cliente sem nome"} · {treatmentItem.plate ?? treatmentItem.chassi ?? treatmentItem.osNumber ?? "-"}</span>
                 </div>
                 <button type="button" className="ghost-btn icon-btn" aria-label="Fechar" onClick={() => setTreatmentItem(null)}>
-                  Ã—
+                  ×
                 </button>
               </div>
 
@@ -1140,15 +1140,15 @@ export default function PosServicoPage() {
               </label>
 
               <label className="field">
-                <span>SituaÃ§Ã£o</span>
+                <span>Situação</span>
                 <select
                   value={treatmentForm.caseType}
                   onChange={(event) => setTreatmentForm((current) => ({ ...current, caseType: event.target.value as PostCaseType }))}
                 >
                   <option value="solicitar_hgsi">Solicitar resposta HGSI</option>
                   <option value="tratar_antes_pesquisa">Tratar antes da pesquisa</option>
-                  <option value="pendencia_acordada">PendÃªncia acordada</option>
-                  <option value="nao_solicitar">NÃ£o solicitar pesquisa</option>
+                  <option value="pendencia_acordada">Pendência acordada</option>
+                  <option value="nao_solicitar">Não solicitar pesquisa</option>
                   <option value="fora_base">Fora da base</option>
                 </select>
               </label>
@@ -1162,12 +1162,12 @@ export default function PosServicoPage() {
                   <option value="aberto">Aberto</option>
                   <option value="em_tratativa">Em tratativa</option>
                   <option value="tratado">Tratado</option>
-                  <option value="sem_acao">Sem aÃ§Ã£o</option>
+                  <option value="sem_acao">Sem ação</option>
                 </select>
               </label>
 
               <label className="field">
-                <span>ObservaÃ§Ã£o do cliente</span>
+                <span>Observação do cliente</span>
                 <textarea
                   value={treatmentForm.customerObservation}
                   onChange={(event) => setTreatmentForm((current) => ({ ...current, customerObservation: event.target.value }))}
