@@ -131,6 +131,13 @@ function boolFrom(row: Record<string, unknown>, terms: string[]) {
   return undefined;
 }
 
+function isValidHgsiRecordStatus(status?: string) {
+  const normalized = normalizeText(status);
+  if (!normalized) return false;
+  if (normalized.includes("invalido") || normalized.includes("nao valido") || normalized.includes("não valido")) return false;
+  return normalized.includes("registro valido") || normalized === "valido" || normalized.includes(" valido");
+}
+
 function isUnauthorizedAnswerStatus(status?: string) {
   return normalizeText(status).includes("realizada sem autorização");
 }
@@ -189,7 +196,7 @@ function parseRows(file: File) {
 }
 
 function normalizeChassi(value?: string) {
-  return (value ?? "").trim().toUpperCase();
+  return (value ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 }
 
 function consultantDisplayName(name?: string) {
@@ -497,7 +504,7 @@ export default function PosServicoPage() {
           chassi: normalizeChassi(record.chassi),
           osNumber: record.osNumber,
           status: record.recordStatus,
-          valid: record.isValidRecord,
+          valid: Boolean(record.isValidRecord) && isValidHgsiRecordStatus(record.recordStatus),
           clientName: (record as { clientName?: string }).clientName,
           plate: (record as { plate?: string }).plate,
           serviceLabel: (record as { serviceLabel?: string }).serviceLabel,
@@ -553,7 +560,7 @@ export default function PosServicoPage() {
   const answersByChassi = useMemo(() => {
     const mapped = new Map<string, HgsiAnswerImport>();
     dedupeByKey(hgsiAnswers.filter(isAnswerInHgsiBase), answerKey).forEach((answer) => {
-      if (answer.chassi) mapped.set(answer.chassi, answer);
+      if (answer.chassi) mapped.set(normalizeChassi(answer.chassi), answer);
     });
     return mapped;
   }, [hgsiAnswers]);
@@ -596,13 +603,16 @@ export default function PosServicoPage() {
   };
   const filterBySearch = (item: FunnelItem) => {
     const query = normalizeText(searchTerm);
+    const chassiQuery = normalizeChassi(searchTerm);
     if (!query) return true;
-    return normalizeText([
+    const textMatch = normalizeText([
       item.clientName,
       item.plate,
       item.chassi,
       item.osNumber,
     ].filter(Boolean).join(" ")).includes(query);
+    const chassiMatch = chassiQuery ? normalizeChassi(item.chassi).includes(chassiQuery) : false;
+    return textMatch || chassiMatch;
   };
 
   const isTreatedItem = (item: FunnelItem) => casesByItemKey.get(itemKey(item))?.treatmentStatus === "tratado";
@@ -797,7 +807,7 @@ export default function PosServicoPage() {
           chassi,
           osNumber,
           status,
-          valid: normalizeText(status).includes("valido"),
+          valid: isValidHgsiRecordStatus(status),
           clientName: textFrom(row, ["cliente", "nome"]),
           plate: textFrom(row, ["placa"]),
           serviceLabel: textFrom(row, ["servico", "serviço", "tipo"]),
@@ -895,7 +905,7 @@ export default function PosServicoPage() {
             <label className="file-button compact-file">
               <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiRecords(event.target.files?.[0])} />
               <strong>Status Route</strong>
-              <span>{hgsiRecords.length} registro(s)</span>
+              <span>{validRecords.length} registro(s) válido(s)</span>
             </label>
 
             <label className="file-button compact-file">
