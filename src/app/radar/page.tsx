@@ -39,13 +39,27 @@ type DailyResult = {
   special?: "today" | "holiday" | "future";
 };
 
+type ChannelRevenue = {
+  channel: "Oficina Produtiva" | "Funilaria" | "Acessórios" | "Embelezamento" | "Balcão" | "Total";
+  parts: number;
+  services: number;
+  total: number;
+};
+
+type ProductivityMetric = {
+  label: string;
+  current: number;
+  lastYear: number;
+  type: "currency" | "number";
+  note: string;
+};
+
 const monthSummary = {
   month: "Julho",
   today: "20/07/2026",
   businessDays: 22,
   passedDays: 14,
   remainingDays: 8,
-  saturdayQty: 4,
 };
 
 const financialRows: DailyResult[] = [
@@ -77,6 +91,42 @@ const financialRows: DailyResult[] = [
   { weekDay: "TER", day: "30/jul", shopGoal: 7273, shopDone: null, beautyGoal: 1591, beautyDone: null, special: "future" },
 ];
 
+const june2026: ChannelRevenue[] = [
+  { channel: "Oficina Produtiva", parts: 260324.95, services: 174513.33, total: 434838.28 },
+  { channel: "Funilaria", parts: 56504.55, services: 11265.24, total: 67769.79 },
+  { channel: "Acessórios", parts: 59829, services: 22800, total: 82629 },
+  { channel: "Embelezamento", parts: 0, services: 41050.4, total: 41050.4 },
+  { channel: "Balcão", parts: 32151.2, services: 0, total: 32151.2 },
+  { channel: "Total", parts: 408809.7, services: 249628.97, total: 658438.67 },
+];
+
+const may2026: ChannelRevenue[] = [
+  { channel: "Oficina Produtiva", parts: 230577.29, services: 161491.16, total: 392068.45 },
+  { channel: "Funilaria", parts: 54298.61, services: 22297.69, total: 76596.3 },
+  { channel: "Acessórios", parts: 64811.71, services: 38370, total: 103181.71 },
+  { channel: "Embelezamento", parts: 0, services: 48145.48, total: 48145.48 },
+  { channel: "Balcão", parts: 43642.88, services: 0, total: 43642.88 },
+  { channel: "Total", parts: 393330.49, services: 270304.33, total: 663634.82 },
+];
+
+const june2025: ChannelRevenue[] = [
+  { channel: "Oficina Produtiva", parts: 199167.2, services: 119002.99, total: 318170.19 },
+  { channel: "Funilaria", parts: 66881.67, services: 23566, total: 90447.67 },
+  { channel: "Acessórios", parts: 14392.1, services: 18457.9, total: 32850 },
+  { channel: "Embelezamento", parts: 0, services: 48709.39, total: 48709.39 },
+  { channel: "Balcão", parts: 3632.84, services: 0, total: 3632.84 },
+  { channel: "Total", parts: 284073.81, services: 209736.28, total: 493810.09 },
+];
+
+const productivityMetrics: ProductivityMetric[] = [
+  { label: "Revisões", current: 138, lastYear: 263, type: "number", note: "Base usada para calcular TKM." },
+  { label: "TKM serviços", current: 869, lastYear: 682, type: "currency", note: "Serviços totais divididos por revisões." },
+  { label: "TKM serv. adicionais", current: 319, lastYear: 171, type: "currency", note: "Adicionais divididos por revisões." },
+  { label: "TKM estética", current: 143, lastYear: 178, type: "currency", note: "Embelezamento oficina dividido por revisões." },
+  { label: "Oficina produtiva", current: 109600, lastYear: 169230, type: "currency", note: "Mão de obra e serviços da oficina." },
+  { label: "Fat. total serviços", current: 155204, lastYear: 274673, type: "currency", note: "Serviços totais do período." },
+];
+
 function formatCurrency(value: number | null) {
   if (value === null) return "-";
   return new Intl.NumberFormat("pt-BR", {
@@ -90,6 +140,11 @@ function formatPercent(value: number) {
   return `${Math.round(value)}%`;
 }
 
+function formatDeltaPercent(value: number) {
+  const signal = value > 0 ? "+" : "";
+  return `${signal}${value.toFixed(1).replace(".", ",")}%`;
+}
+
 function sumRows(field: "shopGoal" | "shopDone" | "beautyGoal" | "beautyDone") {
   return financialRows.reduce((sum, row) => sum + (row[field] ?? 0), 0);
 }
@@ -101,6 +156,15 @@ function areaSummary(goal: number, done: number, passedDays: number, businessDay
   const percent = goal ? (done / goal) * 100 : 0;
 
   return { goal, done, missing, projection, percent };
+}
+
+function getChannel(rows: ChannelRevenue[], channel: ChannelRevenue["channel"]) {
+  return rows.find((item) => item.channel === channel);
+}
+
+function variation(current: number, previous: number) {
+  if (!previous) return 0;
+  return ((current - previous) / previous) * 100;
 }
 
 function isDeliveredToday(vehicle: VehicleFlow) {
@@ -155,6 +219,8 @@ export default function FarolGerencialPage() {
   }, [vehicles]);
 
   const monthProgress = (monthSummary.passedDays / monthSummary.businessDays) * 100;
+  const currentTotal = getChannel(june2026, "Total");
+  const lastYearTotal = getChannel(june2025, "Total");
 
   return (
     <ProtectedPage
@@ -166,45 +232,17 @@ export default function FarolGerencialPage() {
         {error && <div className="duplicate-alert"><strong>Erro no farol gerencial</strong><span>{error}</span></div>}
 
         <section className="farol-period-bar">
-          <div>
-            <span>Mês</span>
-            <strong>{monthSummary.month}</strong>
-          </div>
-          <div>
-            <span>Hoje</span>
-            <strong>{monthSummary.today}</strong>
-          </div>
-          <div>
-            <span>Dias úteis</span>
-            <strong>{monthSummary.businessDays}</strong>
-          </div>
-          <div>
-            <span>Passados</span>
-            <strong>{monthSummary.passedDays}</strong>
-          </div>
-          <div>
-            <span>Restantes</span>
-            <strong>{monthSummary.remainingDays}</strong>
-          </div>
-          <div>
-            <span>Avanço do mês</span>
-            <strong>{formatPercent(monthProgress)}</strong>
-          </div>
+          <div><span>Mês</span><strong>{monthSummary.month}</strong></div>
+          <div><span>Hoje</span><strong>{monthSummary.today}</strong></div>
+          <div><span>Dias úteis</span><strong>{monthSummary.businessDays}</strong></div>
+          <div><span>Passados</span><strong>{monthSummary.passedDays}</strong></div>
+          <div><span>Restantes</span><strong>{monthSummary.remainingDays}</strong></div>
+          <div><span>Avanço do mês</span><strong>{formatPercent(monthProgress)}</strong></div>
         </section>
 
         <section className="farol-main-grid">
-          <GoalCard
-            title="Oficina Produtiva"
-            tone="shop"
-            summary={shop}
-            dailyGoal={7273}
-          />
-          <GoalCard
-            title="Embelezamento Oficina"
-            tone="beauty"
-            summary={beauty}
-            dailyGoal={1591}
-          />
+          <GoalCard title="Oficina Produtiva" tone="shop" summary={shop} dailyGoal={7273} />
+          <GoalCard title="Embelezamento Oficina" tone="beauty" summary={beauty} dailyGoal={1591} />
           <aside className="farol-operation-panel">
             <div className="panel-head">
               <h2 className="panel-title">Operação do Dia</h2>
@@ -212,14 +250,84 @@ export default function FarolGerencialPage() {
             </div>
             <div className="farol-operation-grid">
               {operation.map((item) => (
-                <div key={item.label}>
-                  <strong>{loading ? "..." : item.value}</strong>
-                  <span>{item.label}</span>
-                </div>
+                <div key={item.label}><strong>{loading ? "..." : item.value}</strong><span>{item.label}</span></div>
               ))}
             </div>
             <p className="comment">Cruza o resultado financeiro com o andamento real dos chips no fluxo.</p>
           </aside>
+        </section>
+
+        {currentTotal && lastYearTotal && (
+          <section className="panel farol-table-panel">
+            <div className="panel-head">
+              <h2 className="panel-title">Comparativo com a própria operação</h2>
+              <span className="tag">Junho 2026 x Junho 2025</span>
+            </div>
+            <div className="farol-history-grid">
+              <ComparisonCard label="Peças" current={currentTotal.parts} previous={lastYearTotal.parts} />
+              <ComparisonCard label="Serviços" current={currentTotal.services} previous={lastYearTotal.services} />
+              <ComparisonCard label="Faturamento total" current={currentTotal.total} previous={lastYearTotal.total} />
+            </div>
+          </section>
+        )}
+
+        <section className="panel farol-table-panel">
+          <div className="panel-head">
+            <h2 className="panel-title">Faturamento por Canal</h2>
+            <span className="tag">Junho 2026</span>
+          </div>
+          <div className="farol-channel-grid">
+            {june2026.filter((item) => item.channel !== "Total").map((item) => {
+              const previousMonth = getChannel(may2026, item.channel);
+              const lastYear = getChannel(june2025, item.channel);
+              const share = currentTotal ? (item.total / currentTotal.total) * 100 : 0;
+              const monthDelta = previousMonth ? variation(item.total, previousMonth.total) : 0;
+              const yearDelta = lastYear ? variation(item.total, lastYear.total) : 0;
+
+              return (
+                <article key={item.channel} className="farol-channel-card">
+                  <div className="farol-channel-head">
+                    <strong>{item.channel}</strong>
+                    <span>{formatPercent(share)}</span>
+                  </div>
+                  <div className="farol-channel-bar"><i style={{ width: `${Math.max(4, share)}%` }} /></div>
+                  <div className="farol-channel-values">
+                    <div><span>Peças</span><strong>{formatCurrency(item.parts)}</strong></div>
+                    <div><span>Serviços</span><strong>{formatCurrency(item.services)}</strong></div>
+                    <div><span>Total</span><strong>{formatCurrency(item.total)}</strong></div>
+                  </div>
+                  <div className="farol-channel-deltas">
+                    <span className={monthDelta >= 0 ? "good-text" : "bad-text"}>Mês: {formatDeltaPercent(monthDelta)}</span>
+                    <span className={yearDelta >= 0 ? "good-text" : "bad-text"}>Ano anterior: {formatDeltaPercent(yearDelta)}</span>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="panel farol-table-panel">
+          <div className="panel-head">
+            <h2 className="panel-title">Produtividade e TKM</h2>
+            <span className="tag">Julho 2026 x Julho 2025</span>
+          </div>
+          <div className="farol-productivity-grid">
+            {productivityMetrics.map((item) => {
+              const delta = variation(item.current, item.lastYear);
+              const currentText = item.type === "currency" ? formatCurrency(item.current) : item.current.toLocaleString("pt-BR");
+              const previousText = item.type === "currency" ? formatCurrency(item.lastYear) : item.lastYear.toLocaleString("pt-BR");
+
+              return (
+                <article key={item.label} className="farol-productivity-card">
+                  <span>{item.label}</span>
+                  <strong>{currentText}</strong>
+                  <small>2025: {previousText}</small>
+                  <b className={delta >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(delta)}</b>
+                  <p>{item.note}</p>
+                </article>
+              );
+            })}
+          </div>
         </section>
 
         <section className="panel farol-table-panel">
@@ -231,14 +339,8 @@ export default function FarolGerencialPage() {
             <table className="farol-table">
               <thead>
                 <tr>
-                  <th>Dia</th>
-                  <th>Semana</th>
-                  <th>Meta oficina</th>
-                  <th>Realizado oficina</th>
-                  <th>Diferença</th>
-                  <th>Meta embelez.</th>
-                  <th>Real. embelez.</th>
-                  <th>Diferença</th>
+                  <th>Dia</th><th>Semana</th><th>Meta oficina</th><th>Realizado oficina</th><th>Diferença</th>
+                  <th>Meta embelez.</th><th>Real. embelez.</th><th>Diferença</th>
                 </tr>
               </thead>
               <tbody>
@@ -248,9 +350,7 @@ export default function FarolGerencialPage() {
 
                   return (
                     <tr key={row.day} className={row.special ? `row-${row.special}` : ""}>
-                      <td>{row.day}</td>
-                      <td>{row.weekDay}</td>
-                      <td>{formatCurrency(row.shopGoal)}</td>
+                      <td>{row.day}</td><td>{row.weekDay}</td><td>{formatCurrency(row.shopGoal)}</td>
                       <td className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-cell" : row.shopDone === null ? "" : "bad-cell"}>{formatCurrency(row.shopDone)}</td>
                       <td className={shopDiff !== null && shopDiff >= 0 ? "good-text" : shopDiff === null ? "" : "bad-text"}>{formatCurrency(shopDiff)}</td>
                       <td>{formatCurrency(row.beautyGoal)}</td>
@@ -285,22 +385,13 @@ function GoalCard({
   return (
     <article className={`farol-goal-card ${tone}`}>
       <div className="farol-goal-head">
-        <div>
-          <span>Meta mensal</span>
-          <h2>{title}</h2>
-        </div>
+        <div><span>Meta mensal</span><h2>{title}</h2></div>
         <strong>{formatPercent(summary.percent)}</strong>
       </div>
-
       <div className="farol-goal-body">
-        <div
-          className="farol-donut"
-          style={{ "--value": `${percent * 3.6}deg`, "--accent": color } as CSSProperties}
-        >
-          <strong>{formatPercent(summary.percent)}</strong>
-          <span>realizado</span>
+        <div className="farol-donut" style={{ "--value": `${percent * 3.6}deg`, "--accent": color } as CSSProperties}>
+          <strong>{formatPercent(summary.percent)}</strong><span>realizado</span>
         </div>
-
         <div className="farol-money-grid">
           <div><span>Meta mês</span><strong>{formatCurrency(summary.goal)}</strong></div>
           <div><span>Realizado</span><strong>{formatCurrency(summary.done)}</strong></div>
@@ -310,6 +401,19 @@ function GoalCard({
           <div><span>Ritmo</span><strong>{summary.projection >= summary.goal ? "Acima" : "Abaixo"}</strong></div>
         </div>
       </div>
+    </article>
+  );
+}
+
+function ComparisonCard({ label, current, previous }: { label: string; current: number; previous: number }) {
+  const delta = variation(current, previous);
+
+  return (
+    <article className="farol-comparison-card">
+      <span>{label}</span>
+      <strong>{formatCurrency(current)}</strong>
+      <small>2025: {formatCurrency(previous)}</small>
+      <b className={delta >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(delta)}</b>
     </article>
   );
 }
