@@ -753,6 +753,27 @@ export async function listRecentFlowEvents(maxEvents = 150) {
   })) as FlowEvent[];
 }
 
+export function subscribeRecentFlowEvents(
+  onChange: (events: FlowEvent[]) => void,
+  onError?: (error: Error) => void,
+  maxEvents = 1000,
+) {
+  const db = getFirebaseDb();
+
+  return onSnapshot(query(
+    collection(db, collections.flowEvents),
+    orderBy("createdAt", "desc"),
+    limit(maxEvents),
+  ), (snapshot) => {
+    const events = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as FlowEvent[];
+
+    onChange(events.sort((a, b) => eventTimeValue(b.createdAt) - eventTimeValue(a.createdAt)));
+  }, onError);
+}
+
 function eventTimeValue(value: unknown) {
   if (!value) return 0;
   const timestamp = value as { toMillis?: () => number; toDate?: () => Date };

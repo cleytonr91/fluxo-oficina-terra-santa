@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -326,6 +326,18 @@ function isAutomaticNoShowEvent(event: FlowEvent) {
     && (event.actionNote ?? "").toUpperCase().includes("NO-SHOW");
 }
 
+function concludedOnDate(vehicle: VehicleFlow, selectedDate: string, events: FlowEvent[]) {
+  if (vehicle.currentLane === "entregue" && toDateInputValue(vehicle.deliveredAt) === selectedDate) {
+    return true;
+  }
+
+  return events.some((event) => (
+    event.vehicleFlowId === vehicle.id
+    && (event.toLane === "preparacao_entrega" || event.toLane === "entregue")
+    && toDateInputValue(event.createdAt) === selectedDate
+  ));
+}
+
 type ChipTimelineItem = {
   id: string;
   title: string;
@@ -623,6 +635,7 @@ export default function FluxoPage() {
   const [receivingVehicle, setReceivingVehicle] = useState<VehicleFlow | null>(null);
   const [detailVehicle, setDetailVehicle] = useState<VehicleFlow | null>(null);
   const [detailEvents, setDetailEvents] = useState<FlowEvent[]>([]);
+  const [recentFlowEvents, setRecentFlowEvents] = useState<FlowEvent[]>([]);
   const [detailEventsLoading, setDetailEventsLoading] = useState(false);
   const [sendVehicle, setSendVehicle] = useState<VehicleFlow | null>(null);
   const [startServiceVehicle, setStartServiceVehicle] = useState<VehicleFlow | null>(null);
@@ -716,6 +729,11 @@ export default function FluxoPage() {
 
   useEffect(() => {
     const unsubscribe = subscribePartOrders(setPartOrders, () => undefined);
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeRecentFlowEvents(setRecentFlowEvents, () => undefined);
     return unsubscribe;
   }, []);
 
@@ -1904,10 +1922,7 @@ export default function FluxoPage() {
     ...walkInDayFlowVehicles,
     ...previousDayFlowVehicles,
   ];
-  const concludedDayVehicles = visibleFlowVehicles.filter((vehicle) => (
-    vehicle.currentLane === "preparacao_entrega"
-    || (vehicle.currentLane === "entregue" && toDateInputValue(vehicle.deliveredAt) === metricDate)
-  ));
+  const concludedDayVehicles = visibleFlowVehicles.filter((vehicle) => concludedOnDate(vehicle, metricDate, recentFlowEvents));
   const flowDayTotal = Math.max(
     0,
     scheduledDayMetricVehicles.length + walkInDayMetricVehicles.length + previousDayMetricVehicles.length - noShowFlowDayVehicles.length,
