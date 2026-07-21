@@ -3034,7 +3034,39 @@ textarea {
 }
 
 .post-metrics {
-  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  grid-template-columns: repeat(6, minmax(140px, 1fr));
+}
+
+.post-exception-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.post-exception-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.2fr) minmax(220px, 1fr) minmax(140px, 0.8fr);
+  gap: 8px;
+  align-items: center;
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px;
+}
+
+.post-exception-row strong,
+.post-exception-row span,
+.post-exception-row b {
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.post-exception-row strong {
+  text-transform: uppercase;
+}
+
+.post-exception-row span {
+  color: var(--muted);
+  font-weight: 850;
 }
 
 .post-controls {

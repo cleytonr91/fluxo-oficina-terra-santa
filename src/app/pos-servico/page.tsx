@@ -575,6 +575,7 @@ export default function PosServicoPage() {
     recordKey,
   ), [hgsiRecords]);
   const validChassis = useMemo(() => new Set(validRecords.map((record) => record.chassi).filter(Boolean)), [validRecords]);
+  const validRecordKeys = useMemo(() => new Set(validRecords.map(recordKey).filter(Boolean)), [validRecords]);
   const flowKeys = useMemo(() => new Set(flowItems.map(itemKey)), [flowItems]);
 
   const validRecordItems = useMemo(() => {
@@ -593,6 +594,10 @@ export default function PosServicoPage() {
       .map(answerToItem);
     return dedupeByKey([...matched, ...basic], itemKey);
   }, [flowItems, flowKeys, hgsiBaseAnswers]);
+
+  const answeredWithoutValidRecord = useMemo(() => (
+    hgsiBaseAnswers.filter((answer) => !validRecordKeys.has(answerKey(answer)))
+  ), [hgsiBaseAnswers, validRecordKeys]);
 
   const filterByConsultant = (item: FunnelItem, filter: string) => (
     filter === "Todos" || consultantDisplayName(item.consultantName) === filter
@@ -729,6 +734,7 @@ export default function PosServicoPage() {
     { label: "Solicitar resposta HGSI", value: requestReadyItems.length },
     { label: "Tratar antes", value: treatmentItems.length },
     { label: "Clientes tratados", value: treatedItems.length },
+    { label: "Respondidos sem registro válido", value: answeredWithoutValidRecord.length },
   ];
 
   function openTreatmentModal(item: FunnelItem) {
@@ -917,6 +923,24 @@ export default function PosServicoPage() {
         </section>
 
         {error && <div className="duplicate-alert"><strong>Erro no pós-serviço</strong><span>{error}</span></div>}
+
+        {answeredWithoutValidRecord.length > 0 && (
+          <section className="duplicate-alert">
+            <strong>Respondidos sem registro válido</strong>
+            <span>
+              {answeredWithoutValidRecord.length} cliente(s) responderam HGSI, mas não foram encontrados na base de registros válidos por chassi/O.S.
+            </span>
+            <div className="post-exception-list">
+              {answeredWithoutValidRecord.map((answer) => (
+                <div key={answerKey(answer)} className="post-exception-row">
+                  <strong>{answer.clientName || "Cliente sem nome"}</strong>
+                  <span>{normalizeChassi(answer.chassi) || "-"} · {answer.plate || "-"} · O.S. {answer.osNumber || "-"}</span>
+                  <b>{displayAnswerConsultant(answer)} · HGSI {hgsiValue(answer) ?? "-"}</b>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="post-funnel-vertical" aria-label="Funil pós-venda HGSI">
           <section className="post-funnel-block">
