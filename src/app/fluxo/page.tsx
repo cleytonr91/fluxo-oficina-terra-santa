@@ -838,7 +838,7 @@ export default function FluxoPage() {
       vehicleImmobilized: existingPartOrder?.vehicleImmobilized ?? false,
     });
     setPromiseForm({
-      promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
+      promisedDeliveryAt: "",
       note: "",
     });
     setStageCorrectionForm({
@@ -1363,6 +1363,16 @@ export default function FluxoPage() {
   async function submitPromiseUpdate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!detailVehicle) return;
+
+    if (!promiseForm.promisedDeliveryAt) {
+      setError("Informe a nova previsão de entrega.");
+      return;
+    }
+
+    if (!promiseForm.note.trim()) {
+      setError("Informe o motivo da alteração da previsão.");
+      return;
+    }
 
     if (!canReducePromisedDelivery && isEarlierThanCurrent(promiseForm.promisedDeliveryAt, detailVehicle.promisedDeliveryAt)) {
       setError("A nova previsão não pode ser menor que a previsão já prometida.");
@@ -2681,13 +2691,18 @@ export default function FluxoPage() {
                 <label className="field">
                   <span>Motivo da alteração</span>
                   <input
+                    required
                     value={promiseForm.note}
                     placeholder="Ex.: cliente autorizou novo horário"
                     onChange={(event) => setPromiseForm((current) => ({ ...current, note: event.target.value }))}
                   />
                 </label>
               </div>
-              <button type="submit" className="primary-btn" disabled={movingId === detailVehicle.id}>
+              <button
+                type="submit"
+                className="primary-btn"
+                disabled={movingId === detailVehicle.id || !promiseForm.promisedDeliveryAt || !promiseForm.note.trim()}
+              >
                 {movingId === detailVehicle.id ? "Salvando..." : "Salvar nova previsão"}
               </button>
             </section>
