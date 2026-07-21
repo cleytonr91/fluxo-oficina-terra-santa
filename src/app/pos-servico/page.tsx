@@ -597,9 +597,12 @@ export default function PosServicoPage() {
     consultantFilter === "Todos" || consultantDisplayName(item.consultantName) === consultantFilter
   );
 
+  const isTreatedItem = (item: FunnelItem) => casesByItemKey.get(itemKey(item))?.treatmentStatus === "tratado";
   const deliveredItems = flowItems.filter(filterByConsultant);
   const filteredValidRecordItems = validRecordItems.filter(filterByConsultant);
-  const pendingValidItems = filteredValidRecordItems.filter((item) => !answersByChassi.has(normalizeChassi(item.chassi)));
+  const pendingValidItems = filteredValidRecordItems
+    .filter((item) => !answersByChassi.has(normalizeChassi(item.chassi)))
+    .filter((item) => !isTreatedItem(item));
   const treatmentItems = pendingValidItems.filter(needsTreatment);
   const requestReadyItems = pendingValidItems.filter((item) => !needsTreatment(item));
   const treatedSourceItems = [...flowItems, ...validRecordItems, ...answeredItems];
