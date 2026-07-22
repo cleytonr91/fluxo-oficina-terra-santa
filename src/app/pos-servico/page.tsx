@@ -139,7 +139,8 @@ function isValidHgsiRecordStatus(status?: string) {
 }
 
 function isUnauthorizedAnswerStatus(status?: string) {
-  return normalizeText(status).includes("realizada sem autorização");
+  const normalized = normalizeText(status);
+  return normalized.includes("sem autorizacao") || normalized.includes("sem autoriz");
 }
 
 function isAnswerInHgsiBase(answer: HgsiAnswerImport) {
