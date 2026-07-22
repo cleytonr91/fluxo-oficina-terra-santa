@@ -97,7 +97,7 @@ type TreatmentForm = {
 };
 
 function normalizeText(value: unknown) {
-  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 function findColumn(row: Record<string, unknown>, terms: string[]) {
@@ -118,7 +118,9 @@ function textFrom(row: Record<string, unknown>, terms: string[]) {
 
 function numberFrom(row: Record<string, unknown>, terms: string[]) {
   const value = findColumn(row, terms);
-  const normalized = String(value ?? "").replace(",", ".").replace(/[^\d.-]/g, "");
+  const raw = String(value ?? "");
+  if (!/\d/.test(raw)) return undefined;
+  const normalized = raw.replace(",", ".").replace(/[^\d.-]/g, "");
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : undefined;
 }
@@ -126,8 +128,8 @@ function numberFrom(row: Record<string, unknown>, terms: string[]) {
 function boolFrom(row: Record<string, unknown>, terms: string[]) {
   const value = normalizeText(findColumn(row, terms));
   if (!value) return undefined;
-  if (["sim", "s", "yes", "correto", "1"].some((term) => value === term || value.includes(term))) return true;
   if (["nao", "n", "no", "incorreto", "0"].some((term) => value === term || value.includes(term))) return false;
+  if (["sim", "s", "yes", "correto", "1"].some((term) => value === term || value.includes(term))) return true;
   return undefined;
 }
 
