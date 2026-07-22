@@ -1200,19 +1200,20 @@ export default function PosServicoPage() {
                 </div>
 
                 <div className="score-mini-grid">
-                  <div><span>Recomendação Concessionária</span><strong>{formatIndicator(item.recommendationPercent, "percent")}</strong></div>
-                  <div><span>Serviço correto</span><strong>{formatScore(item.indicatorRows[1].value)}</strong></div>
+                  <div><span>Base de respostas</span><strong>{item.answered}</strong></div>
+                  <div><span>Red Flag</span><strong>{item.redFlags}</strong></div>
                   <div><span>Sem autorização</span><strong>{item.unauthorizedCount}</strong></div>
-                  <div><span>Índice HGSI</span><strong>{item.hgsiAverage === null ? "-" : Math.round(item.hgsiAverage)}</strong></div>
+                  <div><span>Meta atingida</span><strong>{item.goalPercent}%</strong></div>
                 </div>
 
                 <div className="indicator-list">
                   {item.indicatorRows.map((indicator) => (
                     <div key={indicator.label} className="indicator-row">
                       <div className="indicator-label">
-                        <span>{indicator.label} ({indicator.count})</span>
+                        <span>{indicator.label}</span>
                         <strong>{formatIndicator(indicator.value, indicator.scale)}</strong>
                       </div>
+                      <small>base {indicator.count}</small>
                       <div className={`indicator-track ${scoreTone(indicator.value, indicator.scale)}`}>
                         <span style={{ width: scoreWidth(indicator.value, indicator.scale) }} />
                       </div>
