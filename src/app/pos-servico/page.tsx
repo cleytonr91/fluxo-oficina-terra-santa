@@ -576,12 +576,27 @@ export default function PosServicoPage() {
     answerKey,
   ), [hgsiAnswers]);
 
+  const validRecordKeys = useMemo(() => {
+    const mapped = new Set<string>();
+    hgsiRecords.forEach((record) => {
+      if (!record.valid) return;
+      const chassi = normalizeChassi(record.chassi);
+      const osNumber = record.osNumber?.trim();
+      if (chassi) mapped.add(chassi);
+      if (osNumber) mapped.add(osNumber);
+    });
+    return mapped;
+  }, [hgsiRecords]);
   const validRecords = useMemo(() => dedupeByKey(
-    hgsiRecords.filter((record) => record.valid),
+    hgsiRecords.filter((record) => validRecordKeys.has(recordKey(record))),
     recordKey,
+  ), [hgsiRecords, validRecordKeys]);
+  const validChassis = useMemo(() => new Set(
+    hgsiRecords
+      .filter((record) => record.valid)
+      .map((record) => normalizeChassi(record.chassi))
+      .filter(Boolean),
   ), [hgsiRecords]);
-  const validChassis = useMemo(() => new Set(validRecords.map((record) => record.chassi).filter(Boolean)), [validRecords]);
-  const validRecordKeys = useMemo(() => new Set(validRecords.map(recordKey).filter(Boolean)), [validRecords]);
   const flowKeys = useMemo(() => new Set(flowItems.map(itemKey)), [flowItems]);
 
   const validRecordItems = useMemo(() => {
