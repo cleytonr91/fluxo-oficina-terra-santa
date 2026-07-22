@@ -392,6 +392,7 @@ function FunnelRow({
   answer,
   validRecord,
   treatment,
+  answerOutOfBase,
   onTreatment,
   onInspect,
 }: {
@@ -399,6 +400,7 @@ function FunnelRow({
   answer?: HgsiAnswerImport;
   validRecord?: boolean;
   treatment?: PostServiceCase;
+  answerOutOfBase?: boolean;
   onTreatment: (item: FunnelItem) => void;
   onInspect: (item: FunnelItem) => void;
 }) {
@@ -433,6 +435,7 @@ function FunnelRow({
       <div className="tag-row post-row-tags">
         {validRecord && <span className="tag good">Registro válido</span>}
         {answer && <span className="tag">Respondido HGSI</span>}
+        {answerOutOfBase && <span className="tag warn">Fora da base</span>}
         {answer?.nps !== undefined && <span className={`tag ${scoreTone(hgsiValue(answer) ?? null, "thousand")}`}>HGSI {Math.round(hgsiValue(answer) ?? answer.nps)}</span>}
         {item.partsOrdered && <span className="tag warn">Pedido de peça</span>}
         {item.hasPendingIssue && <span className="tag bad">Pendência</span>}
@@ -474,11 +477,13 @@ export default function PosServicoPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [deliveredConsultantFilter, setDeliveredConsultantFilter] = useState("Todos");
   const [aptosConsultantFilter, setAptosConsultantFilter] = useState("Todos");
+  const [answeredConsultantFilter, setAnsweredConsultantFilter] = useState("Todos");
   const [treatedConsultantFilter, setTreatedConsultantFilter] = useState("Todos");
   const [treatedByFilter, setTreatedByFilter] = useState("Todos");
   const [expandedStages, setExpandedStages] = useState({
     delivered: true,
     aptos: true,
+    answered: true,
     treated: true,
   });
   const [loading, setLoading] = useState(true);
@@ -565,6 +570,7 @@ export default function PosServicoPage() {
     return mapped;
   }, [hgsiAnswers]);
   const hgsiBaseAnswers = useMemo(() => dedupeByKey(hgsiAnswers.filter(isAnswerInHgsiBase), answerKey), [hgsiAnswers]);
+  const allAnsweredAnswers = useMemo(() => dedupeByKey(hgsiAnswers, answerKey), [hgsiAnswers]);
   const unauthorizedAnswers = useMemo(() => dedupeByKey(
     hgsiAnswers.filter((answer) => !isAnswerInHgsiBase(answer)),
     answerKey,
@@ -595,9 +601,27 @@ export default function PosServicoPage() {
     return dedupeByKey([...matched, ...basic], itemKey);
   }, [flowItems, flowKeys, hgsiBaseAnswers]);
 
+  const allAnsweredItems = useMemo(() => {
+    const answeredKeys = new Set(allAnsweredAnswers.map(answerKey).filter(Boolean));
+    const matched = flowItems.filter((item) => answeredKeys.has(normalizeChassi(item.chassi)) || answeredKeys.has(item.osNumber ?? ""));
+    const basic = allAnsweredAnswers
+      .filter((answer) => !flowKeys.has(answerKey(answer)))
+      .map(answerToItem);
+    return dedupeByKey([...matched, ...basic], itemKey);
+  }, [allAnsweredAnswers, flowItems, flowKeys]);
+
   const answeredWithoutValidRecord = useMemo(() => (
     hgsiBaseAnswers.filter((answer) => !validRecordKeys.has(answerKey(answer)))
   ), [hgsiBaseAnswers, validRecordKeys]);
+
+  const answersByKey = useMemo(() => {
+    const mapped = new Map<string, HgsiAnswerImport>();
+    allAnsweredAnswers.forEach((answer) => {
+      const key = answerKey(answer);
+      if (key) mapped.set(key, answer);
+    });
+    return mapped;
+  }, [allAnsweredAnswers]);
 
   const filterByConsultant = (item: FunnelItem, filter: string) => (
     filter === "Todos" || consultantDisplayName(item.consultantName) === filter
@@ -623,8 +647,10 @@ export default function PosServicoPage() {
   const isTreatedItem = (item: FunnelItem) => casesByItemKey.get(itemKey(item))?.treatmentStatus === "tratado";
   const searchedFlowItems = flowItems.filter(filterBySearch);
   const searchedValidRecordItems = validRecordItems.filter(filterBySearch);
+  const searchedAnsweredItems = allAnsweredItems.filter(filterBySearch);
   const deliveredItems = searchedFlowItems.filter((item) => filterByConsultant(item, deliveredConsultantFilter));
   const filteredValidRecordItems = searchedValidRecordItems.filter((item) => filterByConsultant(item, aptosConsultantFilter));
+  const filteredAnsweredItems = searchedAnsweredItems.filter((item) => filterByConsultant(item, answeredConsultantFilter));
   const pendingValidItems = filteredValidRecordItems
     .filter((item) => !answersByChassi.has(normalizeChassi(item.chassi)))
     .filter((item) => !isTreatedItem(item));
@@ -734,6 +760,7 @@ export default function PosServicoPage() {
     { label: "Solicitar resposta HGSI", value: requestReadyItems.length },
     { label: "Tratar antes", value: treatmentItems.length },
     { label: "Clientes tratados", value: treatedItems.length },
+    { label: "Clientes que responderam", value: filteredAnsweredItems.length },
     { label: "Respondidos sem registro válido", value: answeredWithoutValidRecord.length },
   ];
 
@@ -1015,6 +1042,47 @@ export default function PosServicoPage() {
                   />
                 )) : (
                   <p className="empty">Nenhum cliente pendente com registro válido.</p>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className="post-funnel-block">
+            <div className="post-funnel-block-head answered-head">
+              <button type="button" className="ghost-btn" onClick={() => toggleStage("answered")}>
+                {expandedStages.answered ? "Recolher" : "Expandir"}
+              </button>
+              <div>
+                <h2>Clientes que responderam</h2>
+                <span>Lista pesquisável de respostas HGSI, inclusive fora da base válida.</span>
+              </div>
+              <strong>{filteredAnsweredItems.length}</strong>
+              <label className="flow-filter stage-filter">
+                <span>Consultor</span>
+                <select value={answeredConsultantFilter} onChange={(event) => setAnsweredConsultantFilter(event.target.value)}>
+                  <option>Todos</option>
+                  {consultants.map((consultant) => <option key={consultant}>{consultant}</option>)}
+                </select>
+              </label>
+            </div>
+            {expandedStages.answered && (
+              <div className="post-list">
+                {filteredAnsweredItems.length ? filteredAnsweredItems.map((item) => {
+                  const answer = answersByKey.get(itemKey(item));
+                  return (
+                    <FunnelRow
+                      key={item.id}
+                      item={item}
+                      validRecord={validRecordKeys.has(itemKey(item))}
+                      answer={answer}
+                      answerOutOfBase={answer ? !isAnswerInHgsiBase(answer) : false}
+                      treatment={casesByItemKey.get(itemKey(item))}
+                      onTreatment={openTreatmentModal}
+                      onInspect={setIndicatorItem}
+                    />
+                  );
+                }) : (
+                  <p className="empty">Nenhuma resposta HGSI no filtro atual.</p>
                 )}
               </div>
             )}
