@@ -1063,47 +1063,6 @@ export default function PosServicoPage() {
           </section>
 
           <section className="post-funnel-block">
-            <div className="post-funnel-block-head answered-head">
-              <button type="button" className="ghost-btn" onClick={() => toggleStage("answered")}>
-                {expandedStages.answered ? "Recolher" : "Expandir"}
-              </button>
-              <div>
-                <h2>Clientes que responderam</h2>
-                <span>Lista pesquisável de respostas HGSI, inclusive fora da base válida.</span>
-              </div>
-              <strong>{filteredAnsweredItems.length}</strong>
-              <label className="flow-filter stage-filter">
-                <span>Consultor</span>
-                <select value={answeredConsultantFilter} onChange={(event) => setAnsweredConsultantFilter(event.target.value)}>
-                  <option>Todos</option>
-                  {consultants.map((consultant) => <option key={consultant}>{consultant}</option>)}
-                </select>
-              </label>
-            </div>
-            {expandedStages.answered && (
-              <div className="post-list">
-                {filteredAnsweredItems.length ? filteredAnsweredItems.map((item) => {
-                  const answer = answersByKey.get(itemKey(item));
-                  return (
-                    <FunnelRow
-                      key={item.id}
-                      item={item}
-                      validRecord={validRecordKeys.has(itemKey(item))}
-                      answer={answer}
-                      answerOutOfBase={answer ? !isAnswerInHgsiBase(answer) : false}
-                      treatment={casesByItemKey.get(itemKey(item))}
-                      onTreatment={openTreatmentModal}
-                      onInspect={setIndicatorItem}
-                    />
-                  );
-                }) : (
-                  <p className="empty">Nenhuma resposta HGSI no filtro atual.</p>
-                )}
-              </div>
-            )}
-          </section>
-
-          <section className="post-funnel-block">
             <div className="post-funnel-block-head treated-head">
               <button type="button" className="ghost-btn" onClick={() => toggleStage("treated")}>
                 {expandedStages.treated ? "Recolher" : "Expandir"}
@@ -1146,6 +1105,48 @@ export default function PosServicoPage() {
               </div>
             )}
           </section>
+
+          <section className="post-funnel-block">
+            <div className="post-funnel-block-head answered-head">
+              <button type="button" className="ghost-btn" onClick={() => toggleStage("answered")}>
+                {expandedStages.answered ? "Recolher" : "Expandir"}
+              </button>
+              <div>
+                <h2>Clientes que responderam</h2>
+                <span>Lista pesquisável de respostas HGSI, inclusive fora da base válida.</span>
+              </div>
+              <strong>{filteredAnsweredItems.length}</strong>
+              <label className="flow-filter stage-filter">
+                <span>Consultor</span>
+                <select value={answeredConsultantFilter} onChange={(event) => setAnsweredConsultantFilter(event.target.value)}>
+                  <option>Todos</option>
+                  {consultants.map((consultant) => <option key={consultant}>{consultant}</option>)}
+                </select>
+              </label>
+            </div>
+            {expandedStages.answered && (
+              <div className="post-list">
+                {filteredAnsweredItems.length ? filteredAnsweredItems.map((item) => {
+                  const answer = answersByKey.get(itemKey(item));
+                  return (
+                    <FunnelRow
+                      key={item.id}
+                      item={item}
+                      validRecord={validRecordKeys.has(itemKey(item))}
+                      answer={answer}
+                      answerOutOfBase={answer ? !isAnswerInHgsiBase(answer) : false}
+                      treatment={casesByItemKey.get(itemKey(item))}
+                      onTreatment={openTreatmentModal}
+                      onInspect={setIndicatorItem}
+                    />
+                  );
+                }) : (
+                  <p className="empty">Nenhuma resposta HGSI no filtro atual.</p>
+                )}
+              </div>
+            )}
+          </section>
+
         </section>
 
         <section className="panel consultant-scoreboard">
@@ -1379,4 +1380,5 @@ export default function PosServicoPage() {
     </ProtectedPage>
   );
 }
+
 
