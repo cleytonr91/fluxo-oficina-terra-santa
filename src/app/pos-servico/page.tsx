@@ -707,10 +707,7 @@ export default function PosServicoPage() {
         const value = hgsiValue(answer);
         return typeof value === "number" && value < 800;
       }).length;
-      const redFlags = answered.filter((answer) => {
-        const value = hgsiValue(answer);
-        return typeof value === "number" && value < 800;
-      }).length;
+      const redFlags = answered.filter((answer) => answer.recommendation === false).length;
       const correctServiceValues = answered.map((answer) => (
         tenPointValue(answer.correctServiceScore)
         ?? (answer.correctService === undefined ? undefined : answer.correctService ? 10 : 0)
@@ -721,7 +718,7 @@ export default function PosServicoPage() {
         : null;
       const unauthorizedCount = unauthorizedAnswers.filter((answer) => displayAnswerConsultant(answer) === consultant).length;
       const indicatorRows = [
-        { label: "Recomendação", count: recommendationAnswers.length, value: recommendationPercent, scale: "percent" as const },
+        { label: "Recomendação Concessionária", count: recommendationAnswers.length, value: recommendationPercent, scale: "percent" as const },
         { label: "Serviço correto", count: correctServiceValues.filter((value) => value !== undefined).length, value: averageNumber(correctServiceValues), scale: "ten" as const },
         { label: "Instalações", count: answered.filter((answer) => answer.installationScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.installationScore))), scale: "ten" as const },
         { label: "Consultor", count: answered.filter((answer) => answer.consultantScore !== undefined).length, value: averageNumber(answered.map((answer) => tenPointValue(answer.consultantScore))), scale: "ten" as const },
@@ -895,7 +892,7 @@ export default function PosServicoPage() {
           consultantName: consultantDisplayName(textFrom(row, ["consultor responsavel", "consultor tecnico", "consultor"])),
           answerDate: textFrom(row, ["datas entrevista", "data entrevista", "entrevista", "data resposta", "respondido"]),
           nps: numberFrom(row, ["indice hgsi", "índice hgsi", "nps", "nota"]),
-          recommendation: boolFrom(row, ["recomendacao", "recomendação", "recomenda", "recomendaria"]),
+          recommendation: boolFrom(row, ["q1.3", "1.3", "recomendacao concessionaria", "recomendação concessionária", "recomendacao", "recomendação", "recomenda", "recomendaria"]),
           installationScore: numberFrom(row, ["q2 instalacoes", "q2 instalações", "instalacoes", "instalações"]),
           consultantScore: numberFrom(row, ["q3 consultor"]),
           deadlineScore: numberFrom(row, ["q4 tempo", "tempo", "prazo", "prazos"]),
@@ -1203,7 +1200,7 @@ export default function PosServicoPage() {
                 </div>
 
                 <div className="score-mini-grid">
-                  <div><span>Recomendação</span><strong>{formatIndicator(item.recommendationPercent, "percent")}</strong></div>
+                  <div><span>Recomendação Concessionária</span><strong>{formatIndicator(item.recommendationPercent, "percent")}</strong></div>
                   <div><span>Serviço correto</span><strong>{formatScore(item.indicatorRows[1].value)}</strong></div>
                   <div><span>Sem autorização</span><strong>{item.unauthorizedCount}</strong></div>
                   <div><span>Índice HGSI</span><strong>{item.hgsiAverage === null ? "-" : Math.round(item.hgsiAverage)}</strong></div>
