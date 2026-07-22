@@ -3585,12 +3585,6 @@ textarea {
   min-width: 0;
 }
 
-.indicator-row small {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 850;
-}
-
 .consultant-score-card .critical-list,
 .consultant-score-card .answered-client-list {
   display: none;

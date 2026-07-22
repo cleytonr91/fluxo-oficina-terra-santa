@@ -1210,10 +1210,9 @@ export default function PosServicoPage() {
                   {item.indicatorRows.map((indicator) => (
                     <div key={indicator.label} className="indicator-row">
                       <div className="indicator-label">
-                        <span>{indicator.label}</span>
+                        <span>{indicator.label} ({indicator.count})</span>
                         <strong>{formatIndicator(indicator.value, indicator.scale)}</strong>
                       </div>
-                      <small>base {indicator.count}</small>
                       <div className={`indicator-track ${scoreTone(indicator.value, indicator.scale)}`}>
                         <span style={{ width: scoreWidth(indicator.value, indicator.scale) }} />
                       </div>
