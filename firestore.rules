@@ -23,7 +23,7 @@ service cloud.firestore {
     }
 
     function operations() {
-      return hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'tecnico', 'lider_lavagem', 'estoquista', 'qualidade']);
+      return hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'tecnico', 'lider_lavagem', 'consultor_funilaria', 'estoquista', 'qualidade', 'agendamento']);
     }
 
     match /users/{userId} {
@@ -72,13 +72,13 @@ service cloud.firestore {
 
     match /partOrders/{document} {
       allow read: if operations();
-      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'estoquista']);
+      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'consultor_funilaria', 'estoquista', 'agendamento']);
     }
 
     match /publicPartLookups/{document} {
       allow get: if true;
       allow list: if false;
-      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'estoquista']);
+      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'consultor_funilaria', 'estoquista', 'agendamento']);
     }
 
     match /deliveries/{document} {
@@ -103,7 +103,7 @@ service cloud.firestore {
 
     match /bodyShopProcesses/{document} {
       allow read: if operations();
-      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor']);
+      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'consultor_funilaria', 'estoquista']);
     }
   }
 }

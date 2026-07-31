@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
+import { getBodyShopDriveFolder } from "@/lib/body-shop-drive-folders";
 import { createVehicleFlowFromAppointment, saveBodyShopProcess, subscribeBodyShopProcesses } from "@/services/firestore";
 import type { BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation } from "@/types/domain";
 
@@ -70,6 +71,14 @@ const insurerOptions = [
   "Youse",
   "Allianz",
   "Itaú",
+];
+
+const documentCategories = [
+  { label: "Aprovação Seguradora", description: "Autorizações, aprovações e retornos da companhia." },
+  { label: "Nota Fiscal Serviços", description: "Notas fiscais referentes à mão de obra e serviços." },
+  { label: "Nota Fiscal Peças", description: "Notas fiscais de peças utilizadas no reparo." },
+  { label: "Termo de Quitação", description: "Termos assinados e documentos de encerramento." },
+  { label: "Comprovante de Pagamento", description: "Comprovantes da seguradora ou do cliente." },
 ];
 
 const emptyForm: BodyShopForm = {
@@ -181,6 +190,7 @@ export default function FunilariaPage() {
   const [financialForm, setFinancialForm] = useState<FinancialForm>(emptyFinancialForm);
   const [partsProcess, setPartsProcess] = useState<BodyShopProcess | null>(null);
   const [partsForm, setPartsForm] = useState<PartsForm>(emptyPartsForm);
+  const [documentsProcess, setDocumentsProcess] = useState<BodyShopProcess | null>(null);
 
   useEffect(() => {
     const unsubscribe = subscribeBodyShopProcesses((data) => {
@@ -293,6 +303,11 @@ export default function FunilariaPage() {
   function openParts(process: BodyShopProcess) {
     setPartsProcess(process);
     setPartsForm({ partsNote: process.partsNote ?? "" });
+  }
+
+  function openDocuments(process: BodyShopProcess) {
+    setDocumentsProcess(process);
+    setError("");
   }
 
   async function submitFinancial(event: FormEvent<HTMLFormElement>) {
@@ -423,6 +438,9 @@ export default function FunilariaPage() {
         {item.vehicleImmobilized && <div className="bodyshop-alert">Veículo imobilizado</div>}
         {item.partsRequested && <div className="bodyshop-alert neutral">Pedido de peças registrado</div>}
         <div className="bodyshop-chip-actions">
+          <button type="button" className="ghost-btn" onClick={() => openDocuments(item)}>
+            Documentos
+          </button>
           <button type="button" className="ghost-btn" onClick={() => openFinancial(item)}>Financeiro</button>
           <button type="button" className="ghost-btn" onClick={() => openParts(item)}>Peças</button>
           <button type="button" className="primary-btn" disabled={saving} onClick={() => sendToWorkshop(item)}>
@@ -432,6 +450,8 @@ export default function FunilariaPage() {
       </article>
     );
   }
+
+  const documentsFolder = documentsProcess ? getBodyShopDriveFolder(documentsProcess) : null;
 
   return (
     <ProtectedPage
@@ -549,6 +569,9 @@ export default function FunilariaPage() {
                     </small>
                   </div>
                   <div className="bodyshop-row-actions">
+                    <button type="button" className="ghost-btn" onClick={() => openDocuments(item)}>
+                      Documentos
+                    </button>
                     <button type="button" className="ghost-btn" onClick={() => openFinancial(item)}>Financeiro</button>
                     <button type="button" className="ghost-btn" onClick={() => openParts(item)}>Peças</button>
                   </div>
@@ -651,6 +674,62 @@ export default function FunilariaPage() {
               <button type="submit" className="primary-btn" disabled={saving}>{saving ? "Salvando..." : "Salvar financeiro"}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {documentsProcess && (
+        <div className="modal-backdrop" role="presentation">
+          <section className="flow-modal bodyshop-modal bodyshop-documents-modal" role="dialog" aria-modal="true" aria-labelledby="bodyshop-documents-title">
+            <div className="modal-head">
+              <div>
+                <strong id="bodyshop-documents-title">Documentos do processo</strong>
+                <span>
+                  {documentsProcess.plate || "Sem placa"} · {documentsProcess.serviceOrder ? `O.S. ${documentsProcess.serviceOrder}` : `Sinistro ${documentsProcess.claimNumber || "-"}`}
+                </span>
+              </div>
+              <button type="button" className="ghost-btn icon-btn" aria-label="Fechar" onClick={() => setDocumentsProcess(null)}>
+                ×
+              </button>
+            </div>
+
+            <div className={`bodyshop-folder-path ${documentsFolder?.isDirect ? "" : "is-pending"}`}>
+              <span>{documentsFolder?.isDirect ? "Pasta vinculada no Google Drive" : "Vínculo pendente"}</span>
+              <strong>Documentos / {documentsFolder?.folderName}</strong>
+              {!documentsFolder?.isDirect && (
+                <small>A pasta desta placa ainda não foi encontrada. O botão abrirá a pasta principal.</small>
+              )}
+            </div>
+
+            <a
+              className="primary-btn bodyshop-drive-button"
+              href={documentsFolder?.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Abrir pasta no Google Drive
+            </a>
+
+            <p className="bodyshop-documents-intro">
+              Dentro da pasta da placa, organize os arquivos usando estas categorias:
+            </p>
+
+            <div className="bodyshop-attachment-categories">
+              {documentCategories.map((category) => (
+                <section className="bodyshop-attachment-category" key={category.label}>
+                  <div className="bodyshop-attachment-head">
+                    <div>
+                      <strong>{category.label}</strong>
+                      <span>{category.description}</span>
+                    </div>
+                  </div>
+                </section>
+              ))}
+            </div>
+
+            <div className="bodyshop-documents-note">
+              O envio, a visualização e a exclusão dos arquivos são feitos no próprio Google Drive.
+            </div>
+          </section>
         </div>
       )}
 

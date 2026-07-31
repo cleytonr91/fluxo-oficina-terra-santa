@@ -3,19 +3,9 @@
 import { useEffect, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
+import { roleOptions } from "@/lib/access-control";
 import { listUserProfiles, updateUserProfile } from "@/services/firestore";
 import type { UserProfile, UserRole } from "@/types/domain";
-
-const roles: Array<{ value: UserRole; label: string }> = [
-  { value: "admin", label: "Administrador" },
-  { value: "gerente", label: "Gerente" },
-  { value: "chefe_oficina", label: "Chefe de oficina" },
-  { value: "consultor", label: "Consultor técnico" },
-  { value: "tecnico", label: "Mecânico" },
-  { value: "lider_lavagem", label: "Líder de posto" },
-  { value: "estoquista", label: "Estoquista" },
-  { value: "qualidade", label: "Coordenador de qualidade" },
-];
 
 export default function AdminPage() {
   const { profile } = useAuth();
@@ -108,7 +98,8 @@ export default function AdminPage() {
                         item.id === user.id ? { ...item, role: event.target.value as UserRole } : item
                       )))}
                     >
-                      {roles.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
+                      {user.role === "gerente" && <option value="gerente">Gerente</option>}
+                      {roleOptions.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}
                     </select>
                   </label>
 

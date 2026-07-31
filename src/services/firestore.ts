@@ -54,6 +54,7 @@ type WalkInVehicleInput = {
   model?: string;
   chassi?: string;
   service: string;
+  promisedDeliveryAt: string;
   consultant: string;
   technician?: string;
   washType?: WashType;
@@ -265,6 +266,11 @@ type UpdatePartOrderInput = {
   updatedBy?: string;
 };
 
+export type CreateStandalonePartOrderInput = Omit<UpdatePartOrderInput, "orderId"> & {
+  plate?: string;
+  vehicleImmobilized?: boolean;
+};
+
 type RegisterPartSchedulingActionInput = {
   orderId: string;
   action: PartSchedulingActionType;
@@ -293,11 +299,12 @@ function serviceTypeFromLabel(service: string): ServiceType {
 }
 
 function isWashService(service: string) {
-  return service
+  const text = service
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .includes("lavagem");
+    .toLowerCase();
+
+  return text.includes("lavagem") || text.includes("embelezamento");
 }
 
 function washTypeFromService(service: string, fallback?: WashType): WashType {
@@ -306,6 +313,9 @@ function washTypeFromService(service: string, fallback?: WashType): WashType {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+  if (text.includes("embelezamento")) {
+    return fallback && fallback !== "nao" ? fallback : "simples";
+  }
   if (!text.includes("lavagem")) return fallback ?? "simples";
   if (text.includes("motor") && text.includes("banco")) return "motor_bancos";
   if (text.includes("motor")) return "motor";
@@ -686,7 +696,7 @@ export async function findVehicleFlowConflict({
   })) as VehicleFlow[];
 
   return vehicles.find((vehicle) => {
-    if (vehicle.id === ignoreId || vehicle.status === "cancelado") return false;
+    if (vehicle.id === ignoreId || vehicle.status !== "ativo" || vehicle.currentLane === "entregue") return false;
     if (!matchesVehicleFlowDate(vehicle, appointmentDate)) return false;
 
     const vehiclePlate = normalizeVehicleIdentifier(vehicle.plate);
@@ -1039,6 +1049,60 @@ export async function updatePartOrder({
   }
 }
 
+export async function createStandalonePartOrder({
+  plate,
+  customerId,
+  clientName,
+  orderKind,
+  parts,
+  orderStatus,
+  orderSource,
+  orderNumber,
+  orderVor,
+  orderDate,
+  invoiceNumber,
+  expectedArrivalDate,
+  cancellationReason,
+  vehicleImmobilized,
+  updatedBy,
+}: CreateStandalonePartOrderInput) {
+  const db = getFirebaseDb();
+  const orderId = `avulso-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const ref = doc(collection(db, collections.partOrders), orderId);
+  const normalizedParts = parts
+    .map((part, index) => ({
+      id: part.id || `peca-${index + 1}`,
+      partReference: part.partReference?.trim().toUpperCase(),
+      partDescription: part.partDescription?.trim(),
+    }))
+    .filter((part) => part.partReference || part.partDescription);
+  const firstPart = normalizedParts[0];
+
+  await setDoc(ref, withoutUndefined({
+    vehicleFlowId: "",
+    plate: plate?.trim().toUpperCase(),
+    customerId: customerId?.trim().toUpperCase(),
+    clientName: clientName?.trim(),
+    parts: normalizedParts,
+    partReference: firstPart?.partReference,
+    partDescription: firstPart?.partDescription,
+    orderKind,
+    orderStatus,
+    orderSource,
+    orderNumber: orderNumber?.trim().toUpperCase(),
+    orderVor: orderVor ?? false,
+    orderDate: orderDate || undefined,
+    invoiceNumber: invoiceNumber?.trim().toUpperCase(),
+    expectedArrivalDate: expectedArrivalDate || undefined,
+    cancellationReason: cancellationReason?.trim(),
+    vehicleImmobilized: vehicleImmobilized ?? false,
+    requestedBy: updatedBy,
+    updatedBy,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
 export async function registerPartSchedulingAction({
   orderId,
   action,
@@ -1082,6 +1146,7 @@ export async function createWalkInVehicle({
   model,
   chassi,
   service,
+  promisedDeliveryAt,
   consultant,
   technician,
   washType,
@@ -1091,6 +1156,12 @@ export async function createWalkInVehicle({
   note,
 }: WalkInVehicleInput) {
   const db = getFirebaseDb();
+  const conflict = await findVehicleFlowConflict({ plate, chassi });
+
+  if (conflict) {
+    throw new Error("Já existe um chip ativo para esta placa ou chassi no fluxo.");
+  }
+
   const batch = writeBatch(db);
   const id = `passante-${appointmentDate}-${plate || Date.now()}`.replace(/[^a-zA-Z0-9-]/g, "-");
   const appointmentRef = doc(collection(db, collections.appointments), id);
@@ -1099,6 +1170,18 @@ export async function createWalkInVehicle({
   const walkInRef = doc(collection(db, collections.walkInCustomers), id);
   const initialLane: FlowLane = isWashService(service) ? "aguardando_lavagem" : "aguardando_servico";
   const normalizedWashType = washTypeFromService(service, washType);
+  const washOnlyService = isWashService(service);
+  if (!service.trim()) {
+    throw new Error("Informe o tipo de serviço para cadastrar o passante.");
+  }
+  if (!promisedDeliveryAt || Number.isNaN(new Date(promisedDeliveryAt).getTime())) {
+    throw new Error("Informe uma previsão de entrega válida para cadastrar o passante.");
+  }
+  const promisedDate = Timestamp.fromDate(new Date(promisedDeliveryAt));
+
+  if (washOnlyService && (!washType || washType === "nao")) {
+    throw new Error("Informe o tipo da lavagem para cadastrar Embelezamento.");
+  }
 
   batch.set(appointmentRef, {
     appointmentDate,
@@ -1111,6 +1194,7 @@ export async function createWalkInVehicle({
     consultantName: consultant,
     serviceType: serviceTypeFromLabel(service),
     serviceLabel: service,
+    promisedDeliveryAt: promisedDate,
     importedNotes: note,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -1126,6 +1210,7 @@ export async function createWalkInVehicle({
     consultantName: consultant,
     technicianName: technician || "",
     washType: normalizedWashType,
+    promisedDeliveryAt: promisedDate,
     appointmentDate,
     appointmentTime: appointmentTime || "",
     note,
@@ -1151,6 +1236,10 @@ export async function createWalkInVehicle({
     importedNotes: note,
     customerWaits: false,
     washType: normalizedWashType,
+    promisedDeliveryAt: promisedDate,
+    serviceCompleted: washOnlyService,
+    washingAdvanced: false,
+    washDone: false,
     status: "ativo",
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -1236,6 +1325,7 @@ type MoveVehicleFlowInput = {
   vehicleFlowId: string;
   fromLane?: FlowLane;
   toLane: FlowLane;
+  appointmentTime?: string;
   actionBy?: string;
   actionNote?: string;
   customerWaits?: boolean;
@@ -1265,6 +1355,7 @@ export async function moveVehicleFlow({
   vehicleFlowId,
   fromLane,
   toLane,
+  appointmentTime,
   actionBy,
   actionNote,
   customerWaits,
@@ -1289,6 +1380,7 @@ export async function moveVehicleFlow({
 
   batch.set(flowRef, {
     currentLane: toLane,
+    ...(appointmentTime !== undefined ? { appointmentTime } : {}),
     ...(startsAttendance ? { attendanceStartedAt: serverTimestamp(), attendanceStartedBy: actionBy } : {}),
     ...(typeof customerWaits === "boolean" ? { customerWaits } : {}),
     ...(promisedDate ? { promisedDeliveryAt: promisedDate } : {}),

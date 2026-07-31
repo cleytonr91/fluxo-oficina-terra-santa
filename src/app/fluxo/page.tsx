@@ -50,24 +50,20 @@ const walkInServices = [
   "Reparo Geral",
   "Recall",
   "Combinado",
-  "Lavagem Simples",
-  "Lavagem de Motor",
-  "Lavagem Motor + Bancos",
+  "Embelezamento",
 ];
 
 function duplicateVehicleMessage(conflict: VehicleFlow) {
   return [
-    "Já existe um chip para esta placa ou chassi neste dia.",
+    "Não é possível cadastrar este passante.",
+    "",
+    "Já existe um chip ativo para esta placa ou chassi no fluxo.",
     "",
     `Cliente: ${conflict.clientName || "-"}`,
     `Placa: ${conflict.plate || "-"}`,
     `Chassi: ${conflict.chassi || "-"}`,
     `Etapa atual: ${laneNameById[conflict.currentLane] || conflict.currentLane || "-"}`,
     `Serviço: ${conflict.serviceLabel || "-"}`,
-    "",
-    "Cancelar evita duplicidade. Continuar deve ser usado apenas se for realmente outro atendimento.",
-    "",
-    "Deseja continuar mesmo assim?",
   ].join("\n");
 }
 
@@ -106,11 +102,12 @@ const manual: ManualContent = {
 };
 
 function isWashService(service: string) {
-  return service
+  const text = service
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .includes("lavagem");
+    .toLowerCase();
+
+  return text.includes("lavagem") || text.includes("embelezamento");
 }
 
 function isWashOnlyVehicle(vehicle: VehicleFlow) {
@@ -123,6 +120,7 @@ function washTypeFromService(service: string, fallback: WashType): WashType {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
+  if (text.includes("embelezamento")) return fallback === "nao" ? "simples" : fallback;
   if (!text.includes("lavagem")) return fallback;
   if (text.includes("motor") && text.includes("banco")) return "motor_bancos";
   if (text.includes("motor")) return "motor";
@@ -205,6 +203,7 @@ type WalkInForm = {
   model: string;
   chassi: string;
   service: string;
+  promisedDeliveryAt: string;
   consultant: string;
   technician: string;
   washType: WashType;
@@ -290,6 +289,15 @@ function formatDateTime(value: unknown) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatTime(value: unknown) {
+  const date = toDate(value);
+  if (!date) return "-";
+  return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
@@ -415,9 +423,16 @@ function timeProgress(vehicle: VehicleFlow, now: Date) {
   const promised = toDate(vehicle.promisedDeliveryAt);
   if (!promised || vehicle.currentLane === "entregue") return null;
 
-  const created = toDate(vehicle.createdAt);
+  const attendanceStart = toDate(vehicle.attendanceStartedAt);
+  const appointment = appointmentDateTime(vehicle);
   const dayStart = vehicle.appointmentDate ? new Date(`${vehicle.appointmentDate}T07:00:00`) : null;
-  const start = created && created < promised ? created : dayStart && dayStart < promised ? dayStart : now;
+  const start = attendanceStart && attendanceStart < promised
+    ? attendanceStart
+    : appointment && appointment < promised
+      ? appointment
+      : dayStart && dayStart < promised
+        ? dayStart
+        : now;
   const total = Math.max(promised.getTime() - start.getTime(), 1);
   const elapsed = now.getTime() - start.getTime();
   const remainingMs = promised.getTime() - now.getTime();
@@ -427,10 +442,11 @@ function timeProgress(vehicle: VehicleFlow, now: Date) {
   const minutes = remainingMinutes % 60;
   const timeText = hours > 0 ? `${hours}h${String(minutes).padStart(2, "0")}` : `${minutes}min`;
 
-  if (remainingMs < 0) return { percent: 100, status: "late", label: `Atrasado ${timeText}` };
-  if (remainingMs <= 30 * 60000) return { percent, status: "danger", label: `Vence em ${timeText}` };
-  if (remainingMs <= 90 * 60000) return { percent, status: "warn", label: `Atenção ${timeText}` };
-  return { percent, status: "ok", label: `No prazo ${timeText}` };
+  const promisedTime = formatTime(promised);
+
+  if (remainingMs < 0) return { percent: 100, status: "late", label: `Atrasado ${timeText}`, promisedTime };
+  if (remainingMs <= 90 * 60000) return { percent, status: "warn", label: `Atenção ${timeText}`, promisedTime };
+  return { percent, status: "ok", label: `No prazo ${timeText}`, promisedTime };
 }
 
 function isPreviousDayVehicle(vehicle: VehicleFlow, selectedDate?: string) {
@@ -583,7 +599,7 @@ function FlowChip({
         <div className={`time-bar ${progress.status}`}>
           <div className="time-bar-top">
             <span>Previsão de entrega</span>
-            <strong>{progress.label}</strong>
+            <strong title={progress.label}>{progress.promisedTime}</strong>
           </div>
           <div className="time-track">
             <span style={{ width: `${progress.percent}%` }} />
@@ -695,6 +711,7 @@ export default function FluxoPage() {
     model: "",
     chassi: "",
     service: "Revisão 01",
+    promisedDeliveryAt: "",
     consultant: profile?.name ?? "",
     technician: "",
     washType: "simples",
@@ -939,10 +956,11 @@ export default function FluxoPage() {
   }
 
   function completeWash(vehicle: VehicleFlow) {
-    if (vehicle.serviceCompleted) {
+    if (vehicle.serviceCompleted || isWashOnlyVehicle(vehicle)) {
       return moveToLane(vehicle, "preparacao_entrega", "Lavagem concluída", {
         washDone: true,
         washingAdvanced: false,
+        serviceCompleted: true,
       });
     }
 
@@ -985,6 +1003,9 @@ export default function FluxoPage() {
 
     try {
       const nextLane: FlowLane = isWashOnlyVehicle(receivingVehicle) ? "aguardando_lavagem" : "aguardando_servico";
+      const receivedAppointmentTime = receivingVehicle.noShow
+        ? new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+        : undefined;
       const receiveNote = receiveForm.receiveNote || (nextLane === "aguardando_lavagem"
         ? "Veículo recebido para serviço de lavagem"
         : "Veículo recebido pelo consultor");
@@ -993,6 +1014,7 @@ export default function FluxoPage() {
         vehicleFlowId: receivingVehicle.id,
         fromLane: receivingVehicle.currentLane,
         toLane: nextLane,
+        appointmentTime: receivedAppointmentTime,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
         actionNote: receiveNote,
         consultantName: receiveForm.consultantName.trim(),
@@ -1001,6 +1023,7 @@ export default function FluxoPage() {
         washType: receiveForm.washType,
         receiveNote: receiveForm.receiveNote,
         roadTestDone: receivingVehicle.roadTestRequired ? receiveForm.roadTestDone === "sim" : undefined,
+        clearNoShow: Boolean(receivingVehicle.noShow),
       });
 
       setVehicles((current) => current.map((vehicle) => (
@@ -1008,6 +1031,8 @@ export default function FluxoPage() {
           ? {
               ...vehicle,
               currentLane: nextLane,
+              ...(receivedAppointmentTime ? { appointmentTime: receivedAppointmentTime } : {}),
+              ...(receivingVehicle.noShow ? { noShow: false, noShowAt: undefined } : {}),
               consultantName: receiveForm.consultantName.trim(),
               customerWaits: receiveForm.customerWaits,
               promisedDeliveryAt: receiveForm.promisedDeliveryAt,
@@ -1311,16 +1336,26 @@ export default function FluxoPage() {
 
     try {
       const selectedDate = flowDate || new Date().toISOString().slice(0, 10);
+      if (!walkInForm.service.trim()) {
+        throw new Error("Informe o tipo de serviço para cadastrar o passante.");
+      }
+      if (!walkInForm.promisedDeliveryAt) {
+        throw new Error("Informe a previsão de entrega para cadastrar o passante.");
+      }
       const initialLane: FlowLane = isWashService(walkInForm.service) ? "aguardando_lavagem" : "aguardando_servico";
       const normalizedWashType = washTypeFromService(walkInForm.service, walkInForm.washType);
+
+      if (isWashService(walkInForm.service) && walkInForm.washType === "nao") {
+        throw new Error("Informe o tipo da lavagem para cadastrar Embelezamento.");
+      }
+
       const conflict = await findVehicleFlowConflict({
         plate: walkInForm.plate,
         chassi: walkInForm.chassi,
-        appointmentDate: selectedDate,
       });
 
-      if (conflict && !window.confirm(duplicateVehicleMessage(conflict))) {
-        return;
+      if (conflict) {
+        throw new Error(duplicateVehicleMessage(conflict));
       }
 
       await createWalkInVehicle({
@@ -1347,12 +1382,16 @@ export default function FluxoPage() {
           chassi: walkInForm.chassi,
           model: walkInForm.model,
           serviceLabel: walkInForm.service,
+          promisedDeliveryAt: walkInForm.promisedDeliveryAt,
           consultantName: walkInForm.consultant,
           technicianName: walkInForm.technician,
           priority: "normal",
           importedNotes: walkInForm.note,
           customerWaits: false,
           washType: normalizedWashType,
+          serviceCompleted: isWashService(walkInForm.service),
+          washingAdvanced: false,
+          washDone: false,
           status: "ativo",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -1365,6 +1404,7 @@ export default function FluxoPage() {
         model: "",
         chassi: "",
         service: "Revisão 01",
+        promisedDeliveryAt: "",
         consultant: profile?.name ?? "",
         technician: "",
         washType: "simples",
@@ -1518,14 +1558,16 @@ export default function FluxoPage() {
   async function reactivateNoShowVehicle(vehicle: VehicleFlow) {
     setMovingId(vehicle.id);
     setError("");
+    const nowAppointmentTime = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
     try {
       await moveVehicleFlow({
         vehicleFlowId: vehicle.id,
         fromLane: vehicle.currentLane,
         toLane: "preparacao_confirmada",
+        appointmentTime: nowAppointmentTime,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
-        actionNote: "No-show reativado para Agendamento do Dia.",
+        actionNote: `No-show reativado para Agendamento do Dia às ${nowAppointmentTime}.`,
         clearNoShow: true,
         serviceCompleted: false,
         washingAdvanced: false,
@@ -1537,6 +1579,7 @@ export default function FluxoPage() {
           ? {
               ...currentVehicle,
               currentLane: "preparacao_confirmada",
+              appointmentTime: nowAppointmentTime,
               noShow: false,
               noShowAt: undefined,
               serviceCompleted: false,
@@ -2272,39 +2315,65 @@ export default function FluxoPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="flow-lane-body">
-                    {loading && lane.id === "preparacao_confirmada" ? (
-                      <EmptyLane text="Carregando veículos..." />
-                    ) : laneVehicles.length ? (
-                      laneVehicles.map((vehicle) => (
-                        <FlowChip
-                          key={vehicle.id}
-                          vehicle={vehicle}
-                          immobilized={immobilizedVehicleIds.has(vehicle.id)}
-                          now={now}
-                          selectedDate={flowDate}
-                          onAdvance={
-                            lane.id === "preparacao_confirmada"
-                              ? openReceiveModal
-                              : lane.id === "aguardando_servico"
-                                ? setSendVehicle
-                                : lane.id === "em_servico"
+                  <>
+                    <div className="flow-lane-body">
+                      {loading && lane.id === "preparacao_confirmada" ? (
+                        <EmptyLane text="Carregando veículos..." />
+                      ) : laneVehicles.length ? (
+                        laneVehicles.map((vehicle) => (
+                          <FlowChip
+                            key={vehicle.id}
+                            vehicle={vehicle}
+                            immobilized={immobilizedVehicleIds.has(vehicle.id)}
+                            now={now}
+                            selectedDate={flowDate}
+                            onAdvance={
+                              lane.id === "preparacao_confirmada"
+                                ? openReceiveModal
+                                : lane.id === "aguardando_servico"
                                   ? setSendVehicle
-                                  : lane.id === "aguardando_lavagem"
-                                    ? (item) => moveToLane(item, "lavagem", "Lavagem iniciada")
-                                    : lane.id === "lavagem"
-                                      ? completeWash
-                                      : lane.id === "preparacao_entrega"
-                                        ? openDeliveryModal
-                                        : undefined
-                          }
-                          onDetails={openDetailModal}
-                        />
-                      ))
-                    ) : (
-                      <EmptyLane />
+                                  : lane.id === "em_servico"
+                                    ? setSendVehicle
+                                    : lane.id === "aguardando_lavagem"
+                                      ? (item) => moveToLane(item, "lavagem", "Lavagem iniciada")
+                                      : lane.id === "lavagem"
+                                        ? completeWash
+                                        : lane.id === "preparacao_entrega"
+                                          ? openDeliveryModal
+                                          : undefined
+                            }
+                            onDetails={openDetailModal}
+                          />
+                        ))
+                      ) : (
+                        <EmptyLane />
+                      )}
+                    </div>
+
+                    {lane.id === "preparacao_confirmada" && (
+                      <div className="lane-no-show-section">
+                        <div className="lane-no-show-head">
+                          <h3>No-show</h3>
+                          <strong>{noShowVehicles.length}</strong>
+                        </div>
+                        <div className="lane-no-show-body">
+                          {noShowVehicles.length ? noShowVehicles.map((vehicle) => (
+                            <FlowChip
+                              key={`no-show-${vehicle.id}`}
+                              vehicle={vehicle}
+                              immobilized={immobilizedVehicleIds.has(vehicle.id)}
+                              now={now}
+                              selectedDate={flowDate}
+                              onAdvance={openReceiveModal}
+                              onDetails={openDetailModal}
+                            />
+                          )) : (
+                            <EmptyLane text="Nenhum no-show neste dia." />
+                          )}
+                        </div>
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
               </section>
             );
@@ -3222,6 +3291,7 @@ export default function FluxoPage() {
               <label className="field">
                 <span>Tipo de atendimento</span>
                 <select
+                  required
                   value={walkInForm.service}
                   onChange={(event) => {
                     const service = event.target.value;
@@ -3234,6 +3304,15 @@ export default function FluxoPage() {
                 >
                   {walkInServices.map((service) => <option key={service}>{service}</option>)}
                 </select>
+              </label>
+              <label className="field">
+                <span>Previsão de entrega</span>
+                <input
+                  required
+                  type="datetime-local"
+                  value={walkInForm.promisedDeliveryAt}
+                  onChange={(event) => setWalkInForm((current) => ({ ...current, promisedDeliveryAt: event.target.value }))}
+                />
               </label>
               <label className="field">
                 <span>Consultor</span>
@@ -3253,10 +3332,13 @@ export default function FluxoPage() {
               <label className="field">
                 <span>Tipo da lavagem</span>
                 <select
+                  required={isWashService(walkInForm.service)}
                   value={walkInForm.washType}
                   onChange={(event) => setWalkInForm((current) => ({ ...current, washType: event.target.value as WashType }))}
                 >
-                  {washOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  {washOptions
+                    .filter((option) => !isWashService(walkInForm.service) || option.value !== "nao")
+                    .map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </label>
             </div>

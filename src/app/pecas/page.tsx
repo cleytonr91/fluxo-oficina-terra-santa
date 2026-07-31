@@ -4,7 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
-import { subscribeActiveVehicleFlows, subscribePartOrders, updatePartOrder } from "@/services/firestore";
+import { createStandalonePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, updatePartOrder } from "@/services/firestore";
 import type { PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
 type PartOrderFormFields = {
@@ -19,6 +19,12 @@ type PartOrderFormFields = {
   invoiceNumber: string;
   expectedArrivalDate: string;
   cancellationReason: string;
+};
+
+type StandalonePartOrderFormFields = PartOrderFormFields & {
+  clientName: string;
+  plate: string;
+  vehicleImmobilized: boolean;
 };
 
 const statusLabels: Record<PartOrderStatus, string> = {
@@ -55,6 +61,23 @@ const kindOptions: Array<{ value: PartOrderKind; label: string }> = [
   { value: "garantia", label: "Garantia" },
   { value: "externo", label: "Externo" },
 ];
+
+const emptyStandalonePartOrder: StandalonePartOrderFormFields = {
+  clientName: "",
+  plate: "",
+  customerId: "",
+  orderKind: "",
+  parts: [{ id: "peca-1", partReference: "", partDescription: "" }],
+  orderStatus: "solicitado_oficina",
+  orderSource: "",
+  orderNumber: "",
+  orderVor: false,
+  orderDate: new Date().toISOString().slice(0, 10),
+  invoiceNumber: "",
+  expectedArrivalDate: "",
+  cancellationReason: "",
+  vehicleImmobilized: false,
+};
 
 const manual: ManualContent = {
   title: "Manual de Pedidos de Peças",
@@ -264,6 +287,9 @@ export default function PecasPage() {
   const [mobisReceipt, setMobisReceipt] = useState<MobisReceiptState>(emptyMobisReceipt);
   const [applyingReceiptId, setApplyingReceiptId] = useState("");
   const [syncingPortal, setSyncingPortal] = useState(false);
+  const [standaloneOpen, setStandaloneOpen] = useState(false);
+  const [standaloneForm, setStandaloneForm] = useState<StandalonePartOrderFormFields>(emptyStandalonePartOrder);
+  const [savingStandalone, setSavingStandalone] = useState(false);
 
   useEffect(() => {
     const unsubscribe = subscribePartOrders((items) => {
@@ -604,6 +630,59 @@ export default function PecasPage() {
     }
   }
 
+  async function saveStandaloneOrder() {
+    const validParts = standaloneForm.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
+
+    if (!standaloneForm.clientName.trim()) {
+      setError("Informe o nome do cliente para criar o pedido avulso.");
+      return;
+    }
+    if (!validParts.length) {
+      setError("Informe ao menos uma referência ou descrição de peça.");
+      return;
+    }
+    if ((standaloneForm.orderStatus === "pedido_realizado" || standaloneForm.orderStatus === "back_order") && (!standaloneForm.orderSource || !standaloneForm.orderNumber.trim())) {
+      setError("Para marcar Pedido Realizado ou B.O, informe a origem e o número do pedido.");
+      return;
+    }
+    if (standaloneForm.orderStatus === "em_transito" && (!standaloneForm.invoiceNumber.trim() || !standaloneForm.expectedArrivalDate)) {
+      setError("Para marcar Em trânsito, informe a nota fiscal e confirme a previsão de chegada.");
+      return;
+    }
+    if (standaloneForm.orderStatus === "cancelado" && !standaloneForm.cancellationReason.trim()) {
+      setError("Para cancelar um pedido, informe o motivo do cancelamento.");
+      return;
+    }
+
+    setSavingStandalone(true);
+    setError("");
+    try {
+      await createStandalonePartOrder({
+        plate: standaloneForm.plate,
+        customerId: standaloneForm.customerId,
+        clientName: standaloneForm.clientName,
+        orderKind: standaloneForm.orderKind || undefined,
+        parts: validParts,
+        orderStatus: standaloneForm.orderStatus,
+        orderSource: standaloneForm.orderSource || undefined,
+        orderNumber: standaloneForm.orderNumber,
+        orderVor: standaloneForm.orderVor,
+        orderDate: standaloneForm.orderDate,
+        invoiceNumber: standaloneForm.invoiceNumber,
+        expectedArrivalDate: standaloneForm.expectedArrivalDate,
+        cancellationReason: standaloneForm.cancellationReason,
+        vehicleImmobilized: standaloneForm.vehicleImmobilized,
+        updatedBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+      setStandaloneForm({ ...emptyStandalonePartOrder, parts: [{ id: "peca-1", partReference: "", partDescription: "" }] });
+      setStandaloneOpen(false);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível criar o pedido avulso.");
+    } finally {
+      setSavingStandalone(false);
+    }
+  }
+
   async function applyMobisReceiptMatch(match: MobisReceiptMatch, order = match.recommended) {
     if (!order) return;
 
@@ -763,10 +842,96 @@ export default function PecasPage() {
             <span>Sincroniza pedidos com placa e ID Cliente para consulta pública.</span>
           </div>
           <a className="ghost-btn" href="/minha-peca" target="_blank" rel="noreferrer">Abrir portal</a>
+          <button className="ghost-btn" type="button" onClick={() => { setError(""); setStandaloneOpen(true); }}>
+            + Pedido avulso
+          </button>
           <button className="primary-btn" type="button" disabled={syncingPortal} onClick={syncPublicPartsPortal}>
             {syncingPortal ? "Sincronizando..." : "Sincronizar portal"}
           </button>
         </div>
+
+        {standaloneOpen && (
+          <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStandaloneOpen(false); }}>
+            <section className="flow-modal standalone-parts-modal" role="dialog" aria-modal="true" aria-labelledby="standalone-parts-title">
+              <div className="modal-head">
+                <div>
+                  <strong id="standalone-parts-title">Adicionar pedido avulso</strong>
+                  <span>Registre uma solicitação que não veio de um chip do fluxo.</span>
+                </div>
+                <button className="icon-btn" type="button" onClick={() => setStandaloneOpen(false)} aria-label="Fechar">×</button>
+              </div>
+
+              <div className="parts-edit-grid">
+                <label className="field">
+                  <span>Cliente</span>
+                  <input autoFocus value={standaloneForm.clientName} placeholder="Nome do cliente" onChange={(event) => setStandaloneForm((current) => ({ ...current, clientName: event.target.value }))} />
+                </label>
+                <label className="field">
+                  <span>Placa</span>
+                  <input value={standaloneForm.plate} placeholder="ABC1D23" onChange={(event) => setStandaloneForm((current) => ({ ...current, plate: event.target.value.toUpperCase() }))} />
+                </label>
+                <label className="field">
+                  <span>ID Cliente</span>
+                  <input value={standaloneForm.customerId} placeholder="ID para consulta" onChange={(event) => setStandaloneForm((current) => ({ ...current, customerId: event.target.value.toUpperCase() }))} />
+                </label>
+                <label className="field">
+                  <span>Tipo</span>
+                  <select value={standaloneForm.orderKind} onChange={(event) => setStandaloneForm((current) => ({ ...current, orderKind: event.target.value as PartOrderKind | "" }))}>
+                    <option value="">Selecionar</option>
+                    {kindOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+              </div>
+
+              <div className="parts-items">
+                {standaloneForm.parts.map((part, index) => (
+                  <div key={part.id} className="part-item-row">
+                    <label className="field">
+                      <span>Referência da Peça {index + 1}</span>
+                      <input value={part.partReference ?? ""} onChange={(event) => setStandaloneForm((current) => ({ ...current, parts: current.parts.map((item) => item.id === part.id ? { ...item, partReference: event.target.value.toUpperCase() } : item) }))} />
+                    </label>
+                    <label className="field">
+                      <span>Descrição da Peça {index + 1}</span>
+                      <input value={part.partDescription ?? ""} onChange={(event) => setStandaloneForm((current) => ({ ...current, parts: current.parts.map((item) => item.id === part.id ? { ...item, partDescription: event.target.value.toUpperCase() } : item) }))} />
+                    </label>
+                    <button className="ghost-btn" type="button" disabled={standaloneForm.parts.length <= 1} onClick={() => setStandaloneForm((current) => ({ ...current, parts: current.parts.filter((item) => item.id !== part.id) }))}>Remover</button>
+                  </div>
+                ))}
+              </div>
+              <button className="ghost-btn" type="button" onClick={() => setStandaloneForm((current) => ({ ...current, parts: [...current.parts, { id: `peca-${Date.now()}`, partReference: "", partDescription: "" }] }))}>+ Adicionar peça</button>
+
+              <div className="parts-edit-grid">
+                <label className="field">
+                  <span>Status do Pedido</span>
+                  <select value={standaloneForm.orderStatus} onChange={(event) => setStandaloneForm((current) => ({ ...current, orderStatus: event.target.value as PartOrderStatus }))}>
+                    {statusOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label className="field">
+                  <span>Origem</span>
+                  <select value={standaloneForm.orderSource} onChange={(event) => setStandaloneForm((current) => ({ ...current, orderSource: event.target.value as PartOrderSource | "" }))}>
+                    <option value="">Selecionar origem</option>
+                    {sourceOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label className="field"><span>Número do Pedido</span><input value={standaloneForm.orderNumber} onChange={(event) => setStandaloneForm((current) => ({ ...current, orderNumber: event.target.value.toUpperCase() }))} /></label>
+                <label className="field"><span>Data do Pedido</span><input type="date" value={standaloneForm.orderDate} onChange={(event) => setStandaloneForm((current) => ({ ...current, orderDate: event.target.value }))} /></label>
+                <label className="field"><span>Nota Fiscal</span><input value={standaloneForm.invoiceNumber} onChange={(event) => setStandaloneForm((current) => ({ ...current, invoiceNumber: event.target.value.toUpperCase() }))} /></label>
+                <label className="field"><span>Previsão de chegada</span><input type="date" value={standaloneForm.expectedArrivalDate} onChange={(event) => setStandaloneForm((current) => ({ ...current, expectedArrivalDate: event.target.value }))} /></label>
+              </div>
+
+              <label className="inline-check parts-vor-check"><input type="checkbox" checked={standaloneForm.orderVor} onChange={(event) => setStandaloneForm((current) => ({ ...current, orderVor: event.target.checked }))} /><span>Pedido VOR</span></label>
+              <label className="inline-check parts-vor-check"><input type="checkbox" checked={standaloneForm.vehicleImmobilized} onChange={(event) => setStandaloneForm((current) => ({ ...current, vehicleImmobilized: event.target.checked }))} /><span>Veículo imobilizado</span></label>
+
+              {standaloneForm.orderStatus === "cancelado" && <label className="field"><span>Motivo do cancelamento</span><textarea value={standaloneForm.cancellationReason} onChange={(event) => setStandaloneForm((current) => ({ ...current, cancellationReason: event.target.value }))} /></label>}
+
+              <div className="modal-actions">
+                <button className="ghost-btn" type="button" onClick={() => setStandaloneOpen(false)}>Cancelar</button>
+                <button className="primary-btn" type="button" disabled={savingStandalone} onClick={saveStandaloneOrder}>{savingStandalone ? "Salvando..." : "Criar pedido avulso"}</button>
+              </div>
+            </section>
+          </div>
+        )}
 
         <section className="panel mobis-receipt-panel">
           <div className="panel-head">

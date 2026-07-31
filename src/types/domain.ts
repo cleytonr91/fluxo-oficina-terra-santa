@@ -5,8 +5,10 @@ export type UserRole =
   | "consultor"
   | "tecnico"
   | "lider_lavagem"
+  | "consultor_funilaria"
   | "estoquista"
-  | "qualidade";
+  | "qualidade"
+  | "agendamento";
 
 export type ServiceType =
   | "revisao_01"

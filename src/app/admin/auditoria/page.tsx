@@ -48,6 +48,7 @@ export default function AuditPage() {
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [events, setEvents] = useState<FlowEvent[]>([]);
   const [queryText, setQueryText] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -97,11 +98,14 @@ export default function AuditPage() {
 
     return events.filter((event) => {
       const vehicle = vehiclesById.get(event.vehicleFlowId);
+      const eventUser = event.actionBy || "Usuário não identificado";
+
+      if (selectedUsers.length && !selectedUsers.includes(eventUser)) return false;
       if (!search) return true;
 
       return [
         event.vehicleFlowId,
-        event.actionBy,
+        eventUser,
         event.actionNote,
         vehicle?.clientName,
         vehicle?.plate,
@@ -110,7 +114,20 @@ export default function AuditPage() {
         vehicle?.technicianName,
       ].some((value) => normalize(value).includes(search));
     });
-  }, [events, queryText, vehiclesById]);
+  }, [events, queryText, selectedUsers, vehiclesById]);
+
+  const userOptions = useMemo(() => {
+    return Array.from(new Set(events.map((event) => event.actionBy || "Usuário não identificado")))
+      .sort((current, next) => current.localeCompare(next, "pt-BR"));
+  }, [events]);
+
+  function toggleSelectedUser(user: string) {
+    setSelectedUsers((current) => (
+      current.includes(user)
+        ? current.filter((item) => item !== user)
+        : [...current, user]
+    ));
+  }
 
   return (
     <ProtectedPage title="Auditoria do Fluxo" subtitle="Histórico de movimentações dos chips.">
@@ -140,6 +157,28 @@ export default function AuditPage() {
                     placeholder="Ex.: RRB3F57"
                   />
                 </label>
+                <div className="field">
+                  <span>Filtrar por usuário</span>
+                  <div className="audit-user-filter">
+                    {userOptions.length ? userOptions.map((user) => (
+                      <label key={user} className="audit-user-option">
+                        <input
+                          type="checkbox"
+                          checked={selectedUsers.includes(user)}
+                          onChange={() => toggleSelectedUser(user)}
+                        />
+                        <span>{user}</span>
+                      </label>
+                    )) : (
+                      <span className="muted-text">Nenhum usuário encontrado nas ações carregadas.</span>
+                    )}
+                  </div>
+                  {selectedUsers.length > 0 && (
+                    <button type="button" className="ghost-btn fit-btn" onClick={() => setSelectedUsers([])}>
+                      Limpar usuários
+                    </button>
+                  )}
+                </div>
 
                 {loading ? (
                   <p className="empty">Carregando auditoria...</p>

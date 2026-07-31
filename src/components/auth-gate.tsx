@@ -1,18 +1,23 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/context/auth-context";
+import { canAccessPath, defaultPathForRole } from "@/lib/access-control";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, profile, loading, logout } = useAuth();
+  const hasPageAccess = Boolean(profile?.active && canAccessPath(profile.role, pathname));
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
+    } else if (!loading && user && profile?.active && !canAccessPath(profile.role, pathname)) {
+      router.replace(defaultPathForRole(profile.role));
     }
-  }, [loading, router, user]);
+  }, [loading, pathname, profile, router, user]);
 
   if (loading) {
     return (
@@ -42,6 +47,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
             Sair
           </button>
         </section>
+      </main>
+    );
+  }
+
+  if (!hasPageAccess) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f6f7f4] px-6 text-[#1f2927]">
+        <div className="rounded-lg border border-[#d8ded8] bg-white p-6 text-center shadow-sm">
+          <p className="text-sm font-bold uppercase text-[#60706a]">Acesso restrito</p>
+          <p className="mt-2 text-lg font-semibold">Direcionando para sua área de trabalho...</p>
+        </div>
       </main>
     );
   }

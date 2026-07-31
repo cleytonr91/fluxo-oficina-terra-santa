@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import { OperationManual, type ManualContent } from "@/components/operation-manual";
+import { canAccessPath, roleLabel } from "@/lib/access-control";
 
 const navigation = [
   { href: "/preparacao", label: "Preparação" },
@@ -77,7 +78,9 @@ export function AppHeader({
       <div className="header-actions">
         <nav aria-label="Páginas do fluxo">
           {manual && <OperationManual manual={manual} />}
-          {navigation.filter((item) => !(isFlow && item.href === "/fluxo")).map((item) => {
+          {navigation.filter((item) => (
+            !(isFlow && item.href === "/fluxo") && canAccessPath(profile?.role, item.href)
+          )).map((item) => {
             const active = pathname === item.href;
 
             return (
@@ -101,7 +104,7 @@ export function AppHeader({
                 title="Atualizar página"
                 onClick={() => window.location.reload()}
               >
-                â†»
+                ↻
               </button>
               <button
                 className="primary-btn"
@@ -115,18 +118,18 @@ export function AppHeader({
                 <input type="date" value={flowDate} onChange={(event) => changeFlowDate(event.target.value)} />
               </label>
             </>
-          ) : (
+          ) : canAccessPath(profile?.role, "/radar") ? (
             <Link href="/radar" className={`nav-link ${pathname === "/radar" ? "active" : ""}`}>
               Farol
             </Link>
-          )}
+          ) : null}
         </nav>
 
         {!isPreparaçãon && !isFlow && (
           <div className="user-pill">
             <div>
               <strong>{profile?.name ?? user?.email}</strong>
-              <span>{profile?.role?.replaceAll("_", " ") ?? "sem perfil"}</span>
+              <span>{roleLabel(profile?.role)}</span>
             </div>
             {(profile?.role === "admin" || profile?.role === "gerente") && (
               <Link href="/admin">Admin</Link>

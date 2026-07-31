@@ -3,18 +3,8 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { useAuth } from "@/context/auth-context";
+import { defaultPathForRole, roleOptions } from "@/lib/access-control";
 import type { UserRole } from "@/types/domain";
-
-const roles: Array<{ value: UserRole; label: string }> = [
-  { value: "admin", label: "Administrador" },
-  { value: "gerente", label: "Gerente" },
-  { value: "chefe_oficina", label: "Chefe de oficina" },
-  { value: "consultor", label: "Consultor técnico" },
-  { value: "tecnico", label: "Mecânico" },
-  { value: "lider_lavagem", label: "Líder de posto" },
-  { value: "estoquista", label: "Estoquista" },
-  { value: "qualidade", label: "Coordenador de qualidade" },
-];
 
 function authErrorMessage(error: unknown) {
   if (!(error instanceof Error)) return "Não foi possível concluir a ação.";
@@ -26,7 +16,7 @@ function authErrorMessage(error: unknown) {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, loading, login, createFirstAccess } = useAuth();
+  const { user, profile, loading, login, createFirstAccess } = useAuth();
   const [mode, setMode] = useState<"entrar" | "primeiro-acesso">("entrar");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -36,8 +26,8 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) router.replace("/fluxo");
-  }, [loading, router, user]);
+    if (!loading && user && profile) router.replace(defaultPathForRole(profile.role));
+  }, [loading, profile, router, user]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,7 +40,6 @@ export default function LoginPage() {
       } else {
         await createFirstAccess({ name, email, password, role });
       }
-      router.replace("/fluxo");
     } catch (currentError) {
       setError(authErrorMessage(currentError));
     } finally {
@@ -92,7 +81,7 @@ export default function LoginPage() {
                   <label className="field">
                     <span>Função</span>
                     <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
-                      {roles.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                      {roleOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                     </select>
                   </label>
                 </>
