@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -1617,6 +1617,43 @@ export async function updateVehicleWashType({
     toLane: currentLane,
     actionBy,
     actionNote: `Tipo da lavagem atualizado para ${washTypeLabels[washType]}`,
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
+export async function saveVehicleRoadTestForm({
+  vehicleFlowId,
+  currentLane,
+  roadTestForm,
+  actionBy,
+}: {
+  vehicleFlowId: string;
+  currentLane: FlowLane;
+  roadTestForm: RoadTestFormData;
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+
+  batch.set(flowRef, {
+    roadTestForm: {
+      ...roadTestForm,
+      updatedBy: actionBy ?? "",
+      updatedAt: serverTimestamp(),
+    },
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(flowEventRef, {
+    vehicleFlowId,
+    fromLane: currentLane,
+    toLane: currentLane,
+    actionBy,
+    actionNote: "Ficha de teste de rodagem atualizada",
     createdAt: serverTimestamp(),
   });
 

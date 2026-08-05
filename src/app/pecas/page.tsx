@@ -198,16 +198,21 @@ function statusTone(status: PartOrderStatus) {
   return "";
 }
 
+function effectiveOrderStatus(order: PartOrder): PartOrderStatus {
+  return order.cancellationReason?.trim() ? "cancelado" : order.orderStatus;
+}
+
 function isWorkshopRequestedStatus(order: PartOrder) {
-  return order.orderStatus === "solicitado_oficina"
-    || order.orderStatus === "necessidade_identificada"
-    || order.orderStatus === "aguardando_pecas";
+  const status = effectiveOrderStatus(order);
+  return status === "solicitado_oficina"
+    || status === "necessidade_identificada"
+    || status === "aguardando_pecas";
 }
 
 function hasArrivalForecastWithoutAvailability(order: PartOrder) {
   return Boolean(order.expectedArrivalDate)
-    && order.orderStatus !== "disponivel"
-    && order.orderStatus !== "cancelado";
+    && effectiveOrderStatus(order) !== "disponivel"
+    && effectiveOrderStatus(order) !== "cancelado";
 }
 
 function sourceLabel(value?: PartOrderSource) {
@@ -352,11 +357,11 @@ export default function PecasPage() {
   }
 
   const availableOrders = useMemo(() => (
-    mergedOrders.filter((order) => order.orderStatus === "disponivel")
+    mergedOrders.filter((order) => effectiveOrderStatus(order) === "disponivel")
   ), [mergedOrders]);
 
   const canceledOrders = useMemo(() => (
-    mergedOrders.filter((order) => order.orderStatus === "cancelado")
+    mergedOrders.filter((order) => effectiveOrderStatus(order) === "cancelado")
   ), [mergedOrders]);
 
   const pendingOrders = useMemo(() => (
@@ -371,7 +376,7 @@ export default function PecasPage() {
     if (statusFilter === "solicitado_oficina") {
       return mergedOrders.filter(isWorkshopRequestedStatus);
     }
-    return mergedOrders.filter((order) => order.orderStatus === statusFilter);
+    return mergedOrders.filter((order) => effectiveOrderStatus(order) === statusFilter);
   }, [focusedOrderId, mergedOrders, pendingOrders, statusFilter]);
 
   const availableImmobilized = availableOrders.filter((order) => order.vehicleImmobilized);
@@ -380,16 +385,16 @@ export default function PecasPage() {
   const metrics = [
     { label: "pendências", value: pendingOrders.length, filter: "pendentes" as PartsFilter, state: "active" },
     { label: "solicitado oficina", value: mergedOrders.filter(isWorkshopRequestedStatus).length, filter: "solicitado_oficina" as PartsFilter, state: "" },
-    { label: "pedido realizado", value: mergedOrders.filter((order) => order.orderStatus === "pedido_realizado").length, filter: "pedido_realizado" as PartsFilter, state: "" },
-    { label: "B.O", value: mergedOrders.filter((order) => order.orderStatus === "back_order").length, filter: "back_order" as PartsFilter, state: "danger" },
+    { label: "pedido realizado", value: mergedOrders.filter((order) => effectiveOrderStatus(order) === "pedido_realizado").length, filter: "pedido_realizado" as PartsFilter, state: "" },
+    { label: "B.O", value: mergedOrders.filter((order) => effectiveOrderStatus(order) === "back_order").length, filter: "back_order" as PartsFilter, state: "danger" },
     { label: "VOR", value: mergedOrders.filter((order) => order.orderVor).length, filter: "vor" as PartsFilter, state: "danger" },
-    { label: "em trânsito", value: mergedOrders.filter((order) => order.orderStatus === "em_transito").length, filter: "em_transito" as PartsFilter, state: "" },
+    { label: "em trânsito", value: mergedOrders.filter((order) => effectiveOrderStatus(order) === "em_transito").length, filter: "em_transito" as PartsFilter, state: "" },
     { label: "disponíveis", value: availableOrders.length, filter: "disponivel" as PartsFilter, state: "" },
     { label: "cancelados", value: canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
   ];
 
   function classifyMobisReceiptByQuantity(fileName: string, invoiceNumber: string, items: MobisReceiptItem[]) {
-    const openOrders = mergedOrders.filter((order) => order.orderStatus !== "disponivel" && order.orderStatus !== "cancelado");
+    const openOrders = mergedOrders.filter((order) => effectiveOrderStatus(order) !== "disponivel" && effectiveOrderStatus(order) !== "cancelado");
     const safe: MobisReceiptMatch[] = [];
     const doubtful: MobisReceiptMatch[] = [];
     const notFound: MobisReceiptItem[] = [];
@@ -529,9 +534,9 @@ export default function PecasPage() {
       customerId: order.customerId ?? "",
       orderKind: order.orderKind ?? "",
       parts: orderParts(order),
-      orderStatus: order.orderStatus === "necessidade_identificada" || order.orderStatus === "aguardando_pecas"
+      orderStatus: effectiveOrderStatus(order) === "necessidade_identificada" || effectiveOrderStatus(order) === "aguardando_pecas"
         ? "solicitado_oficina"
-        : order.orderStatus,
+        : effectiveOrderStatus(order),
       orderSource: order.orderSource ?? "",
       orderNumber: order.orderNumber ?? "",
       orderVor: order.orderVor ?? false,
@@ -556,18 +561,19 @@ export default function PecasPage() {
   async function saveOrder(order: PartOrder) {
     const form = orderFormValues(order);
     const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
+    const nextOrderStatus: PartOrderStatus = form.cancellationReason.trim() ? "cancelado" : form.orderStatus;
 
-    if ((form.orderStatus === "pedido_realizado" || form.orderStatus === "back_order") && (!form.orderSource || !form.orderNumber.trim())) {
+    if ((nextOrderStatus === "pedido_realizado" || nextOrderStatus === "back_order") && (!form.orderSource || !form.orderNumber.trim())) {
       setError("Para marcar Pedido Realizado ou B.O, informe a origem e o número do pedido.");
       return;
     }
 
-    if (form.orderStatus === "em_transito" && (!form.invoiceNumber.trim() || !form.expectedArrivalDate)) {
+    if (nextOrderStatus === "em_transito" && (!form.invoiceNumber.trim() || !form.expectedArrivalDate)) {
       setError("Para marcar Em trânsito, informe a nota fiscal e confirme a previsão de chegada.");
       return;
     }
 
-    if (form.orderStatus === "cancelado" && !form.cancellationReason.trim()) {
+    if (nextOrderStatus === "cancelado" && !form.cancellationReason.trim()) {
       setError("Para cancelar um pedido, informe o motivo do cancelamento.");
       return;
     }
@@ -586,7 +592,7 @@ export default function PecasPage() {
         technicianName: order.technicianName,
         orderKind: form.orderKind || undefined,
         parts: validParts,
-        orderStatus: form.orderStatus,
+        orderStatus: nextOrderStatus,
         orderSource: form.orderSource || undefined,
         orderNumber: form.orderNumber,
         orderVor: form.orderVor,
@@ -597,32 +603,39 @@ export default function PecasPage() {
         updatedBy: profile?.name ?? user?.email ?? user?.uid,
       });
 
-      setOrders((current) => current.map((item) => (
-        item.id === order.id
-          ? {
-              ...item,
-              parts: validParts.map((part, index) => ({
-                id: part.id || `peca-${index + 1}`,
-                partReference: part.partReference?.trim().toUpperCase(),
-                partDescription: part.partDescription?.trim(),
-              })),
-              partReference: validParts[0]?.partReference?.trim().toUpperCase(),
-              partDescription: validParts[0]?.partDescription?.trim(),
-              customerId: form.customerId,
-              orderKind: form.orderKind || undefined,
-              orderStatus: form.orderStatus,
-              orderSource: form.orderSource || undefined,
-              orderNumber: form.orderNumber,
-              orderVor: form.orderVor,
-              orderDate: form.orderDate,
-              invoiceNumber: form.invoiceNumber,
-              expectedArrivalDate: form.expectedArrivalDate,
-              cancellationReason: form.cancellationReason,
-              updatedBy: profile?.name ?? user?.email ?? user?.uid,
-              updatedAt: new Date().toISOString(),
-            }
-          : item
-      )));
+      const updatedBy = profile?.name ?? user?.email ?? user?.uid;
+      const updatedOrder: PartOrder = {
+        ...order,
+        parts: validParts.map((part, index) => ({
+          id: part.id || `peca-${index + 1}`,
+          partReference: part.partReference?.trim().toUpperCase(),
+          partDescription: part.partDescription?.trim(),
+        })),
+        partReference: validParts[0]?.partReference?.trim().toUpperCase(),
+        partDescription: validParts[0]?.partDescription?.trim(),
+        customerId: form.customerId,
+        orderKind: form.orderKind || undefined,
+        orderStatus: nextOrderStatus,
+        orderSource: form.orderSource || undefined,
+        orderNumber: form.orderNumber,
+        orderVor: form.orderVor,
+        orderDate: form.orderDate,
+        invoiceNumber: form.invoiceNumber,
+        expectedArrivalDate: form.expectedArrivalDate,
+        cancellationReason: form.cancellationReason,
+        updatedBy,
+        updatedAt: new Date().toISOString(),
+      };
+
+      setOrders((current) => current.some((item) => item.id === order.id)
+        ? current.map((item) => item.id === order.id ? updatedOrder : item)
+        : [...current, updatedOrder]);
+
+      if (nextOrderStatus === "cancelado" && focusedOrderId && (focusedOrderId === order.id || focusedOrderId === order.vehicleFlowId)) {
+        window.history.replaceState(null, "", "/pecas");
+        setFocusedOrderId("");
+        setStatusFilter("pendentes");
+      }
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar o pedido.");
     } finally {
@@ -1129,7 +1142,7 @@ export default function PecasPage() {
                   </div>
                   <div className="parts-cell parts-duo-cell">
                     <div><span>Tipo</span><strong>{kindLabel(order.orderKind)}</strong></div>
-                    <div><span>Status</span><strong className={`tag ${statusTone(order.orderStatus)}`}>{statusLabels[order.orderStatus]}</strong></div>
+                    <div><span>Status</span><strong className={`tag ${statusTone(effectiveOrderStatus(order))}`}>{statusLabels[effectiveOrderStatus(order)]}</strong></div>
                   </div>
                   <div className="parts-cell parts-duo-cell">
                     <div><span>Origem</span><strong>{sourceLabel(order.orderSource)}</strong></div>
@@ -1169,7 +1182,7 @@ export default function PecasPage() {
                   <div className="parts-audit-box">
                     <div><span>Solicitado por</span><strong>{formatActionSignature(order.requestedBy, order.createdAt, "-")}</strong></div>
                     <div><span>Atualizado por</span><strong>{formatActionSignature(order.updatedBy || order.requestedBy, order.updatedAt, "-")}</strong></div>
-                    <div><span>Status atual</span><strong>{statusLabels[order.orderStatus]}</strong></div>
+                    <div><span>Status atual</span><strong>{statusLabels[effectiveOrderStatus(order)]}</strong></div>
                     <div><span>Pedido</span><strong>{order.orderNumber || "-"}</strong><small>{sourceLabel(order.orderSource)}</small></div>
                     <div><span>Nota / previsao</span><strong>{order.invoiceNumber || "-"}</strong><small>{formatDate(order.expectedArrivalDate)}</small></div>
                     <div><span>Cancelamento</span><strong>{order.cancellationReason || "-"}</strong></div>

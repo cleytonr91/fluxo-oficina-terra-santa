@@ -121,6 +121,30 @@ export interface DeliveryPromiseHistory {
   note?: string;
 }
 
+export interface RoadTestSection {
+  date: string;
+  kmOut: string;
+  kmIn: string;
+  departureTime: string;
+  arrivalTime: string;
+  impressions: [string, string];
+  performedBy: string;
+  accompaniedByClient?: boolean;
+  clientSignatureDataUrl?: string;
+  clientSignedAt?: FirestoreTimestamp;
+}
+
+export interface RoadTestFormData {
+  serviceOrder: string;
+  clientRequests: [string, string];
+  reception: RoadTestSection;
+  internal: RoadTestSection;
+  quality: RoadTestSection;
+  delivery: RoadTestSection;
+  updatedBy?: string;
+  updatedAt?: FirestoreTimestamp;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -194,6 +218,7 @@ export interface VehicleFlow {
   importedNotes?: string;
   roadTestRequired?: boolean;
   roadTestDone?: boolean;
+  roadTestForm?: RoadTestFormData;
   chiefPresenceRequired?: boolean;
   customerWaits: boolean;
   promisedDeliveryAt?: FirestoreTimestamp;

@@ -3,9 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
+import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
-import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, VehicleFlow, WashType } from "@/types/domain";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, saveVehicleRoadTestForm, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
   { id: "preparacao_confirmada", label: "Agendamento do Dia" },
@@ -83,6 +84,7 @@ const manual: ManualContent = {
     "Informe consultor que recebeu, se cliente aguarda, previsão prometida, lavagem e observação.",
     "Avance o chip conforme a execução: aguardando serviço, em serviço, orçamento, lavagem, preparação de entrega e entregue.",
     "Use o detalhe do chip para corrigir etapa, alterar previsão, placa, técnico, serviço ou registrar pedido de peças.",
+    "No detalhe do chip, use a Ficha de Teste de Rodagem para registrar os testes, coletar a assinatura do cliente e exportar o PDF.",
     "Na entrega, registre prazo, NPS, pendência e observação futura. Pedido de peças é avisado automaticamente quando já foi lançado no chip.",
   ],
   rules: [
@@ -294,15 +296,6 @@ function formatDateTime(value: unknown) {
   }).format(date);
 }
 
-function formatTime(value: unknown) {
-  const date = toDate(value);
-  if (!date) return "-";
-  return new Intl.DateTimeFormat("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-}
-
 function formatActionSignature(actionBy: string | undefined, value: unknown, fallback = "Operador") {
   const operator = actionBy || fallback;
   const date = toDate(value);
@@ -442,7 +435,7 @@ function timeProgress(vehicle: VehicleFlow, now: Date) {
   const minutes = remainingMinutes % 60;
   const timeText = hours > 0 ? `${hours}h${String(minutes).padStart(2, "0")}` : `${minutes}min`;
 
-  const promisedTime = formatTime(promised);
+  const promisedTime = formatDateTime(promised);
 
   if (remainingMs < 0) return { percent: 100, status: "late", label: `Atrasado ${timeText}`, promisedTime };
   if (remainingMs <= 90 * 60000) return { percent, status: "warn", label: `Atenção ${timeText}`, promisedTime };
@@ -607,16 +600,6 @@ function FlowChip({
         </div>
       )}
 
-      <button
-        className={`chip-info-btn ${onAdvance ? "" : "alone"}`}
-        type="button"
-        aria-label={`Ver detalhes de ${vehicle.clientName ?? "veículo"}`}
-        title="Informações do veículo"
-        onClick={() => onDetails(vehicle)}
-      >
-        i
-      </button>
-
       {onAdvance && (
         <button
           className="chip-move-btn"
@@ -650,6 +633,7 @@ export default function FluxoPage() {
   const [lastSyncAt, setLastSyncAt] = useState<Date | null>(null);
   const [receivingVehicle, setReceivingVehicle] = useState<VehicleFlow | null>(null);
   const [detailVehicle, setDetailVehicle] = useState<VehicleFlow | null>(null);
+  const [roadTestVehicle, setRoadTestVehicle] = useState<VehicleFlow | null>(null);
   const [detailEvents, setDetailEvents] = useState<FlowEvent[]>([]);
   const [recentFlowEvents, setRecentFlowEvents] = useState<FlowEvent[]>([]);
   const [detailEventsLoading, setDetailEventsLoading] = useState(false);
@@ -1476,6 +1460,34 @@ export default function FluxoPage() {
     } finally {
       setMovingId("");
     }
+  }
+
+  async function saveRoadTestForm(roadTestForm: RoadTestFormData) {
+    if (!roadTestVehicle) return;
+
+    const actionBy = profile?.name ?? user?.email ?? user?.uid;
+    await saveVehicleRoadTestForm({
+      vehicleFlowId: roadTestVehicle.id,
+      currentLane: roadTestVehicle.currentLane,
+      roadTestForm,
+      actionBy,
+    });
+
+    const savedRoadTestForm: RoadTestFormData = {
+      ...roadTestForm,
+      updatedBy: actionBy,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setVehicles((current) => current.map((vehicle) => (
+      vehicle.id === roadTestVehicle.id ? { ...vehicle, roadTestForm: savedRoadTestForm } : vehicle
+    )));
+    setDetailVehicle((current) => current?.id === roadTestVehicle.id
+      ? { ...current, roadTestForm: savedRoadTestForm }
+      : current);
+    setRoadTestVehicle((current) => current
+      ? { ...current, roadTestForm: savedRoadTestForm }
+      : current);
   }
 
   function correctionOperationalState(toLane: FlowLane) {
@@ -2506,6 +2518,16 @@ export default function FluxoPage() {
               <div className="detail"><span>Status da lavagem</span>{washStatusText(detailVehicle)}</div>
             </div>
 
+            <section className="history-box road-test-entry-box">
+              <div>
+                <h3>Ficha de Teste de Rodagem</h3>
+                <p>{detailVehicle.roadTestForm ? "Ficha iniciada e vinculada ao chip." : "Preencha o teste, colete a assinatura do cliente e gere o PDF."}</p>
+              </div>
+              <button type="button" className="primary-btn" onClick={() => setRoadTestVehicle(detailVehicle)}>
+                {detailVehicle.roadTestForm ? "Abrir ficha" : "Preencher ficha"}
+              </button>
+            </section>
+
             <section className="history-box">
               <h3>Placa do veículo</h3>
               <div className="correction-grid">
@@ -2810,6 +2832,14 @@ export default function FluxoPage() {
         </div>
       )}
 
+      {roadTestVehicle && (
+        <RoadTestFormModal
+          vehicle={roadTestVehicle}
+          onClose={() => setRoadTestVehicle(null)}
+          onSave={saveRoadTestForm}
+        />
+      )}
+
       {budgetRequestVehicle && (
         <div className="modal-backdrop" role="presentation">
           <form className="flow-modal" onSubmit={submitBudgetRequest}>
@@ -2864,7 +2894,7 @@ export default function FluxoPage() {
                       type="button"
                       className="ghost-btn"
                       disabled={movingId === sendVehicle.id}
-                      onClick={() => moveToLane(sendVehicle, "aguardando_lavagem", "Lavagem antecipada solicitada antes do serviço", {
+                      onClick={() => moveToLane(sendVehicle, "lavagem", "Lavagem antecipada iniciada antes do serviço", {
                         serviceCompleted: false,
                         washingAdvanced: true,
                         washDone: false,
@@ -3014,7 +3044,7 @@ export default function FluxoPage() {
                 className="ghost-btn"
                 disabled={movingId === budgetReturnVehicle.id}
                 onClick={() => {
-                  moveToLane(budgetReturnVehicle, "aguardando_lavagem", "Lavagem antecipada solicitada durante orçamento complementar", {
+                  moveToLane(budgetReturnVehicle, "lavagem", "Lavagem antecipada iniciada durante orçamento complementar", {
                     serviceCompleted: false,
                     washingAdvanced: true,
                     washDone: false,

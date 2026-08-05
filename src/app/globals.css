@@ -1470,7 +1470,7 @@ textarea {
   display: grid;
   gap: 7px;
   margin-top: 8px;
-  padding-right: 68px;
+  padding-right: 42px;
 }
 
 .time-bar-top {
@@ -1533,8 +1533,7 @@ textarea {
   color: #a76712;
 }
 
-.chip-move-btn,
-.chip-info-btn {
+.chip-move-btn {
   position: absolute;
   bottom: 8px;
   display: grid;
@@ -1559,18 +1558,7 @@ textarea {
   font-size: 24px;
 }
 
-.chip-info-btn {
-  right: 42px;
-  font-size: 14px;
-  font-style: italic;
-}
-
-.chip-info-btn.alone {
-  right: 8px;
-}
-
-.chip-move-btn:hover,
-.chip-info-btn:hover {
+.chip-move-btn:hover {
   border-color: var(--teal);
   background: #eef9fc;
   color: var(--blue);
@@ -1879,6 +1867,201 @@ textarea {
   overflow-y: auto;
 }
 
+.road-test-entry-box {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.road-test-entry-box p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.road-test-backdrop {
+  z-index: 60;
+}
+
+.road-test-modal {
+  width: min(940px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+  overflow: hidden;
+}
+
+.road-test-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.road-test-summary > div,
+.road-test-order-field {
+  min-width: 0;
+  border: 1px solid #d2dce5;
+  border-radius: 6px;
+  background: #f4f7fa;
+  padding: 8px;
+}
+
+.road-test-summary > div span,
+.road-test-summary > div strong {
+  display: block;
+}
+
+.road-test-summary > div span,
+.field-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.road-test-summary > div strong {
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.road-test-order-field {
+  grid-column: 1 / -1;
+  padding: 6px 8px;
+}
+
+.road-test-order-field input {
+  min-height: 36px;
+  background: #fff;
+}
+
+.road-test-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #c6d3de;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.road-test-tabs button {
+  min-height: 42px;
+  border: 0;
+  border-right: 1px solid #c6d3de;
+  background: #fff;
+  color: #24415d;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.road-test-tabs button:last-child {
+  border-right: 0;
+}
+
+.road-test-tabs button.active {
+  background: #003f7d;
+  color: #fff;
+}
+
+.road-test-scroll {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.road-test-section {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d2dce5;
+  border-radius: 7px;
+  background: #fbfcfd;
+  padding: 12px;
+}
+
+.road-test-section + .road-test-section {
+  margin-top: 10px;
+}
+
+.road-test-section h3 {
+  margin: 0;
+  color: #003f7d;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.road-test-trip-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.road-test-impressions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.road-test-impressions textarea,
+.road-test-section > .field textarea {
+  min-height: 76px;
+}
+
+.road-test-client-signature {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.45fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  border-top: 1px solid #d2dce5;
+  padding-top: 12px;
+}
+
+.road-test-client-signature small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.signature-box {
+  position: relative;
+  margin-top: 5px;
+  border: 1px solid #9fb3c5;
+  border-radius: 6px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.signature-canvas {
+  display: block;
+  width: 100%;
+  height: 150px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.signature-clear-btn {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  min-height: 30px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 5px 8px;
+  font-size: 10px;
+}
+
+.road-test-message {
+  margin: 0;
+  color: #205d3c;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.road-test-actions {
+  border-top: 1px solid #d2dce5;
+  padding-top: 12px;
+}
+
 .modal-detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
@@ -2116,6 +2299,68 @@ textarea {
   .promise-update-grid,
   .correction-grid {
     grid-template-columns: 1fr;
+  }
+
+  .road-test-entry-box,
+  .road-test-summary,
+  .road-test-trip-grid,
+  .road-test-impressions,
+  .road-test-client-signature {
+    grid-template-columns: 1fr;
+  }
+
+  .road-test-entry-box .primary-btn,
+  .road-test-order-field {
+    grid-column: auto;
+    width: 100%;
+  }
+
+  .road-test-modal {
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+    max-height: calc(100dvh - 12px);
+    padding: 10px;
+  }
+
+  .road-test-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .road-test-order-field {
+    grid-column: 1 / -1;
+  }
+
+  .road-test-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .road-test-tabs button:nth-child(2) {
+    border-right: 0;
+  }
+
+  .road-test-tabs button:nth-child(-n + 2) {
+    border-bottom: 1px solid #c6d3de;
+  }
+
+  .road-test-trip-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .road-test-trip-grid .field:first-child {
+    grid-column: span 2;
+  }
+
+  .signature-canvas {
+    height: 180px;
+  }
+
+  .road-test-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .road-test-actions .primary-btn {
+    grid-column: span 2;
   }
 }
 
