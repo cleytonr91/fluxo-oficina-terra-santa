@@ -244,6 +244,10 @@ export interface VehicleFlow {
   futureNote?: string;
   noShow?: boolean;
   noShowAt?: FirestoreTimestamp;
+  vehicleImmobilized?: boolean;
+  immobilizationReason?: "aguardando_pecas" | "aguardando_decisao";
+  immobilizationUpdatedBy?: string;
+  immobilizationUpdatedAt?: FirestoreTimestamp;
   status: "ativo" | "entregue" | "cancelado";
   createdAt: FirestoreTimestamp;
   updatedAt: FirestoreTimestamp;

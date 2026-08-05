@@ -177,8 +177,11 @@ export default function AgendamentoPage() {
   }, [vehicles]);
 
   const availableOrders = useMemo(() => (
-    orders.filter((order) => order.orderStatus === "disponivel" && !order.vehicleImmobilized)
-  ), [orders]);
+    orders.filter((order) => (
+      order.orderStatus === "disponivel"
+      && !vehiclesById.get(order.vehicleFlowId)?.vehicleImmobilized
+    ))
+  ), [orders, vehiclesById]);
 
   const filteredOrders = useMemo(() => {
     const query = normalizeSearch(search);
@@ -293,7 +296,8 @@ export default function AgendamentoPage() {
               const phoneUrl = whatsappUrl(vehicle?.phone);
               const parts = orderParts(order);
               const dueContact = isDue(order.nextContactAt);
-              const canSchedule = order.orderStatus === "disponivel" && !order.vehicleImmobilized;
+              const vehicleImmobilized = vehiclesById.get(order.vehicleFlowId)?.vehicleImmobilized ?? false;
+              const canSchedule = order.orderStatus === "disponivel" && !vehicleImmobilized;
 
               return (
                 <article key={order.id} className={`scheduling-card ${dueContact ? "attention" : ""}`}>
@@ -335,7 +339,7 @@ export default function AgendamentoPage() {
                         Agendar
                       </button>
                     ) : (
-                      <span className="tag">{order.vehicleImmobilized ? "Imobilizado" : "Consulta"}</span>
+                      <span className="tag">{vehicleImmobilized ? "Imobilizado" : "Consulta"}</span>
                     )}
                   </div>
                 </article>

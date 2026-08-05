@@ -123,7 +123,6 @@ type SavePartOrderInput = {
   parts: PartOrderItem[];
   partReference?: string;
   partDescription?: string;
-  vehicleImmobilized?: boolean;
   actionBy?: string;
 };
 
@@ -268,7 +267,6 @@ type UpdatePartOrderInput = {
 
 export type CreateStandalonePartOrderInput = Omit<UpdatePartOrderInput, "orderId"> & {
   plate?: string;
-  vehicleImmobilized?: boolean;
 };
 
 type RegisterPartSchedulingActionInput = {
@@ -887,7 +885,6 @@ export async function savePartOrder({
   parts,
   partReference,
   partDescription,
-  vehicleImmobilized,
   actionBy,
 }: SavePartOrderInput) {
   const db = getFirebaseDb();
@@ -919,7 +916,6 @@ export async function savePartOrder({
     partReference: normalizedReference,
     partDescription: normalizedDescription,
     orderStatus: "solicitado_oficina",
-    vehicleImmobilized: vehicleImmobilized ?? false,
     requestedBy: actionBy,
     updatedBy: actionBy,
     createdAt: serverTimestamp(),
@@ -1063,7 +1059,6 @@ export async function createStandalonePartOrder({
   invoiceNumber,
   expectedArrivalDate,
   cancellationReason,
-  vehicleImmobilized,
   updatedBy,
 }: CreateStandalonePartOrderInput) {
   const db = getFirebaseDb();
@@ -1095,7 +1090,6 @@ export async function createStandalonePartOrder({
     invoiceNumber: invoiceNumber?.trim().toUpperCase(),
     expectedArrivalDate: expectedArrivalDate || undefined,
     cancellationReason: cancellationReason?.trim(),
-    vehicleImmobilized: vehicleImmobilized ?? false,
     requestedBy: updatedBy,
     updatedBy,
     createdAt: serverTimestamp(),
@@ -1440,6 +1434,53 @@ export async function updatePromisedDelivery({
     toLane: currentLane,
     actionBy,
     actionNote: actionNote || "Nova previsão de entrega",
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
+export async function updateVehicleImmobilization({
+  vehicleFlowId,
+  currentLane,
+  vehicleImmobilized,
+  immobilizationReason,
+  actionBy,
+}: {
+  vehicleFlowId: string;
+  currentLane: FlowLane;
+  vehicleImmobilized: boolean;
+  immobilizationReason?: "aguardando_pecas" | "aguardando_decisao";
+  actionBy?: string;
+}) {
+  if (vehicleImmobilized && !immobilizationReason) {
+    throw new Error("Informe o motivo da imobilização do veículo.");
+  }
+
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+  const reasonLabel = immobilizationReason === "aguardando_pecas"
+    ? "Aguardando Peças"
+    : "Aguardando Decisão";
+
+  batch.set(flowRef, {
+    vehicleImmobilized,
+    immobilizationReason: vehicleImmobilized ? immobilizationReason : null,
+    immobilizationUpdatedBy: actionBy,
+    immobilizationUpdatedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(flowEventRef, {
+    vehicleFlowId,
+    fromLane: currentLane,
+    toLane: currentLane,
+    actionBy,
+    actionNote: vehicleImmobilized
+      ? `Veículo imobilizado: ${reasonLabel}`
+      : "Veículo removido da lista de imobilizados",
     createdAt: serverTimestamp(),
   });
 

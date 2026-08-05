@@ -24,7 +24,6 @@ type PartOrderFormFields = {
 type StandalonePartOrderFormFields = PartOrderFormFields & {
   clientName: string;
   plate: string;
-  vehicleImmobilized: boolean;
 };
 
 const statusLabels: Record<PartOrderStatus, string> = {
@@ -76,7 +75,6 @@ const emptyStandalonePartOrder: StandalonePartOrderFormFields = {
   invoiceNumber: "",
   expectedArrivalDate: "",
   cancellationReason: "",
-  vehicleImmobilized: false,
 };
 
 const manual: ManualContent = {
@@ -329,7 +327,6 @@ export default function PecasPage() {
         technicianName: vehicle.technicianName,
         parts: [{ id: "peca-1", partReference: "", partDescription: vehicle.partsNote ?? "" }],
         orderStatus: "solicitado_oficina",
-        vehicleImmobilized: false,
         createdAt: vehicle.createdAt,
         updatedAt: vehicle.updatedAt,
       }));
@@ -379,8 +376,11 @@ export default function PecasPage() {
     return mergedOrders.filter((order) => effectiveOrderStatus(order) === statusFilter);
   }, [focusedOrderId, mergedOrders, pendingOrders, statusFilter]);
 
-  const availableImmobilized = availableOrders.filter((order) => order.vehicleImmobilized);
-  const availableScheduling = availableOrders.filter((order) => !order.vehicleImmobilized);
+  const isOrderVehicleImmobilized = (order: PartOrder) => (
+    vehiclesById.get(order.vehicleFlowId)?.vehicleImmobilized ?? false
+  );
+  const availableImmobilized = availableOrders.filter(isOrderVehicleImmobilized);
+  const availableScheduling = availableOrders.filter((order) => !isOrderVehicleImmobilized(order));
 
   const metrics = [
     { label: "pendências", value: pendingOrders.length, filter: "pendentes" as PartsFilter, state: "active" },
@@ -684,7 +684,6 @@ export default function PecasPage() {
         invoiceNumber: standaloneForm.invoiceNumber,
         expectedArrivalDate: standaloneForm.expectedArrivalDate,
         cancellationReason: standaloneForm.cancellationReason,
-        vehicleImmobilized: standaloneForm.vehicleImmobilized,
         updatedBy: profile?.name ?? user?.email ?? user?.uid,
       });
       setStandaloneForm({ ...emptyStandalonePartOrder, parts: [{ id: "peca-1", partReference: "", partDescription: "" }] });
@@ -934,8 +933,6 @@ export default function PecasPage() {
               </div>
 
               <label className="inline-check parts-vor-check"><input type="checkbox" checked={standaloneForm.orderVor} onChange={(event) => setStandaloneForm((current) => ({ ...current, orderVor: event.target.checked }))} /><span>Pedido VOR</span></label>
-              <label className="inline-check parts-vor-check"><input type="checkbox" checked={standaloneForm.vehicleImmobilized} onChange={(event) => setStandaloneForm((current) => ({ ...current, vehicleImmobilized: event.target.checked }))} /><span>Veículo imobilizado</span></label>
-
               {standaloneForm.orderStatus === "cancelado" && <label className="field"><span>Motivo do cancelamento</span><textarea value={standaloneForm.cancellationReason} onChange={(event) => setStandaloneForm((current) => ({ ...current, cancellationReason: event.target.value }))} /></label>}
 
               <div className="modal-actions">
@@ -1158,7 +1155,7 @@ export default function PecasPage() {
                   </div>
                   <div className="parts-cell parts-duo-cell">
                     <div><span>Previsão</span><strong>{formatDate(order.expectedArrivalDate)}</strong></div>
-                    <div><span>Imobilizado</span><strong>{order.vehicleImmobilized ? "Sim" : "Não"}</strong></div>
+                    <div><span>Imobilizado</span><strong>{isOrderVehicleImmobilized(order) ? "Sim" : "Não"}</strong></div>
                   </div>
                   <div className="parts-cell parts-duo-cell">
                     <div><span>Consultor</span><strong>{order.consultantName || "-"}</strong></div>
@@ -1167,7 +1164,7 @@ export default function PecasPage() {
                   <div className="parts-cell"><span>Atualizado</span><strong>{formatActionSignature(order.updatedBy || order.requestedBy, order.updatedAt, "-")}</strong></div>
                 </div>
 
-                {order.vehicleImmobilized && <span className="tag bad">Veículo imobilizado</span>}
+                {isOrderVehicleImmobilized(order) && <span className="tag bad">Veículo imobilizado</span>}
                 {order.cancellationReason && <p className="parts-note"><strong>Cancelamento:</strong> {order.cancellationReason}</p>}
 
                 <div className="parts-actions-row">

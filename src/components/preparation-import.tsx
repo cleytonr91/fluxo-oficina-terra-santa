@@ -267,12 +267,15 @@ export function PreparationImport() {
 
   const availableImmobilizedOrders = useMemo(() => {
     return partOrders
-      .filter((order) => order.orderStatus === "disponivel" && order.vehicleImmobilized)
       .map((order) => ({
         order,
         vehicle: flowVehicles.find((vehicle) => vehicle.id === order.vehicleFlowId),
       }))
-      .filter(({ vehicle }) => vehicle?.status !== "cancelado")
+      .filter(({ order, vehicle }) => (
+        order.orderStatus === "disponivel"
+        && vehicle?.vehicleImmobilized
+        && vehicle.status !== "cancelado"
+      ))
       .sort((a, b) => String(a.order.expectedArrivalDate ?? a.order.updatedAt ?? "").localeCompare(String(b.order.expectedArrivalDate ?? b.order.updatedAt ?? "")));
   }, [flowVehicles, partOrders]);
 

@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, saveVehicleRoadTestForm, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, saveVehicleRoadTestForm, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -171,7 +171,11 @@ type WashForm = {
 type PartOrderForm = {
   customerId: string;
   parts: PartOrderItem[];
+};
+
+type ImmobilizationForm = {
   vehicleImmobilized: boolean;
+  immobilizationReason: "" | "aguardando_pecas" | "aguardando_decisao";
 };
 
 type BudgetRequestForm = {
@@ -567,16 +571,10 @@ function FlowChip({
         {vehicle.washingAdvanced && vehicle.washDone && !vehicle.serviceCompleted && <span className="tag warn">Lavagem feita</span>}
         {vehicle.budgetAuthorized && <span className="tag good">ORÇ Complementar 👍</span>}
         {isActiveNoShow(vehicle) && <span className="tag bad">NO-SHOW</span>}
-        {immobilized && <span className="tag bad">Imobilizado</span>}
         {immobilized && (
-          <a
-            className="tag parts-shortcut"
-            href={`/pecas?pedido=${encodeURIComponent(vehicle.id)}`}
-            onClick={(event) => event.stopPropagation()}
-            title="Ver andamento do pedido de peças"
-          >
-            Pedido de peças
-          </a>
+          <span className="tag bad">
+            Imobilizado · {vehicle.immobilizationReason === "aguardando_pecas" ? "Aguardando Peças" : "Aguardando Decisão"}
+          </span>
         )}
         {vehicle.budgetStatus === "realizado" && <span className="tag">{partAvailabilityIcon(vehicle.partAvailability)} Peças</span>}
         {vehicle.currentLane === "entregue" && typeof vehicle.internalNps === "number" && <span className="tag">NPS {vehicle.internalNps}</span>}
@@ -619,6 +617,7 @@ export default function FluxoPage() {
   const { profile, user } = useAuth();
   const canDeleteChip = profile?.role === "admin" || profile?.role === "gerente";
   const canEditConsultant = profile?.role === "admin" || profile?.role === "gerente";
+  const canManageImmobilization = profile?.role === "admin" || profile?.role === "gerente" || profile?.role === "chefe_oficina";
   const canReducePromisedDelivery = profile?.role === "admin" || profile?.role === "gerente" || user?.email === "cleyton91@gmail.com";
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
@@ -668,7 +667,10 @@ export default function FluxoPage() {
   const [partOrderForm, setPartOrderForm] = useState<PartOrderForm>({
     customerId: "",
     parts: [{ id: "peca-1", partReference: "", partDescription: "" }],
+  });
+  const [immobilizationForm, setImmobilizationForm] = useState<ImmobilizationForm>({
     vehicleImmobilized: false,
+    immobilizationReason: "",
   });
   const [budgetRequestForm, setBudgetRequestForm] = useState<BudgetRequestForm>({ note: "" });
   const [budgetCompleteForm, setBudgetCompleteForm] = useState<BudgetCompleteForm>({
@@ -760,9 +762,9 @@ export default function FluxoPage() {
     return mapped;
   }, [partOrders]);
 
-  const immobilizedVehicleIds = useMemo(() => {
-    return new Set(partOrders.filter((order) => order.vehicleImmobilized).map((order) => order.vehicleFlowId));
-  }, [partOrders]);
+  const immobilizedVehicleIds = useMemo(() => (
+    new Set(vehicles.filter((vehicle) => vehicle.vehicleImmobilized).map((vehicle) => vehicle.id))
+  ), [vehicles]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 60000);
@@ -854,7 +856,10 @@ export default function FluxoPage() {
       parts: existingPartOrder?.parts?.length
         ? existingPartOrder.parts
         : [{ id: "peca-1", partReference: existingPartOrder?.partReference ?? "", partDescription: existingPartOrder?.partDescription ?? "" }],
-      vehicleImmobilized: existingPartOrder?.vehicleImmobilized ?? false,
+    });
+    setImmobilizationForm({
+      vehicleImmobilized: vehicle.vehicleImmobilized ?? false,
+      immobilizationReason: vehicle.immobilizationReason ?? "",
     });
     setPromiseForm({
       promisedDeliveryAt: "",
@@ -1794,6 +1799,42 @@ export default function FluxoPage() {
     }
   }
 
+  async function submitImmobilizationUpdate() {
+    if (!detailVehicle || !canManageImmobilization) return;
+    if (immobilizationForm.vehicleImmobilized && !immobilizationForm.immobilizationReason) {
+      setError("Selecione Aguardando Peças ou Aguardando Decisão.");
+      return;
+    }
+
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await updateVehicleImmobilization({
+        vehicleFlowId: detailVehicle.id,
+        currentLane: detailVehicle.currentLane,
+        vehicleImmobilized: immobilizationForm.vehicleImmobilized,
+        immobilizationReason: immobilizationForm.immobilizationReason || undefined,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+
+      const patch = {
+        vehicleImmobilized: immobilizationForm.vehicleImmobilized,
+        immobilizationReason: immobilizationForm.vehicleImmobilized
+          ? immobilizationForm.immobilizationReason || undefined
+          : undefined,
+      } as const;
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === detailVehicle.id ? { ...vehicle, ...patch } : vehicle
+      )));
+      setDetailVehicle((current) => current ? { ...current, ...patch } : current);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível atualizar a imobilização.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   function updatePartOrderItem(partId: string, patch: Partial<PartOrderItem>) {
     setPartOrderForm((current) => ({
       ...current,
@@ -1839,7 +1880,6 @@ export default function FluxoPage() {
         vehicle: detailVehicle,
         customerId: partOrderForm.customerId,
         parts: validParts,
-        vehicleImmobilized: partOrderForm.vehicleImmobilized,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
       });
 
@@ -1859,7 +1899,6 @@ export default function FluxoPage() {
         partReference: validParts[0]?.partReference?.trim().toUpperCase(),
         partDescription: validParts[0]?.partDescription?.trim(),
         orderStatus: "solicitado_oficina",
-        vehicleImmobilized: partOrderForm.vehicleImmobilized,
         requestedBy: profile?.name ?? user?.email ?? user?.uid,
         updatedBy: profile?.name ?? user?.email ?? user?.uid,
         createdAt: new Date().toISOString(),
@@ -2656,25 +2695,65 @@ export default function FluxoPage() {
             </section>
 
             <section className="history-box">
-              <h3>Pedido de peças</h3>
+              <h3>Veículo imobilizado</h3>
               <div className="correction-grid">
                 <label className="field">
-                  <span>ID Cliente</span>
-                  <input
-                    value={partOrderForm.customerId}
-                    placeholder="Preencher se necessário"
-                    onChange={(event) => setPartOrderForm((current) => ({ ...current, customerId: event.target.value.toUpperCase() }))}
-                  />
+                  <span>Imobilizado?</span>
+                  <select
+                    value={immobilizationForm.vehicleImmobilized ? "sim" : "nao"}
+                    disabled={!canManageImmobilization}
+                    onChange={(event) => setImmobilizationForm((current) => ({
+                      ...current,
+                      vehicleImmobilized: event.target.value === "sim",
+                      immobilizationReason: event.target.value === "sim" ? current.immobilizationReason : "",
+                    }))}
+                  >
+                    <option value="nao">Não</option>
+                    <option value="sim">Sim</option>
+                  </select>
                 </label>
-                <label className="modal-check">
-                  <input
-                    type="checkbox"
-                    checked={partOrderForm.vehicleImmobilized}
-                    onChange={(event) => setPartOrderForm((current) => ({ ...current, vehicleImmobilized: event.target.checked }))}
-                  />
-                  Veículo imobilizado
-                </label>
+                {immobilizationForm.vehicleImmobilized && (
+                  <label className="field">
+                    <span>Motivo</span>
+                    <select
+                      value={immobilizationForm.immobilizationReason}
+                      disabled={!canManageImmobilization}
+                      onChange={(event) => setImmobilizationForm((current) => ({
+                        ...current,
+                        immobilizationReason: event.target.value as ImmobilizationForm["immobilizationReason"],
+                      }))}
+                    >
+                      <option value="">Selecionar motivo</option>
+                      <option value="aguardando_pecas">Aguardando Peças</option>
+                      <option value="aguardando_decisao">Aguardando Decisão</option>
+                    </select>
+                  </label>
+                )}
               </div>
+              {canManageImmobilization ? (
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  disabled={movingId === detailVehicle.id || (immobilizationForm.vehicleImmobilized && !immobilizationForm.immobilizationReason)}
+                  onClick={submitImmobilizationUpdate}
+                >
+                  {movingId === detailVehicle.id ? "Salvando..." : "Salvar imobilização"}
+                </button>
+              ) : (
+                <p>Somente chefe de oficina, gerente ou administrador pode alterar esta informação.</p>
+              )}
+            </section>
+
+            <section className="history-box">
+              <h3>Pedido de peças</h3>
+              <label className="field">
+                <span>ID Cliente</span>
+                <input
+                  value={partOrderForm.customerId}
+                  placeholder="Preencher se necessário"
+                  onChange={(event) => setPartOrderForm((current) => ({ ...current, customerId: event.target.value.toUpperCase() }))}
+                />
+              </label>
               <div className="parts-items">
                 {partOrderForm.parts.map((part, index) => (
                   <div key={part.id} className="part-item-row">

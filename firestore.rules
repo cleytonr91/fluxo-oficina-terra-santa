@@ -52,7 +52,23 @@ service cloud.firestore {
 
     match /vehiclesFlow/{document} {
       allow read: if operations();
-      allow write: if operations();
+      allow create: if operations()
+        && (hasRole(['admin', 'gerente', 'chefe_oficina'])
+          || !request.resource.data.keys().hasAny([
+            'vehicleImmobilized',
+            'immobilizationReason',
+            'immobilizationUpdatedBy',
+            'immobilizationUpdatedAt'
+          ]));
+      allow update: if operations()
+        && (hasRole(['admin', 'gerente', 'chefe_oficina'])
+          || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'vehicleImmobilized',
+            'immobilizationReason',
+            'immobilizationUpdatedBy',
+            'immobilizationUpdatedAt'
+          ]));
+      allow delete: if false;
     }
 
     match /walkInCustomers/{document} {
