@@ -44,7 +44,16 @@ flowchart LR
 
 - Projeto Vercel: `fluxo-oficina-terra-santa`.
 - Repositorio GitHub: `cleytonr91/fluxo-oficina-terra-santa`.
+- Versao operacional consolidada na branch `main`, commit `46564d2`.
+- Diretorio local e repositorio remoto sincronizados em 05/08/2026.
 - Verificacoes locais: ESLint, TypeScript e build de producao.
+
+### Avancos de governanca ja concluidos
+
+- Ficha de teste de rodagem, PDF original, ajustes do fluxo, correcoes de pecas, regras do Firebase e documentacao registrados no GitHub.
+- Regras permanentes do Realtime Database versionadas e publicadas, bloqueando leitura e escrita no banco que nao e utilizado.
+- Arquivos de ambiente e vinculos locais da Vercel permanecem fora do repositorio.
+- Ultimo conjunto consolidado aprovado em lint, verificacao TypeScript e build de producao.
 
 ## 3. Como a atualizacao em tempo real funciona
 
@@ -145,18 +154,18 @@ Estes itens devem ser apresentados como backlog tecnico, nao como funcionalidade
 
 ### Prioridade alta
 
-1. Sincronizar integralmente a versao atual de producao com o GitHub.
-   - A producao recebeu publicacoes diretas do ambiente local.
-   - Existem alteracoes implantadas que ainda nao estao registradas em commit no repositorio.
-   - Recomendacao: producao somente por merge na branch principal e deploy automatico da Vercel.
-
-2. Tornar as regras do Firestore mais granulares.
+1. Tornar as regras do Firestore mais granulares.
    - Hoje algumas colecoes centrais, como `vehiclesFlow` e `flowEvents`, aceitam escrita de varios perfis operacionais.
    - A interface limita as acoes por funcao, mas a regra de banco deve validar tambem quais campos e transicoes cada funcao pode alterar.
 
-3. Implantar ambiente separado de homologacao.
+2. Implantar ambiente separado de homologacao.
    - Atualmente nao ha evidencia de projeto Firebase e dominio de homologacao separados da producao.
    - Mudancas devem ser validadas em homologacao antes de promover para producao.
+
+3. Formalizar o fluxo de publicacao.
+   - A versao atual esta consolidada e sincronizada com o GitHub.
+   - O processo futuro ainda deve exigir branch de trabalho, revisao, testes, merge e deploy automatico da Vercel.
+   - Publicacao direta do ambiente local deve deixar de ser o procedimento normal.
 
 4. Formalizar backup e restauracao.
    - Confirmar ou habilitar backup agendado/PITR do Firestore.
@@ -253,8 +262,8 @@ Ainda nao. Syonet e Route usam importacao de arquivos. O caminho do LINX esta ma
 
 ### Como e feita uma nova versao?
 
-Hoje o codigo esta no GitHub e a aplicacao na Vercel, mas o fluxo deve ser formalizado para: branch de trabalho, revisao, testes, homologacao, merge e deploy automatico em producao.
+A versao operacional atual esta consolidada na `main` do GitHub e a aplicacao esta hospedada na Vercel. O proximo passo de governanca e formalizar o processo futuro com branch de trabalho, revisao, testes, homologacao, merge e deploy automatico em producao.
 
 ## 13. Mensagem recomendada para a reuniao
 
-O sistema ja valida o processo operacional e demonstra ganho de visibilidade em tempo real. A proxima fase nao e refazer o produto, mas profissionalizar sua governanca tecnica: consolidar versionamento, homologacao, regras de menor privilegio, backup, testes e monitoramento. A participacao da Tecnologia e importante justamente para transformar uma solucao operacional validada em uma plataforma corporativa sustentavel.
+O sistema ja valida o processo operacional, demonstra ganho de visibilidade em tempo real e agora possui a versao operacional consolidada no GitHub. A proxima fase nao e refazer o produto, mas profissionalizar sua governanca tecnica: homologacao, publicacao automatizada, regras de menor privilegio, backup, testes e monitoramento. A participacao da Tecnologia e importante justamente para transformar uma solucao operacional validada em uma plataforma corporativa sustentavel.
