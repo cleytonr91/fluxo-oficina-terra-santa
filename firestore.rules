@@ -67,7 +67,15 @@ service cloud.firestore {
             'immobilizationReason',
             'immobilizationUpdatedBy',
             'immobilizationUpdatedAt'
-          ]));
+          ]))
+        && (hasRole(['admin'])
+          || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'customerWaits',
+            'customerWaitsUpdatedBy',
+            'customerWaitsUpdatedAt'
+          ])
+          || (resource.data.currentLane == 'preparacao_confirmada'
+            && request.resource.data.currentLane != 'preparacao_confirmada'));
       allow delete: if false;
     }
 

@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, saveVehicleRoadTestForm, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, saveVehicleRoadTestForm, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -617,6 +617,7 @@ export default function FluxoPage() {
   const { profile, user } = useAuth();
   const canDeleteChip = profile?.role === "admin" || profile?.role === "gerente";
   const canEditConsultant = profile?.role === "admin" || profile?.role === "gerente";
+  const canEditCustomerWaits = profile?.role === "admin";
   const canManageImmobilization = profile?.role === "admin" || profile?.role === "gerente" || profile?.role === "chefe_oficina";
   const canReducePromisedDelivery = profile?.role === "admin" || profile?.role === "gerente" || user?.email === "cleyton91@gmail.com";
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
@@ -664,6 +665,7 @@ export default function FluxoPage() {
   const [technicianForm, setTechnicianForm] = useState<TechnicianForm>({ technicianName: "" });
   const [serviceForm, setServiceForm] = useState<ServiceForm>({ serviceLabel: "" });
   const [washForm, setWashForm] = useState<WashForm>({ washType: "nao" });
+  const [customerWaitsForm, setCustomerWaitsForm] = useState(false);
   const [partOrderForm, setPartOrderForm] = useState<PartOrderForm>({
     customerId: "",
     parts: [{ id: "peca-1", partReference: "", partDescription: "" }],
@@ -851,6 +853,7 @@ export default function FluxoPage() {
     setTechnicianForm({ technicianName: vehicle.technicianName ?? "" });
     setServiceForm({ serviceLabel: vehicle.serviceLabel ?? "" });
     setWashForm({ washType: vehicle.washType ?? "nao" });
+    setCustomerWaitsForm(vehicle.customerWaits ?? false);
     setPartOrderForm({
       customerId: existingPartOrder?.customerId ?? "",
       parts: existingPartOrder?.parts?.length
@@ -1799,6 +1802,31 @@ export default function FluxoPage() {
     }
   }
 
+  async function submitCustomerWaitsUpdate() {
+    if (!detailVehicle || !canEditCustomerWaits) return;
+
+    setMovingId(detailVehicle.id);
+    setError("");
+
+    try {
+      await updateVehicleCustomerWaits({
+        vehicleFlowId: detailVehicle.id,
+        currentLane: detailVehicle.currentLane,
+        customerWaits: customerWaitsForm,
+        actionBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+
+      setVehicles((current) => current.map((vehicle) => (
+        vehicle.id === detailVehicle.id ? { ...vehicle, customerWaits: customerWaitsForm } : vehicle
+      )));
+      setDetailVehicle((current) => current ? { ...current, customerWaits: customerWaitsForm } : current);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível atualizar se o cliente aguarda.");
+    } finally {
+      setMovingId("");
+    }
+  }
+
   async function submitImmobilizationUpdate() {
     if (!detailVehicle || !canManageImmobilization) return;
     if (immobilizationForm.vehicleImmobilized && !immobilizationForm.immobilizationReason) {
@@ -2693,6 +2721,32 @@ export default function FluxoPage() {
                 </button>
               </div>
             </section>
+
+            {canEditCustomerWaits && (
+              <section className="history-box">
+                <h3>Cliente aguarda na loja</h3>
+                <div className="correction-grid">
+                  <label className="field">
+                    <span>Cliente aguarda?</span>
+                    <select
+                      value={customerWaitsForm ? "sim" : "nao"}
+                      onChange={(event) => setCustomerWaitsForm(event.target.value === "sim")}
+                    >
+                      <option value="nao">Não</option>
+                      <option value="sim">Sim</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    disabled={movingId === detailVehicle.id}
+                    onClick={submitCustomerWaitsUpdate}
+                  >
+                    {movingId === detailVehicle.id ? "Salvando..." : "Salvar indicação"}
+                  </button>
+                </div>
+              </section>
+            )}
 
             <section className="history-box">
               <h3>Veículo imobilizado</h3>

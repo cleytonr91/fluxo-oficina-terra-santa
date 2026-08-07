@@ -1487,6 +1487,43 @@ export async function updateVehicleImmobilization({
   await batch.commit();
 }
 
+export async function updateVehicleCustomerWaits({
+  vehicleFlowId,
+  currentLane,
+  customerWaits,
+  actionBy,
+}: {
+  vehicleFlowId: string;
+  currentLane: FlowLane;
+  customerWaits: boolean;
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  const batch = writeBatch(db);
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+
+  batch.set(flowRef, {
+    customerWaits,
+    customerWaitsUpdatedBy: actionBy,
+    customerWaitsUpdatedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  batch.set(flowEventRef, {
+    vehicleFlowId,
+    fromLane: currentLane,
+    toLane: currentLane,
+    actionBy,
+    actionNote: customerWaits
+      ? "Cliente indicado como aguardando na loja"
+      : "Cliente indicado como não aguardando na loja",
+    createdAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
+
 export async function updateVehiclePlate({
   vehicleFlowId,
   currentLane,

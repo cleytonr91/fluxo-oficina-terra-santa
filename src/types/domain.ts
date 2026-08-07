@@ -221,6 +221,8 @@ export interface VehicleFlow {
   roadTestForm?: RoadTestFormData;
   chiefPresenceRequired?: boolean;
   customerWaits: boolean;
+  customerWaitsUpdatedBy?: string;
+  customerWaitsUpdatedAt?: FirestoreTimestamp;
   promisedDeliveryAt?: FirestoreTimestamp;
   promiseHistory?: DeliveryPromiseHistory[];
   attendanceStartedAt?: FirestoreTimestamp;
