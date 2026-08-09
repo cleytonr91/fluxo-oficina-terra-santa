@@ -8,6 +8,7 @@ export const collections = {
   flowEvents: "flowEvents",
   complementaryBudgets: "complementaryBudgets",
   partOrders: "partOrders",
+  partsCatalog: "partsCatalog",
   publicPartLookups: "publicPartLookups",
   deliveries: "deliveries",
   postServiceCases: "postServiceCases",

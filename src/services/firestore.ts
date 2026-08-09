@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, HyundaiPartCatalogItem, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -125,6 +125,57 @@ type SavePartOrderInput = {
   partDescription?: string;
   actionBy?: string;
 };
+
+export async function loadHyundaiPartsCatalog() {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(collection(db, collections.partsCatalog));
+
+  return snapshot.docs
+    .filter((item) => item.id.startsWith("chunk-"))
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .flatMap((item) => (item.data().items ?? []) as HyundaiPartCatalogItem[]);
+}
+
+export async function replaceHyundaiPartsCatalog({
+  items,
+  sourceFileName,
+  importedBy,
+}: {
+  items: HyundaiPartCatalogItem[];
+  sourceFileName: string;
+  importedBy?: string;
+}) {
+  const db = getFirebaseDb();
+  const catalogRef = collection(db, collections.partsCatalog);
+  const current = await getDocs(catalogRef);
+  const batch = writeBatch(db);
+  const chunkSize = 700;
+  const chunks: HyundaiPartCatalogItem[][] = [];
+
+  for (let index = 0; index < items.length; index += chunkSize) {
+    chunks.push(items.slice(index, index + chunkSize));
+  }
+
+  current.docs.forEach((item) => batch.delete(item.ref));
+  chunks.forEach((chunk, index) => {
+    batch.set(doc(catalogRef, `chunk-${String(index).padStart(3, "0")}`), {
+      items: chunk,
+      itemCount: chunk.length,
+      sourceFileName,
+      importedBy,
+      importedAt: serverTimestamp(),
+    });
+  });
+  batch.set(doc(catalogRef, "meta"), {
+    itemCount: items.length,
+    chunkCount: chunks.length,
+    sourceFileName,
+    importedBy,
+    importedAt: serverTimestamp(),
+  });
+
+  await batch.commit();
+}
 
 function normalizeVehicleIdentifier(value?: string) {
   return String(value ?? "")

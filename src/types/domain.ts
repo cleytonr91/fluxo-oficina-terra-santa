@@ -91,6 +91,11 @@ export interface PartOrderItem {
   partDescription?: string;
 }
 
+export interface HyundaiPartCatalogItem {
+  reference: string;
+  description: string;
+}
+
 export interface PartSchedulingHistory {
   action: PartSchedulingActionType;
   actionAt: FirestoreTimestamp;

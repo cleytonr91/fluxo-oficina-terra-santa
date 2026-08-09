@@ -2,9 +2,11 @@
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
+import { invalidatePartsCatalogCache, PartCatalogFields } from "@/components/part-catalog-fields";
 import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
-import { createStandalonePartOrder, subscribeActiveVehicleFlows, subscribePartOrders, updatePartOrder } from "@/services/firestore";
+import { createStandalonePartOrder, replaceHyundaiPartsCatalog, subscribeActiveVehicleFlows, subscribePartOrders, updatePartOrder } from "@/services/firestore";
+import { parseHyundaiPartsCatalog } from "@/lib/hyundai-parts-catalog";
 import type { PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
 type PartOrderFormFields = {
@@ -294,6 +296,35 @@ export default function PecasPage() {
   const [standaloneOpen, setStandaloneOpen] = useState(false);
   const [standaloneForm, setStandaloneForm] = useState<StandalonePartOrderFormFields>(emptyStandalonePartOrder);
   const [savingStandalone, setSavingStandalone] = useState(false);
+  const [catalogImporting, setCatalogImporting] = useState(false);
+  const [catalogMessage, setCatalogMessage] = useState("");
+
+  async function importPartsCatalog(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || profile?.role !== "admin") return;
+
+    setCatalogImporting(true);
+    setCatalogMessage("");
+    setError("");
+
+    try {
+      const items = parseHyundaiPartsCatalog(await file.arrayBuffer());
+      if (!items.length) throw new Error("Nenhum item Hyundai válido foi encontrado na planilha.");
+
+      await replaceHyundaiPartsCatalog({
+        items,
+        sourceFileName: file.name,
+        importedBy: profile?.name ?? user?.email ?? user?.uid,
+      });
+      invalidatePartsCatalogCache();
+      setCatalogMessage(`${items.length.toLocaleString("pt-BR")} itens Hyundai disponíveis para pesquisa.`);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível importar o catálogo Hyundai.");
+    } finally {
+      setCatalogImporting(false);
+    }
+  }
 
   useEffect(() => {
     const unsubscribe = subscribePartOrders((items) => {
@@ -870,7 +901,15 @@ export default function PecasPage() {
           <button className="primary-btn" type="button" disabled={syncingPortal} onClick={syncPublicPartsPortal}>
             {syncingPortal ? "Sincronizando..." : "Sincronizar portal"}
           </button>
+          {profile?.role === "admin" && (
+            <label className={`ghost-btn catalog-import-button ${catalogImporting ? "disabled" : ""}`}>
+              <input type="file" accept=".xls,.xlsx" disabled={catalogImporting} onChange={importPartsCatalog} />
+              {catalogImporting ? "Importando catálogo..." : "Importar catálogo Hyundai"}
+            </label>
+          )}
         </div>
+
+        {catalogMessage && <p className="catalog-import-success">{catalogMessage}</p>}
 
         {standaloneOpen && (
           <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStandaloneOpen(false); }}>
@@ -908,14 +947,15 @@ export default function PecasPage() {
               <div className="parts-items">
                 {standaloneForm.parts.map((part, index) => (
                   <div key={part.id} className="part-item-row">
-                    <label className="field">
-                      <span>Referência da Peça {index + 1}</span>
-                      <input value={part.partReference ?? ""} onChange={(event) => setStandaloneForm((current) => ({ ...current, parts: current.parts.map((item) => item.id === part.id ? { ...item, partReference: event.target.value.toUpperCase() } : item) }))} />
-                    </label>
-                    <label className="field">
-                      <span>Descrição da Peça {index + 1}</span>
-                      <input value={part.partDescription ?? ""} onChange={(event) => setStandaloneForm((current) => ({ ...current, parts: current.parts.map((item) => item.id === part.id ? { ...item, partDescription: event.target.value.toUpperCase() } : item) }))} />
-                    </label>
+                    <PartCatalogFields
+                      index={index}
+                      reference={part.partReference ?? ""}
+                      description={part.partDescription ?? ""}
+                      onChange={(value) => setStandaloneForm((current) => ({
+                        ...current,
+                        parts: current.parts.map((item) => item.id === part.id ? { ...item, ...value } : item),
+                      }))}
+                    />
                     <button className="ghost-btn" type="button" disabled={standaloneForm.parts.length <= 1} onClick={() => setStandaloneForm((current) => ({ ...current, parts: current.parts.filter((item) => item.id !== part.id) }))}>Remover</button>
                   </div>
                 ))}
@@ -1306,20 +1346,12 @@ export default function PecasPage() {
                     <div className="parts-items">
                       {form.parts.map((part, index) => (
                         <div key={part.id} className="part-item-row">
-                          <label className="field">
-                            <span>Referência da Peça {index + 1}</span>
-                            <input
-                              value={part.partReference ?? ""}
-                              onChange={(event) => updatePartItem(order, part.id, { partReference: event.target.value.toUpperCase() })}
-                            />
-                          </label>
-                          <label className="field">
-                            <span>Descrição da Peça {index + 1}</span>
-                            <input
-                              value={part.partDescription ?? ""}
-                              onChange={(event) => updatePartItem(order, part.id, { partDescription: event.target.value.toUpperCase() })}
-                            />
-                          </label>
+                          <PartCatalogFields
+                            index={index}
+                            reference={part.partReference ?? ""}
+                            description={part.partDescription ?? ""}
+                            onChange={(value) => updatePartItem(order, part.id, value)}
+                          />
                           <button
                             className="ghost-btn"
                             type="button"

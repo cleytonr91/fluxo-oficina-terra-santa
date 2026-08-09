@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import type { ManualContent } from "@/components/operation-manual";
 import { RoadTestFormModal } from "@/components/road-test-form-modal";
+import { PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
 import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, saveVehicleRoadTestForm, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
@@ -2811,22 +2812,12 @@ export default function FluxoPage() {
               <div className="parts-items">
                 {partOrderForm.parts.map((part, index) => (
                   <div key={part.id} className="part-item-row">
-                    <label className="field">
-                      <span>Referência da peça {index + 1}</span>
-                      <input
-                        value={part.partReference ?? ""}
-                        placeholder="Referência"
-                        onChange={(event) => updatePartOrderItem(part.id, { partReference: event.target.value.toUpperCase() })}
-                      />
-                    </label>
-                    <label className="field">
-                      <span>Descrição da peça {index + 1}</span>
-                      <input
-                        value={part.partDescription ?? ""}
-                        placeholder="Descrição"
-                        onChange={(event) => updatePartOrderItem(part.id, { partDescription: event.target.value })}
-                      />
-                    </label>
+                    <PartCatalogFields
+                      index={index}
+                      reference={part.partReference ?? ""}
+                      description={part.partDescription ?? ""}
+                      onChange={(value) => updatePartOrderItem(part.id, value)}
+                    />
                     <button
                       type="button"
                       className="ghost-btn"
