@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
-import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
 import { getBodyShopDriveFolder } from "@/lib/body-shop-drive-folders";
 import { createVehicleFlowFromAppointment, saveBodyShopProcess, subscribeBodyShopProcesses } from "@/services/firestore";
@@ -112,30 +111,6 @@ const emptyPartsForm: PartsForm = {
   partsNote: "",
 };
 
-const manual: ManualContent = {
-  title: "Manual da Funilaria",
-  audience: "Uso principal: funilaria, gerente e financeiro",
-  objective: "Acompanhar os processos de sinistro desde a entrada, aprovação, execução, faturamento e pagamento.",
-  steps: [
-    "Cadastre o processo com O.S., sinistro, cliente, seguradora, placa, valores e status.",
-    "Atualize o status conforme o processo evoluir na oficina ou no financeiro.",
-    "Use a busca e os filtros para localizar processos por cliente, placa, O.S. ou seguradora.",
-    "Acompanhe os cards superiores para identificar pendências operacionais e valores aguardando pagamento.",
-  ],
-  rules: [
-    "Aguardando Aprovação indica orçamento pendente de autorização.",
-    "Peças Pendentes deve ser usado quando o processo está aprovado, mas parado por falta de peça.",
-    "Finalizado indica serviço concluído, antes do recebimento financeiro.",
-    "Aguardando Pagamento indica processo faturado e ainda não recebido.",
-    "Pago encerra o processo financeiro.",
-  ],
-  flow: [
-    { title: "Entrada", text: "Processo cadastrado com dados do sinistro." },
-    { title: "Aprovação", text: "Seguradora autoriza ou pede complemento." },
-    { title: "Execução", text: "Processo segue para peças, serviço e finalização." },
-    { title: "Financeiro", text: "Faturamento, envio de NF, pagamento e franquia." },
-  ],
-};
 
 function formatDate(value?: string) {
   if (!value) return "-";
@@ -457,7 +432,6 @@ export default function FunilariaPage() {
     <ProtectedPage
       title="Funilaria"
       subtitle="Acompanhamento dos processos de sinistro, execução, faturamento e pagamento."
-      manual={manual}
     >
       <main className="page-wrap bodyshop-page">
         {error && <div className="duplicate-alert"><strong>Erro na funilaria</strong><span>{error}</span></div>}

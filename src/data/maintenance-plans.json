@@ -1,0 +1,2989 @@
+{
+  "validFrom": "2026-07-01",
+  "validUntil": "2026-12-31",
+  "plans": [
+    {
+      "family": "HB20",
+      "model": "NOVO HB20 1.0",
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 2.9,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 71.49,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113Y100",
+          "name": "FILTRO DE AR",
+          "unitPrice": 109.22,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "971331S000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 81.5,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 4.7,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,7 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,1 Horas"
+      ],
+      "totals": [
+        379.99,
+        735.89,
+        732.79,
+        1041.11,
+        693.59,
+        931.89,
+        693.59,
+        1041.11,
+        732.79,
+        1198.14
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "NOVO HB20 R-SPEC / HB20X 1.6",
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 3.6,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630035505",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 68.35,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113S100",
+          "name": "FILTRO DE AR",
+          "unitPrice": 109.22,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "971331S000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 81.5,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 5.3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,8 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,1 Horas"
+      ],
+      "totals": [
+        437.75,
+        832.85,
+        790.55,
+        1098.87,
+        751.35,
+        989.65,
+        751.35,
+        1098.87,
+        790.55,
+        1316.99
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "NOVO HB20 TCI",
+      "years": [
+        2016,
+        2017,
+        2018,
+        2019
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 3.5,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 71.49,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113S100",
+          "name": "FILTRO DE AR",
+          "unitPrice": 109.22,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "971331S000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 81.5,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1884908082",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 159.44,
+          "quantity": 3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 5.1,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "0,9 Horas",
+        "1 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,3 Horas"
+      ],
+      "totals": [
+        432.19,
+        866.49,
+        784.99,
+        1093.31,
+        745.79,
+        866.49,
+        824.19,
+        1093.31,
+        784.99,
+        1328.74
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "HB20 NOVA GERAÇÃO 1.6",
+      "years": [
+        2020,
+        2021,
+        2022
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 3.6,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630035505",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 68.35,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113R1200",
+          "name": "FILTRO DE AR",
+          "unitPrice": 109.22,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "971331S000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 81.5,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 5.3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,7 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,1 Horas"
+      ],
+      "totals": [
+        437.75,
+        793.65,
+        790.55,
+        1098.87,
+        751.35,
+        989.65,
+        751.35,
+        1098.87,
+        790.55,
+        1316.99
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "HB20 NOVA GERAÇÃO L7 1.0 MPI",
+      "years": [
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 2.9,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 71.49,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113Y100",
+          "name": "FILTRO DE AR",
+          "unitPrice": 109.22,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "971331S000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 81.5,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 4.7,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,7 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,1 Horas"
+      ],
+      "totals": [
+        379.99,
+        735.89,
+        732.79,
+        1041.11,
+        693.59,
+        931.89,
+        693.59,
+        1041.11,
+        732.79,
+        1198.14
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "HB20 NOVA GERAÇÃO L7 TGDI",
+      "years": [
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 3.6,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 71.49,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113R1200",
+          "name": "FILTRO DE AR",
+          "unitPrice": 109.22,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "971331S000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 81.5,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1884908085",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 159.44,
+          "quantity": 3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 5.1,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,3 Horas"
+      ],
+      "totals": [
+        440.89,
+        875.19,
+        793.69,
+        1102.01,
+        754.49,
+        1471.11,
+        793.69,
+        1102.01,
+        793.69,
+        1337.44
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "HB20 NOVA GERAÇÃO L8 1.0 MPI",
+      "years": [
+        2025,
+        2026,
+        2027
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 3.3,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 71.49,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113R1200",
+          "name": "FILTRO DE AR",
+          "unitPrice": 109.22,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "971331S000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 81.5,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1884408075",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 146.36,
+          "quantity": 3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 4.3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,7 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas"
+      ],
+      "totals": [
+        414.79,
+        770.69,
+        767.59,
+        1075.91,
+        728.39,
+        906.69,
+        728.39,
+        1075.91,
+        767.59,
+        1272.14
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "HB20 NOVA GERAÇÃO L8 TGDI",
+      "years": [
+        2025,
+        2026,
+        2027
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD1",
+          "name": "ÓLEO DE MOTOR - HELIX ULTRA AH 0W-30",
+          "unitPrice": 100,
+          "quantity": 3.6,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 71.49,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113R1200",
+          "name": "FILTRO DE AR",
+          "unitPrice": 109.22,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "971331S000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 81.5,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1884908085",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 159.44,
+          "quantity": 3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 5.5,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,3 Horas"
+      ],
+      "totals": [
+        487.69,
+        921.99,
+        840.49,
+        1148.81,
+        801.29,
+        1517.91,
+        840.49,
+        1148.81,
+        840.49,
+        1445.33
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 2.0",
+      "years": [
+        2017,
+        2018,
+        2019,
+        2020,
+        2021
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 4,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630035505",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 68.35,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113M4000",
+          "name": "FILTRO DE AR",
+          "unitPrice": 138.73,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "97133D1000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 87.37,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1884908085",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 159.44,
+          "quantity": 4,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 5.7,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,8 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,1 Horas",
+        "0,8 Horas",
+        "1,1 Horas",
+        "0,8 Horas",
+        "1,1 Horas",
+        "0,8 Horas",
+        "1,1 Horas"
+      ],
+      "totals": [
+        472.55,
+        912.72,
+        826.25,
+        1129.85,
+        786.15,
+        1391.12,
+        786.15,
+        1129.85,
+        786.15,
+        1357.66
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 1.6",
+      "years": [
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 3.6,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630035505",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 68.35,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113M4000",
+          "name": "FILTRO DE AR",
+          "unitPrice": 138.73,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "97133D1000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 87.37,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1884608073",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 159.44,
+          "quantity": 4,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 5.7,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,8 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,1 Horas",
+        "0,8 Horas",
+        "1,1 Horas",
+        "0,8 Horas",
+        "1,1 Horas",
+        "0,8 Horas",
+        "1,1 Horas"
+      ],
+      "totals": [
+        437.75,
+        877.92,
+        790.55,
+        1095.05,
+        751.35,
+        956.32,
+        751.35,
+        1095.05,
+        751.35,
+        1322.86
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 1.0 AT TGDI / N LINE - NOVA GERAÇÃO",
+      "years": [
+        2022,
+        2023,
+        2024
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 3.6,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 71.49,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113BX100",
+          "name": "FILTRO DE AR",
+          "unitPrice": 135.39,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "97133D1000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 87.37,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1884908085",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 159.44,
+          "quantity": 3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 4.9,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,3 Horas"
+      ],
+      "totals": [
+        440.89,
+        881.06,
+        793.69,
+        1134.05,
+        754.49,
+        1476.98,
+        793.69,
+        1134.05,
+        793.69,
+        1343.31
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 2.0 AT N LINE - NOVA GERAÇÃO",
+      "years": [
+        2022,
+        2023,
+        2024
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": 87,
+          "quantity": 4.3,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "263502J001",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 99.43,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113BX100",
+          "name": "FILTRO DE AR",
+          "unitPrice": 135.39,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "97133D1000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 87.37,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1887508087",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 187.92,
+          "quantity": 4,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 5.8,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,8 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,1 Horas",
+        "0,8 Horas",
+        "1,1 Horas",
+        "0,8 Horas",
+        "1,1 Horas",
+        "0,8 Horas",
+        "1,1 Horas"
+      ],
+      "totals": [
+        522.81,
+        962.98,
+        875.61,
+        1176.77,
+        836.41,
+        1041.38,
+        836.41,
+        1176.77,
+        836.41,
+        1407.92
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 1.0 AT TGDI",
+      "years": [
+        2025,
+        2026,
+        2027
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD1",
+          "name": "ÓLEO DE MOTOR - HELIX ULTRA AH 0W-30",
+          "unitPrice": 100,
+          "quantity": 3.6,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 71.49,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113BX500",
+          "name": "FILTRO DE AR",
+          "unitPrice": 135.39,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "97133D1000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 87.37,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1887208086",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 189.79,
+          "quantity": 3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 4.9,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,3 Horas"
+      ],
+      "totals": [
+        487.69,
+        927.86,
+        840.49,
+        1180.85,
+        801.29,
+        1614.83,
+        840.49,
+        1180.85,
+        840.49,
+        1390.11
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 1.6 DCT (T-GDI GASOLINA)",
+      "years": [
+        2025,
+        2026
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD1",
+          "name": "ÓLEO DE MOTOR - HELIX ULTRA AH 0W-30",
+          "unitPrice": 100,
+          "quantity": 4.8,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "263502M000",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 99.43,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113BX500",
+          "name": "FILTRO DE AR",
+          "unitPrice": 135.39,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "97133D1000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 87.37,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1887508085",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 159.44,
+          "quantity": 4,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 6.7,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "1,1 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,4 Horas"
+      ],
+      "totals": [
+        628.71,
+        1068.88,
+        981.51,
+        1321.87,
+        942.31,
+        1186.48,
+        1697.67,
+        1321.87,
+        981.51,
+        1692.51
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 1.6 DCT (T-GDI FLEX)",
+      "years": [
+        2026,
+        2027
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD1",
+          "name": "ÓLEO DE MOTOR - HELIX ULTRA AH 0W-30",
+          "unitPrice": 100,
+          "quantity": 4.8,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": 6.92,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "263502M000",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": 99.43,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113BX500",
+          "name": "FILTRO DE AR",
+          "unitPrice": 135.39,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": 49.28,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "97133D1000",
+          "name": "FILTRO DE A/C",
+          "unitPrice": 87.37,
+          "quantity": 1,
+          "revisions": [
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "188750U087",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": 187.92,
+          "quantity": 4,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB015 / 99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": 61.09,
+          "quantity": 6.7,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,7 Horas",
+        "0,9 Horas",
+        "0,9 Horas",
+        "1,2 Horas",
+        "0,8 Horas",
+        "1,2 Horas",
+        "1,1 Horas",
+        "1,2 Horas",
+        "0,9 Horas",
+        "1,4 Horas"
+      ],
+      "totals": [
+        628.71,
+        1068.88,
+        981.51,
+        1321.87,
+        942.31,
+        1186.48,
+        1811.59,
+        1321.87,
+        981.51,
+        1692.51
+      ]
+    },
+    {
+      "family": "i20",
+      "model": "i20 1.0 MPI",
+      "years": [
+        2026,
+        2027
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD5W",
+          "name": "ÓLEO DE MOTOR - HELIX HX8 SP GF6 5W30",
+          "unitPrice": null,
+          "quantity": 3.3,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "97133YA000",
+          "name": "FILTRO A/C",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113BP000",
+          "name": "FILTRO DE AR",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": null,
+          "quantity": 4.6,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1884408073",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": null,
+          "quantity": 3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,8 Horas",
+        "0,9 Horas",
+        "1 Horas",
+        "1,1 Horas",
+        "0,9 Horas",
+        "1,3 Horas",
+        "0,9 Horas",
+        "1,1 Horas",
+        "1 Horas",
+        "1,2 Horas"
+      ],
+      "totals": [
+        491.63,
+        844.43,
+        883.63,
+        1038,
+        844.43,
+        1001.23,
+        844.43,
+        1038,
+        883.63,
+        1267.48
+      ]
+    },
+    {
+      "family": "i20",
+      "model": "i20 1.0 TGDI",
+      "years": [
+        2026,
+        2027
+      ],
+      "items": [
+        {
+          "partNumber": "GLLBTD1",
+          "name": "ÓLEO DE MOTOR - HELIX ULTRA AH 0W-30",
+          "unitPrice": null,
+          "quantity": 3.6,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2151323001",
+          "name": "ANEL DE VEDAÇÃO",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "2630002503",
+          "name": "FILTRO DE ÓLEO",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "97133XA000",
+          "name": "FILTRO A/C",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "319801S000",
+          "name": "FILTRO DE COMBUSTÍVEL",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "partNumber": "28113BP000",
+          "name": "FILTRO DE AR",
+          "unitPrice": null,
+          "quantity": 1,
+          "revisions": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "partNumber": "99N88MB014",
+          "name": "LÍQUIDO DE ARREFECIMENTO",
+          "unitPrice": null,
+          "quantity": 5.5,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        },
+        {
+          "partNumber": "1887508087",
+          "name": "VELAS DE IGNIÇÃO",
+          "unitPrice": null,
+          "quantity": 3,
+          "revisions": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false
+          ]
+        }
+      ],
+      "operationTimes": [
+        "0,8 Horas",
+        "1 Horas",
+        "1 Horas",
+        "1,1 Horas",
+        "0,9 Horas",
+        "1,3 Horas",
+        "1,1 Horas",
+        "1 Horas",
+        "1,1 Horas",
+        "1,3 Horas"
+      ],
+      "totals": [
+        564.53,
+        956.53,
+        956.53,
+        1110.9,
+        917.33,
+        1074.13,
+        1559.46,
+        1071.7,
+        995.73,
+        1410.13
+      ]
+    }
+  ]
+}

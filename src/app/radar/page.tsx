@@ -2,32 +2,9 @@
 
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
-import type { ManualContent } from "@/components/operation-manual";
 import { listActiveVehicleFlows } from "@/services/firestore";
 import type { VehicleFlow } from "@/types/domain";
 
-const manual: ManualContent = {
-  title: "Manual do Farol Gerencial",
-  audience: "Uso principal: gerência e coordenação",
-  objective: "Acompanhar resultado financeiro diário, ritmo da oficina, gargalos do fluxo e metas do mês.",
-  steps: [
-    "Abra o Farol para uma visão consolidada da operação.",
-    "Confira meta, realizado, diferença, projeção e percentual atingido por área.",
-    "Compare o resultado financeiro com volume, entrega, no-show, orçamento e pedidos de peças.",
-    "Use os desvios em vermelho para cobrar ação das áreas responsáveis.",
-  ],
-  rules: [
-    "O Farol é uma página de leitura gerencial, não de movimentação de chips.",
-    "Os valores financeiros serão alimentados por importação do acompanhamento ou integração com o Linx.",
-    "Indicadores operacionais dependem da disciplina de uso nas páginas Fluxo, Peças e Pós-serviço.",
-  ],
-  flow: [
-    { title: "Coletar dados", text: "O sistema reúne valores financeiros e dados do fluxo." },
-    { title: "Comparar metas", text: "Calcula meta, realizado, diferença e projeção." },
-    { title: "Analisar gargalos", text: "Cruza resultado com volume, atrasos, no-show e peças." },
-    { title: "Agir", text: "A gerência direciona a cobrança para consultores, oficina, peças ou lavagem." },
-  ],
-};
 
 type DailyResult = {
   day: string;
@@ -254,7 +231,6 @@ export default function FarolGerencialPage() {
     <ProtectedPage
       title="Farol Gerencial"
       subtitle="Acompanhamento diário de metas, realizado, projeção e operação."
-      manual={manual}
     >
       <main className="page-wrap farol-page">
         {error && <div className="duplicate-alert"><strong>Erro no farol gerencial</strong><span>{error}</span></div>}

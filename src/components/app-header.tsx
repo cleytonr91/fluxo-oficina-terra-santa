@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { OperationManual, type ManualContent } from "@/components/operation-manual";
 import { canAccessPath, roleLabel } from "@/lib/access-control";
 
 const navigation = [
+  { href: "/cardapio", label: "Cardápio" },
   { href: "/preparacao", label: "Preparação" },
   { href: "/fluxo", label: "Fluxo do dia" },
   { href: "/agendamento", label: "Agendamento" },
@@ -31,11 +31,9 @@ function currentTime() {
 export function AppHeader({
   title,
   subtitle,
-  manual,
 }: {
   title: string;
   subtitle?: string;
-  manual?: ManualContent;
 }) {
   const pathname = usePathname();
   const { profile, user, logout } = useAuth();
@@ -77,7 +75,6 @@ export function AppHeader({
 
       <div className="header-actions">
         <nav aria-label="Páginas do fluxo">
-          {manual && <OperationManual manual={manual} />}
           {navigation.filter((item) => (
             !(isFlow && item.href === "/fluxo") && canAccessPath(profile?.role, item.href)
           )).map((item) => {
@@ -125,23 +122,21 @@ export function AppHeader({
           ) : null}
         </nav>
 
-        {!isPreparaçãon && !isFlow && (
-          <div className="user-pill">
-            <div>
-              <strong>{profile?.name ?? user?.email}</strong>
-              <span>{roleLabel(profile?.role)}</span>
-            </div>
-            {(profile?.role === "admin" || profile?.role === "gerente") && (
-              <Link href="/admin">Admin</Link>
-            )}
-            {(profile?.role === "admin" || profile?.role === "gerente" || profile?.role === "chefe_oficina") && (
-              <Link href="/admin/auditoria">Auditoria</Link>
-            )}
-            <button type="button" onClick={logout}>
-              Sair
-            </button>
+        <div className="user-pill">
+          <div>
+            <strong>{profile?.name ?? user?.email}</strong>
+            <span>{roleLabel(profile?.role)}</span>
           </div>
-        )}
+          {(profile?.role === "admin" || profile?.role === "gerente") && (
+            <Link href="/admin">Admin</Link>
+          )}
+          {(profile?.role === "admin" || profile?.role === "gerente" || profile?.role === "chefe_oficina") && (
+            <Link href="/admin/auditoria">Auditoria</Link>
+          )}
+          <button type="button" onClick={logout}>
+            Sair
+          </button>
+        </div>
       </div>
     </header>
   );

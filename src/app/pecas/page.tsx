@@ -3,7 +3,6 @@
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { invalidatePartsCatalogCache, PartCatalogFields } from "@/components/part-catalog-fields";
-import type { ManualContent } from "@/components/operation-manual";
 import { useAuth } from "@/context/auth-context";
 import { createStandalonePartOrder, replaceHyundaiPartsCatalog, subscribeActiveVehicleFlows, subscribePartOrders, updatePartOrder } from "@/services/firestore";
 import { parseHyundaiPartsCatalog } from "@/lib/hyundai-parts-catalog";
@@ -80,34 +79,6 @@ const emptyStandalonePartOrder: StandalonePartOrderFormFields = {
   cancellationReason: "",
 };
 
-const manual: ManualContent = {
-  title: "Manual de Pedidos de Peças",
-  audience: "Uso principal: estoque, chefe de oficina e consultores",
-  objective: "Controlar os pedidos de peças originados no fluxo, registrar andamento e deixar claro quando a peça está disponível para execução ou agendamento.",
-  steps: [
-    "Abra a página Peças para visualizar todos os pedidos originados nos chips.",
-    "Use os filtros superiores para localizar pendências, B.O, VOR, em trânsito, disponíveis ou cancelados.",
-    "Em Dados, complemente ID do cliente e tipo do pedido.",
-    "Em Peças, revise ou adicione referência e descrição de cada item.",
-    "Em Pedido, atualize status, origem, número do pedido, data, nota fiscal e previsão.",
-    "Ao marcar Disponível, o pedido fica apto para ação: oficina se imobilizado, agendamento se cliente está rodando.",
-    "Ao cancelar, informe obrigatoriamente o motivo.",
-  ],
-  rules: [
-    "Pedido realizado exige origem e número do pedido.",
-    "Em trânsito exige nota fiscal e previsão de chegada.",
-    "B.O deve ser usado quando a peça está em back order.",
-    "Pedido VOR deve ser marcado para acompanhamento prioritário.",
-    "Veículo imobilizado deve ficar visível para o chefe de oficina.",
-  ],
-  flow: [
-    { title: "Solicitado oficina", text: "Necessidade registrada pelo fluxo." },
-    { title: "Pedido realizado", text: "Estoque informa origem e número do pedido." },
-    { title: "Em trânsito", text: "Nota fiscal e previsão de chegada são confirmadas." },
-    { title: "Recebido", text: "Peça chegou à loja." },
-    { title: "Disponível", text: "Peça pode gerar execução ou agendamento de retorno." },
-  ],
-};
 
 type PartsFilter = "pendentes" | "todos" | "vor" | PartOrderStatus;
 type PartEditSection = "dados" | "pedido" | "pecas" | "cancelamento" | "info";
@@ -861,7 +832,7 @@ export default function PecasPage() {
   }
 
   return (
-    <ProtectedPage title="Pedidos de Peças" subtitle="Acompanhamento dos pedidos originados nos chips do fluxo." manual={manual}>
+    <ProtectedPage title="Pedidos de Peças" subtitle="Acompanhamento dos pedidos originados nos chips do fluxo.">
       <main className="page-wrap parts-page">
         <section className="flow-metrics">
           {metrics.map((metric) => (
