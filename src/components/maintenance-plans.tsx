@@ -12,7 +12,7 @@ function yearRange(years: number[]) {
   return years.length === 1 ? String(years[0]) : `${years[0]}–${years.at(-1)}`;
 }
 
-export function MaintenancePlans() {
+export function MaintenancePlans({ embedded = false }: { embedded?: boolean }) {
   const [family, setFamily] = useState("Todos");
   const [query, setQuery] = useState("");
   const [selectedModel, setSelectedModel] = useState(maintenanceData.plans[0]?.model ?? "");
@@ -46,8 +46,8 @@ export function MaintenancePlans() {
     if (firstPlan) selectPlan(firstPlan);
   }
 
-  return (
-    <main className="manual-page page-wrap">
+  const content = (
+    <>
       <section className="maintenance-browser manual-page-browser">
         <aside className="maintenance-sidebar">
           <label className="maintenance-search">
@@ -164,6 +164,8 @@ export function MaintenancePlans() {
         <span>Fonte: Planos de Manutenção Hyundai · Jul–Dez 2026</span>
         <span>Vigência dos valores: <strong>01/07 a 31/12/2026</strong></span>
       </footer>
-    </main>
+    </>
   );
+
+  return embedded ? content : <main className="manual-page page-wrap">{content}</main>;
 }

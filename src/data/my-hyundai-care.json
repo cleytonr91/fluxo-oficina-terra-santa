@@ -1,0 +1,136 @@
+{
+  "plans": [
+    {
+      "family": "HB20",
+      "model": "HB20 / HB20S 1.0 MPI L7",
+      "years": "2024/2025",
+      "validUntil": "31/12/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 1848.67, "programPrice": 1694.38, "discount": 154.29 },
+        { "revisions": "1ª à 4ª", "publicPrice": 2889.78, "programPrice": 2547.82, "discount": 341.96 },
+        { "revisions": "1ª à 5ª", "publicPrice": 3583.37, "programPrice": 3149.28, "discount": 434.09 },
+        { "revisions": "1ª à 6ª", "publicPrice": 4515.26, "programPrice": 3948.69, "discount": 566.57 }
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "HB20 / HB20S 1.0 TGDI L7",
+      "years": "2024/2025",
+      "validUntil": "31/12/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 2109.77, "programPrice": 1843.77, "discount": 266.00 },
+        { "revisions": "1ª à 4ª", "publicPrice": 3211.78, "programPrice": 2730.99, "discount": 480.79 },
+        { "revisions": "1ª à 5ª", "publicPrice": 3966.27, "programPrice": 3367.27, "discount": 599.00 },
+        { "revisions": "1ª à 6ª", "publicPrice": 5437.38, "programPrice": 4633.48, "discount": 803.90 }
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "HB20 / HB20S 1.0 MPI L8",
+      "years": "2025/2027",
+      "validUntil": "31/12/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 1953.07, "programPrice": 1748.74, "discount": 204.33 },
+        { "revisions": "1ª à 4ª", "publicPrice": 3028.98, "programPrice": 2621.48, "discount": 407.50 },
+        { "revisions": "1ª à 5ª", "publicPrice": 3757.37, "programPrice": 3242.84, "discount": 514.53 },
+        { "revisions": "1ª à 6ª", "publicPrice": 4724.06, "programPrice": 4062.73, "discount": 661.33 }
+      ]
+    },
+    {
+      "family": "HB20",
+      "model": "HB20 / HB20S 1.0 TGDI L8",
+      "years": "2025/2027",
+      "validUntil": "31/12/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 2250.17, "programPrice": 1997.44, "discount": 252.73 },
+        { "revisions": "1ª à 4ª", "publicPrice": 3398.98, "programPrice": 2939.25, "discount": 459.73 },
+        { "revisions": "1ª à 5ª", "publicPrice": 4200.27, "programPrice": 3631.78, "discount": 568.49 },
+        { "revisions": "1ª à 6ª", "publicPrice": 5718.18, "programPrice": 4955.88, "discount": 762.30 }
+      ]
+    },
+    {
+      "family": "i20",
+      "model": "i20 1.0 MPI",
+      "years": "2026/2027",
+      "validUntil": "31/12/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 2219.69, "programPrice": 1986.71, "discount": 232.98 },
+        { "revisions": "1ª à 4ª", "publicPrice": 3257.69, "programPrice": 2843.15, "discount": 414.54 },
+        { "revisions": "1ª à 5ª", "publicPrice": 4102.12, "programPrice": 3561.53, "discount": 540.59 },
+        { "revisions": "1ª à 6ª", "publicPrice": 5103.35, "programPrice": 4420.05, "discount": 683.30 }
+      ]
+    },
+    {
+      "family": "i20",
+      "model": "i20 1.0 TGDI",
+      "years": "2026/2027",
+      "validUntil": "31/12/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 2477.59, "programPrice": 2143.99, "discount": 333.60 },
+        { "revisions": "1ª à 4ª", "publicPrice": 3588.49, "programPrice": 3046.67, "discount": 541.82 },
+        { "revisions": "1ª à 5ª", "publicPrice": 4505.82, "programPrice": 3812.68, "discount": 693.14 },
+        { "revisions": "1ª à 6ª", "publicPrice": 5579.95, "programPrice": 4720.24, "discount": 859.71 }
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 1.0 TGDI L7",
+      "years": "2024",
+      "validUntil": "31/12/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 2115.64, "programPrice": 1847.25, "discount": 268.39 },
+        { "revisions": "1ª à 4ª", "publicPrice": 3249.69, "programPrice": 2760.40, "discount": 489.29 },
+        { "revisions": "1ª à 5ª", "publicPrice": 4004.18, "programPrice": 3396.68, "discount": 607.50 },
+        { "revisions": "1ª à 6ª", "publicPrice": 5481.16, "programPrice": 4666.81, "discount": 814.35 }
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 1.0 TGDI L8",
+      "years": "2025/2027",
+      "validUntil": "30/06/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 2256.04, "programPrice": 2000.91, "discount": 255.13 },
+        { "revisions": "1ª à 4ª", "publicPrice": 3436.89, "programPrice": 2960.38, "discount": 476.51 },
+        { "revisions": "1ª à 5ª", "publicPrice": 4238.18, "programPrice": 3652.90, "discount": 585.28 },
+        { "revisions": "1ª à 6ª", "publicPrice": 5853.01, "programPrice": 5062.99, "discount": 790.02 }
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 1.6 TGDI",
+      "years": "2025/2027",
+      "validUntil": "30/06/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 2679.10, "programPrice": 2227.96, "discount": 451.14 },
+        { "revisions": "1ª à 4ª", "publicPrice": 4000.97, "programPrice": 3268.09, "discount": 732.88 },
+        { "revisions": "1ª à 5ª", "publicPrice": 4943.28, "programPrice": 4043.71, "discount": 899.57 },
+        { "revisions": "1ª à 6ª", "publicPrice": 6129.76, "programPrice": 5026.32, "discount": 1103.44 }
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 1.6 MPI",
+      "years": "2024",
+      "validUntil": "31/12/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 2106.22, "programPrice": 1870.72, "discount": 235.50 },
+        { "revisions": "1ª à 4ª", "publicPrice": 3201.27, "programPrice": 2756.86, "discount": 444.41 },
+        { "revisions": "1ª à 5ª", "publicPrice": 3952.62, "programPrice": 3392.15, "discount": 560.47 },
+        { "revisions": "1ª à 6ª", "publicPrice": 4908.94, "programPrice": 4199.66, "discount": 709.28 }
+      ]
+    },
+    {
+      "family": "CRETA",
+      "model": "CRETA 2.0 MPI",
+      "years": "2024",
+      "validUntil": "31/12/2026",
+      "packages": [
+        { "revisions": "1ª à 3ª", "publicPrice": 2361.40, "programPrice": 2021.06, "discount": 340.34 },
+        { "revisions": "1ª à 4ª", "publicPrice": 3538.17, "programPrice": 2957.77, "discount": 580.40 },
+        { "revisions": "1ª à 5ª", "publicPrice": 4374.58, "programPrice": 3648.09, "discount": 726.49 },
+        { "revisions": "1ª à 6ª", "publicPrice": 5415.96, "programPrice": 4512.24, "discount": 903.72 }
+      ]
+    }
+  ]
+}
