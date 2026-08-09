@@ -58,6 +58,7 @@ const sourceOptions: Array<{ value: PartOrderSource; label: string }> = [
 
 const kindOptions: Array<{ value: PartOrderKind; label: string }> = [
   { value: "garantia", label: "Garantia" },
+  { value: "campanha", label: "Campanha" },
   { value: "externo", label: "Externo" },
 ];
 
@@ -563,6 +564,11 @@ export default function PecasPage() {
     const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
     const nextOrderStatus: PartOrderStatus = form.cancellationReason.trim() ? "cancelado" : form.orderStatus;
 
+    if (!form.orderKind) {
+      setError("Selecione o tipo do pedido: Garantia, Campanha ou Externo.");
+      return;
+    }
+
     if ((nextOrderStatus === "pedido_realizado" || nextOrderStatus === "back_order") && (!form.orderSource || !form.orderNumber.trim())) {
       setError("Para marcar Pedido Realizado ou B.O, informe a origem e o número do pedido.");
       return;
@@ -648,6 +654,10 @@ export default function PecasPage() {
 
     if (!standaloneForm.clientName.trim()) {
       setError("Informe o nome do cliente para criar o pedido avulso.");
+      return;
+    }
+    if (!standaloneForm.orderKind) {
+      setError("Selecione o tipo do pedido: Garantia, Campanha ou Externo.");
       return;
     }
     if (!validParts.length) {
@@ -888,7 +898,7 @@ export default function PecasPage() {
                 </label>
                 <label className="field">
                   <span>Tipo</span>
-                  <select value={standaloneForm.orderKind} onChange={(event) => setStandaloneForm((current) => ({ ...current, orderKind: event.target.value as PartOrderKind | "" }))}>
+                  <select required value={standaloneForm.orderKind} onChange={(event) => setStandaloneForm((current) => ({ ...current, orderKind: event.target.value as PartOrderKind | "" }))}>
                     <option value="">Selecionar</option>
                     {kindOptions.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
                   </select>
@@ -1199,6 +1209,7 @@ export default function PecasPage() {
                     <label className="field">
                       <span>Tipo</span>
                       <select
+                        required
                         value={form.orderKind}
                         onChange={(event) => updateOrderForm(order.id, { orderKind: event.target.value as PartOrderKind | "" })}
                       >

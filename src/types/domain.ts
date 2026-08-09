@@ -60,7 +60,7 @@ export type PartOrderSource =
   | "juazeiro"
   | "rede_autorizada";
 
-export type PartOrderKind = "garantia" | "externo";
+export type PartOrderKind = "garantia" | "campanha" | "externo";
 
 export type PartSchedulingStatus =
   | "disponivel_agendamento"
