@@ -94,11 +94,11 @@ Não existe acesso operacional automático após o cadastro.
 | Administrador | Todas |
 | Gerente | Todas |
 | Chefe de oficina | Preparação, Peças e Fluxo |
-| Consultor técnico | Fluxo e Pós-serviço |
+| Consultor técnico | Fluxo, Balcão e Pós-serviço |
 | Mecânico | Fluxo |
 | Líder de posto | Fluxo |
-| Consultor de funilaria | Peças, Funilaria e Fluxo |
-| Estoquista | Peças, Fluxo e Funilaria |
+| Consultor de funilaria | Peças, Balcão, Funilaria e Fluxo |
+| Estoquista | Peças, Balcão, Fluxo e Funilaria |
 | Coordenador de qualidade | Pós-serviço |
 | Agendamento | Agendamento |
 
@@ -693,3 +693,36 @@ Toda nova regra deve seguir esta sequência:
 5. Definir registro de auditoria.
 6. Definir comportamento no celular.
 7. Atualizar este documento junto com o código.
+
+## 16. Balcão de Peças
+
+O Balcão é um módulo comercial autenticado do Fluxo, separado do acompanhamento de pedidos originados na oficina.
+
+### 16.1 Lançamentos
+
+- Tipos: Venda, Pedido e Venda Perdida.
+- Cliente classificado como PF ou PJ.
+- Vendedor responsável, frete e observações.
+- Venda exige estado de destino e considera todos os itens disponíveis em estoque.
+- Pedido permite indicar, por item, disponibilidade em estoque ou origem: Mobis, Rede, Natal, Mossoró ou Juazeiro.
+- Todos os textos digitados são armazenados em caixa alta.
+
+### 16.2 Catálogo Hyundai
+
+- A referência pesquisa o catálogo importado no Firestore.
+- Ao selecionar uma sugestão, descrição e preço de venda são preenchidos automaticamente.
+- O valor usado no Balcão é sempre o preço de venda.
+
+### 16.3 Acompanhamento de pedidos
+
+- Cada item possui status, origem, nota fiscal, previsão de chegada e observação.
+- Um pedido pode ser transformado em Venda ou Venda Perdida.
+- Ao virar venda, seus itens passam a ser considerados disponíveis.
+
+### 16.4 Indicadores
+
+- Vendas realizadas, vendas perdidas e expectativa do mês.
+- Representação de vendas para PF e PJ.
+- Comparação dos seis meses mais recentes.
+- Resultado por vendedor e por estado de destino.
+- Meta mensal cadastrada no Firestore.

@@ -94,6 +94,54 @@ export interface PartOrderItem {
 export interface HyundaiPartCatalogItem {
   reference: string;
   description: string;
+  salePrice?: number;
+}
+
+export type PartsCounterEntryType = "venda" | "pedido" | "venda_perdida";
+export type PartsCounterCustomerType = "PF" | "PJ";
+export type PartsCounterOrderStatus =
+  | "necessario_pedido"
+  | "pedido_realizado"
+  | "em_transito"
+  | "recebido"
+  | "disponivel";
+
+export interface PartsCounterItem {
+  id: string;
+  partReference: string;
+  partDescription: string;
+  quantity: number;
+  unitPrice: number;
+  availableInStock: boolean;
+  orderSource?: PartOrderSource;
+  orderStatus?: PartsCounterOrderStatus;
+  invoiceNumber?: string;
+  expectedArrivalDate?: string;
+  orderNote?: string;
+}
+
+export interface PartsCounterEntry {
+  id: string;
+  entryType: PartsCounterEntryType;
+  clientName: string;
+  customerType: PartsCounterCustomerType;
+  sellerName: string;
+  destinationState?: string;
+  freightAmount?: number;
+  notes?: string;
+  items: PartsCounterItem[];
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: FirestoreTimestamp;
+  updatedAt: FirestoreTimestamp;
+}
+
+export interface PartsSalesGoal {
+  id: string;
+  month: string;
+  targetAmount: number;
+  updatedBy?: string;
+  updatedAt: FirestoreTimestamp;
 }
 
 export interface PartSchedulingHistory {
@@ -387,6 +435,7 @@ export interface HgsiRecord {
   osNumber: string;
   recordStatus: string;
   isValidRecord: boolean;
+  sourceMonth?: string;
   rawPayload?: Record<string, unknown>;
   importedAt: FirestoreTimestamp;
 }
@@ -397,7 +446,9 @@ export interface HgsiAnswer {
   chassi?: string;
   osNumber?: string;
   responseStatus?: string;
+  sourceMonth?: string;
   consultantId?: string;
+  serviceDate?: string;
   answerDate?: string;
   nps?: number;
   recommendation?: boolean;

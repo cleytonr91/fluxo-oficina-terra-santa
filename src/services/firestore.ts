@@ -17,7 +17,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, HyundaiPartCatalogItem, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, HyundaiPartCatalogItem, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PartsCounterEntry, PartsCounterEntryType, PartsCounterItem, PartsSalesGoal, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -76,6 +76,7 @@ type SaveHgsiRecordInput = {
   osNumber: string;
   status: string;
   valid: boolean;
+  sourceMonth?: string;
   clientName?: string;
   plate?: string;
   serviceLabel?: string;
@@ -87,10 +88,12 @@ type SaveHgsiAnswerInput = {
   chassi: string;
   osNumber: string;
   responseStatus?: string;
+  sourceMonth?: string;
   clientName?: string;
   plate?: string;
   serviceLabel?: string;
   consultantName?: string;
+  serviceDate?: string;
   answerDate?: string;
   nps?: number;
   recommendation?: boolean;
@@ -175,6 +178,123 @@ export async function replaceHyundaiPartsCatalog({
   });
 
   await batch.commit();
+}
+
+export function subscribePartsCounterEntries(
+  onData: (items: PartsCounterEntry[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const ref = query(collection(db, collections.partsCounterEntries), orderBy("createdAt", "desc"));
+
+  return onSnapshot(ref, (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as PartsCounterEntry[]);
+  }, (error) => onError?.(error));
+}
+
+export function subscribePartsSalesGoals(
+  onData: (items: PartsSalesGoal[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const ref = query(collection(db, collections.partsSalesGoals), orderBy("month", "desc"));
+
+  return onSnapshot(ref, (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as PartsSalesGoal[]);
+  }, (error) => onError?.(error));
+}
+
+function normalizeCounterItems(items: PartsCounterItem[], entryType: PartsCounterEntryType) {
+  return items.map((item, index) => withoutUndefined({
+    id: item.id || `item-${index + 1}`,
+    partReference: item.partReference.trim().toUpperCase(),
+    partDescription: item.partDescription.trim().toUpperCase(),
+    quantity: Math.max(1, Number(item.quantity) || 1),
+    unitPrice: Math.max(0, Number(item.unitPrice) || 0),
+    availableInStock: entryType === "venda" ? true : Boolean(item.availableInStock),
+    orderSource: item.availableInStock ? undefined : item.orderSource,
+    orderStatus: item.availableInStock ? "disponivel" : item.orderStatus ?? "necessario_pedido",
+    invoiceNumber: item.invoiceNumber?.trim().toUpperCase(),
+    expectedArrivalDate: item.expectedArrivalDate || undefined,
+    orderNote: item.orderNote?.trim().toUpperCase(),
+  }));
+}
+
+export async function createPartsCounterEntry({
+  entry,
+  actionBy,
+}: {
+  entry: Omit<PartsCounterEntry, "id" | "createdAt" | "updatedAt" | "createdBy" | "updatedBy">;
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  await addDoc(collection(db, collections.partsCounterEntries), withoutUndefined({
+    ...entry,
+    clientName: entry.clientName.trim().toUpperCase(),
+    sellerName: entry.sellerName.trim().toUpperCase(),
+    destinationState: entry.destinationState?.trim().toUpperCase(),
+    notes: entry.notes?.trim().toUpperCase(),
+    items: normalizeCounterItems(entry.items, entry.entryType),
+    createdBy: actionBy,
+    updatedBy: actionBy,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }));
+}
+
+export async function updatePartsCounterEntry({
+  entryId,
+  entryType,
+  items,
+  actionBy,
+}: {
+  entryId: string;
+  entryType: PartsCounterEntryType;
+  items: PartsCounterItem[];
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  await setDoc(doc(collection(db, collections.partsCounterEntries), entryId), withoutUndefined({
+    entryType,
+    items: normalizeCounterItems(items, entryType),
+    updatedBy: actionBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
+export async function convertPartsCounterEntry({
+  entryId,
+  entryType,
+  actionBy,
+}: {
+  entryId: string;
+  entryType: Extract<PartsCounterEntryType, "venda" | "venda_perdida">;
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  await setDoc(doc(collection(db, collections.partsCounterEntries), entryId), {
+    entryType,
+    updatedBy: actionBy,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function savePartsSalesGoal({
+  month,
+  targetAmount,
+  updatedBy,
+}: {
+  month: string;
+  targetAmount: number;
+  updatedBy?: string;
+}) {
+  const db = getFirebaseDb();
+  await setDoc(doc(collection(db, collections.partsSalesGoals), month), withoutUndefined({
+    month,
+    targetAmount: Math.max(0, Number(targetAmount) || 0),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
 }
 
 function normalizeVehicleIdentifier(value?: string) {
@@ -491,13 +611,14 @@ export async function saveHgsiRecords({
   });
 
   records.forEach((record, index) => {
-    const ref = doc(collection(db, collections.hgsiRecords), documentKey(record.chassi || "sem-chassi", record.osNumber || `linha-${index}`));
+    const ref = doc(collection(db, collections.hgsiRecords), documentKey(record.chassi || "sem-chassi", record.osNumber || `linha-${index}`, record.sourceMonth || "sem-mes"));
     batch.set(ref, withoutUndefined({
       importBatchId,
       chassi: record.chassi,
       osNumber: record.osNumber,
       recordStatus: record.status,
       isValidRecord: record.valid,
+      sourceMonth: record.sourceMonth,
       clientName: record.clientName,
       plate: record.plate,
       serviceLabel: record.serviceLabel,
@@ -520,47 +641,60 @@ export async function saveHgsiAnswers({
   answers: SaveHgsiAnswerInput[];
 }) {
   const db = getFirebaseDb();
-  const batch = writeBatch(db);
   const importBatchId = `hgsi-answers-${Date.now()}`;
   const importBatchRef = doc(collection(db, collections.importBatches), importBatchId);
+  const batchSize = 450;
 
-  batch.set(importBatchRef, {
-    sourceFileName,
-    sourceKind: "hgsi_answers",
-    importedBy,
-    importedAt: serverTimestamp(),
-    totalRows: answers.length,
-    notes: "Importacao de respostas HGSI",
-  });
+  for (let start = 0; start < Math.max(answers.length, 1); start += batchSize) {
+    const batch = writeBatch(db);
+    if (start === 0) {
+      batch.set(importBatchRef, {
+        sourceFileName,
+        sourceKind: "hgsi_answers",
+        importedBy,
+        importedAt: serverTimestamp(),
+        totalRows: answers.length,
+        notes: "Importacao de respostas HGSI",
+      });
+    }
 
-  answers.forEach((answer, index) => {
-    const ref = doc(collection(db, collections.hgsiAnswers), documentKey(answer.chassi || "sem-chassi", answer.osNumber || `linha-${index}`));
-    batch.set(ref, withoutUndefined({
-      importBatchId,
-      chassi: answer.chassi,
-      osNumber: answer.osNumber,
-      responseStatus: answer.responseStatus,
-      clientName: answer.clientName,
-      plate: answer.plate,
-      serviceLabel: answer.serviceLabel,
-      consultantName: answer.consultantName,
-      answerDate: answer.answerDate,
-      nps: answer.nps,
-      recommendation: answer.recommendation,
-      installationScore: answer.installationScore,
-      consultantScore: answer.consultantScore,
-      deadlineScore: answer.deadlineScore,
-      serviceQualityScore: answer.serviceQualityScore,
-      priceAlignmentScore: answer.priceAlignmentScore,
-      washScore: answer.washScore,
-      correctServiceScore: answer.correctServiceScore,
-      correctService: answer.correctService,
-      rawPayload: answer.rawPayload,
-      importedAt: serverTimestamp(),
-    }), { merge: true });
-  });
+    answers.slice(start, start + batchSize).forEach((answer, offset) => {
+      const index = start + offset;
+      const ref = doc(collection(db, collections.hgsiAnswers), documentKey(
+        answer.chassi || "sem-chassi",
+        answer.osNumber || `linha-${index}`,
+        answer.sourceMonth || "sem-mes",
+        answer.answerDate || `linha-${index}`,
+      ));
+      batch.set(ref, withoutUndefined({
+        importBatchId,
+        chassi: answer.chassi,
+        osNumber: answer.osNumber,
+        responseStatus: answer.responseStatus,
+        sourceMonth: answer.sourceMonth,
+        clientName: answer.clientName,
+        plate: answer.plate,
+        serviceLabel: answer.serviceLabel,
+        consultantName: answer.consultantName,
+        serviceDate: answer.serviceDate,
+        answerDate: answer.answerDate,
+        nps: answer.nps,
+        recommendation: answer.recommendation,
+        installationScore: answer.installationScore,
+        consultantScore: answer.consultantScore,
+        deadlineScore: answer.deadlineScore,
+        serviceQualityScore: answer.serviceQualityScore,
+        priceAlignmentScore: answer.priceAlignmentScore,
+        washScore: answer.washScore,
+        correctServiceScore: answer.correctServiceScore,
+        correctService: answer.correctService,
+        rawPayload: answer.rawPayload,
+        importedAt: serverTimestamp(),
+      }), { merge: true });
+    });
 
-  await batch.commit();
+    await batch.commit();
+  }
 }
 
 export async function updateUserProfile({

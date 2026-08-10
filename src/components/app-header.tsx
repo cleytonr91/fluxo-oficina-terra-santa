@@ -12,6 +12,7 @@ const navigation = [
   { href: "/fluxo", label: "Fluxo do dia" },
   { href: "/agendamento", label: "Agendamento" },
   { href: "/pecas", label: "Peças" },
+  { href: "/balcao", label: "Balcão" },
   { href: "/funilaria", label: "Funilaria" },
   { href: "/pos-servico", label: "Pós-serviço" },
 ];

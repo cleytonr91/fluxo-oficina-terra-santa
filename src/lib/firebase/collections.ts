@@ -15,6 +15,8 @@ export const collections = {
   hgsiRecords: "hgsiRecords",
   hgsiAnswers: "hgsiAnswers",
   bodyShopProcesses: "bodyShopProcesses",
+  partsCounterEntries: "partsCounterEntries",
+  partsSalesGoals: "partsSalesGoals",
 } as const;
 
 export type CollectionName = (typeof collections)[keyof typeof collections];

@@ -3853,6 +3853,25 @@ textarea {
   font-size: 12px;
 }
 
+.success-alert {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #a8d8ba;
+  border-radius: 8px;
+  background: #effaf2;
+  padding: 10px 12px;
+  color: #176b37;
+}
+
+.success-alert strong {
+  font-size: 13px;
+}
+
+.success-alert span {
+  color: #2b6b42;
+  font-size: 12px;
+}
+
 .prep-summary-row {
   display: grid;
   grid-template-columns: repeat(7, minmax(110px, 1fr));

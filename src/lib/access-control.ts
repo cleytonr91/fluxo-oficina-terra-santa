@@ -13,14 +13,14 @@ export const roleOptions: Array<{ value: UserRole; label: string }> = [
 ];
 
 const rolePaths: Record<UserRole, string[]> = {
-  admin: ["/preparacao", "/fluxo", "/agendamento", "/pecas", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
-  gerente: ["/preparacao", "/fluxo", "/agendamento", "/pecas", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
+  admin: ["/preparacao", "/fluxo", "/agendamento", "/pecas", "/balcao", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
+  gerente: ["/preparacao", "/fluxo", "/agendamento", "/pecas", "/balcao", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
   chefe_oficina: ["/preparacao", "/pecas", "/fluxo", "/cardapio"],
-  consultor: ["/fluxo", "/pos-servico", "/cardapio"],
+  consultor: ["/fluxo", "/balcao", "/pos-servico", "/cardapio"],
   tecnico: ["/fluxo", "/cardapio"],
   lider_lavagem: ["/fluxo", "/cardapio"],
-  consultor_funilaria: ["/pecas", "/funilaria", "/fluxo", "/cardapio"],
-  estoquista: ["/pecas", "/fluxo", "/funilaria", "/cardapio"],
+  consultor_funilaria: ["/pecas", "/balcao", "/funilaria", "/fluxo", "/cardapio"],
+  estoquista: ["/pecas", "/balcao", "/fluxo", "/funilaria", "/cardapio"],
   qualidade: ["/pos-servico", "/cardapio"],
   agendamento: ["/agendamento", "/cardapio"],
 };

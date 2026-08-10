@@ -9,13 +9,24 @@ import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from
 
 const consultants = ["Cleverton", "Rosangela", "Eliane"];
 const surveyGoal = 15;
+const campaignPeriods = [
+  { month: "2026-07", label: "Julho/2026", start: "2026-07-04", end: "2026-08-06" },
+  { month: "2026-08", label: "Agosto/2026", start: "2026-08-07", end: "2026-09-07" },
+];
+const campaignMonthNames: Record<string, string> = {
+  janeiro: "01", fevereiro: "02", marco: "03", abril: "04", maio: "05", junho: "06",
+  julho: "07", agosto: "08", setembro: "09", outubro: "10", novembro: "11", dezembro: "12",
+};
 
 
 type HgsiRecordImport = {
   chassi: string;
   osNumber: string;
+  importBatchId?: string;
   status: string;
   valid: boolean;
+  sourceMonth?: string;
+  importedAt?: unknown;
   clientName?: string;
   plate?: string;
   serviceLabel?: string;
@@ -26,11 +37,15 @@ type HgsiRecordImport = {
 type HgsiAnswerImport = {
   chassi: string;
   osNumber: string;
+  importBatchId?: string;
   responseStatus?: string;
+  sourceMonth?: string;
+  importedAt?: unknown;
   clientName?: string;
   plate?: string;
   serviceLabel?: string;
   consultantName?: string;
+  serviceDate?: string;
   answerDate?: string;
   nps?: number;
   recommendation?: boolean;
@@ -61,6 +76,7 @@ type FunnelItem = {
   internalNps?: number;
   hasPendingIssue?: boolean;
   futureNote?: string;
+  sourceMonth?: string;
 };
 
 type TreatmentForm = {
@@ -73,6 +89,40 @@ type TreatmentForm = {
 
 function normalizeText(value: unknown) {
   return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function dateKeyFromValue(value: unknown) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const isoMatch = value.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
+    const brMatch = value.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (brMatch) return `${brMatch[3]}-${brMatch[2].padStart(2, "0")}-${brMatch[1].padStart(2, "0")}`;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+  if (typeof value === "object" && value !== null) {
+    const candidate = value as { toDate?: () => Date; seconds?: number };
+    if (typeof candidate.toDate === "function") return dateKeyFromValue(candidate.toDate());
+    if (typeof candidate.seconds === "number") return dateKeyFromValue(new Date(candidate.seconds * 1000));
+  }
+  return "";
+}
+
+function campaignMonthFromMatrix(matrix: unknown[][]) {
+  const title = matrix.flat().map(normalizeText).find((value) => value.includes("pos-vendas") && value.includes("mensal"));
+  if (!title) return "";
+  const match = title.match(/(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\/(\d{4})/);
+  return match ? `${match[2]}-${campaignMonthNames[match[1]]}` : "";
+}
+
+function isCampaignClosed(month: string) {
+  const period = campaignPeriods.find((item) => item.month === month);
+  return period ? period.end < dateKeyFromValue(new Date()) : false;
 }
 
 function findColumn(row: Record<string, unknown>, terms: string[]) {
@@ -129,6 +179,7 @@ function parseRows(file: File) {
     const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
     const matrix = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, { header: 1, defval: "" });
+    const campaignMonth = campaignMonthFromMatrix(matrix);
     const headerIndex = matrix.findIndex((row) => {
       const normalizedCells = row.map(normalizeText);
       const hasChassi = normalizedCells.some((cell) => cell.includes("chassi") || cell.includes("vin"));
@@ -148,7 +199,7 @@ function parseRows(file: File) {
       });
 
       if (secondaryHeaderIndex < 0) {
-        return XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" });
+        return { rows: XLSX.utils.sheet_to_json<Record<string, unknown>>(firstSheet, { defval: "" }), campaignMonth };
       }
 
       const parentHeader = matrix[Math.max(0, secondaryHeaderIndex - 1)] ?? [];
@@ -160,21 +211,67 @@ function parseRows(file: File) {
         return child || parent || `COLUNA_${index}`;
       });
 
-      return matrix.slice(secondaryHeaderIndex + 1)
+      const rows = matrix.slice(secondaryHeaderIndex + 1)
         .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])))
         .filter((row) => Object.values(row).some((value) => String(value ?? "").trim()));
+      return { rows, campaignMonth };
     }
 
     const headers = matrix[headerIndex].map((header, index) => String(header || `COLUNA_${index}`).trim() || `COLUNA_${index}`);
 
-    return matrix.slice(headerIndex + 1)
+    const rows = matrix.slice(headerIndex + 1)
       .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] ?? ""])))
       .filter((row) => Object.values(row).some((value) => String(value ?? "").trim()));
+    return { rows, campaignMonth };
   });
 }
 
 function normalizeChassi(value?: string) {
   return (value ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+}
+
+function monthFromValue(value: unknown) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const isoMatch = value.match(/(\d{4})[-/](\d{1,2})/);
+    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}`;
+    const brMatch = value.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/);
+    if (brMatch) return `${brMatch[3]}-${brMatch[2].padStart(2, "0")}`;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 7);
+  if (typeof value === "object" && value !== null) {
+    const candidate = value as { toDate?: () => Date; seconds?: number };
+    if (typeof candidate.toDate === "function") return monthFromValue(candidate.toDate());
+    if (typeof candidate.seconds === "number") return monthFromValue(new Date(candidate.seconds * 1000));
+  }
+  return "";
+}
+
+function answerServiceDate(answer: Pick<HgsiAnswerImport, "serviceDate" | "raw">) {
+  return answer.serviceDate || textFrom(answer.raw, ["datas servico", "data servico"]);
+}
+
+function answerSourceMonth(answer: Pick<HgsiAnswerImport, "serviceDate" | "sourceMonth" | "importedAt" | "raw">) {
+  return monthFromValue(answerServiceDate(answer)) || answer.sourceMonth || monthFromValue(answer.importedAt);
+}
+
+function timeFromValue(value: unknown) {
+  if (!value) return 0;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "object" && value !== null) {
+    const candidate = value as { toDate?: () => Date; seconds?: number };
+    if (typeof candidate.toDate === "function") return candidate.toDate().getTime();
+    if (typeof candidate.seconds === "number") return candidate.seconds * 1000;
+  }
+  return 0;
+}
+
+function displayMonth(value: string) {
+  if (!value) return "Sem mês identificado";
+  const campaign = campaignPeriods.find((period) => period.month === value);
+  if (campaign) return campaign.label;
+  const [year, month] = value.split("-");
+  return `${month}/${year}`;
 }
 
 function consultantDisplayName(name?: string) {
@@ -228,15 +325,28 @@ function answerKey(answer: Pick<HgsiAnswerImport, "chassi" | "osNumber">) {
   return normalizeChassi(answer.chassi) || answer.osNumber;
 }
 
-function dedupeByKey<T>(items: T[], keyGetter: (item: T) => string) {
+function dedupeByKey<T>(items: T[], keyGetter: (item: T) => string, prefer?: (current: T, previous: T) => boolean) {
   const mapped = new Map<string, T>();
 
   items.forEach((item) => {
     const key = keyGetter(item);
-    if (key && !mapped.has(key)) mapped.set(key, item);
+    const previous = mapped.get(key);
+    if (key && (!previous || prefer?.(item, previous))) mapped.set(key, item);
   });
 
   return Array.from(mapped.values());
+}
+
+function preferLatestAnswer(current: HgsiAnswerImport, previous: HgsiAnswerImport) {
+  const currentMonth = current.sourceMonth || "";
+  const previousMonth = previous.sourceMonth || "";
+  if (currentMonth !== previousMonth) return currentMonth > previousMonth;
+
+  const currentImport = timeFromValue(current.importedAt);
+  const previousImport = timeFromValue(previous.importedAt);
+  if (currentImport !== previousImport) return currentImport > previousImport;
+
+  return (current.importBatchId || "") > (previous.importBatchId || "");
 }
 
 function vehicleToItem(vehicle: VehicleFlow): FunnelItem {
@@ -255,6 +365,7 @@ function vehicleToItem(vehicle: VehicleFlow): FunnelItem {
     internalNps: vehicle.internalNps,
     hasPendingIssue: vehicle.hasPendingIssue,
     futureNote: vehicle.futureNote,
+    sourceMonth: monthFromValue(vehicle.deliveredAt),
   };
 }
 
@@ -268,6 +379,7 @@ function recordToItem(record: HgsiRecordImport): FunnelItem {
     osNumber: record.osNumber,
     serviceLabel: record.serviceLabel,
     consultantName: record.consultantName,
+    sourceMonth: record.sourceMonth || monthFromValue(record.importedAt),
   };
 }
 
@@ -282,6 +394,7 @@ function answerToItem(answer: HgsiAnswerImport): FunnelItem {
     serviceLabel: answer.serviceLabel,
     consultantName: answer.consultantName,
     deliveredAt: answer.answerDate,
+    sourceMonth: answerSourceMonth(answer),
   };
 }
 
@@ -453,6 +566,7 @@ export default function PosServicoPage() {
     caseType: "tratar_antes_pesquisa",
   });
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [deliveredConsultantFilter, setDeliveredConsultantFilter] = useState("Todos");
   const [aptosConsultantFilter, setAptosConsultantFilter] = useState("Todos");
   const [answeredConsultantFilter, setAnsweredConsultantFilter] = useState("Todos");
@@ -466,6 +580,7 @@ export default function PosServicoPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -473,6 +588,7 @@ export default function PosServicoPage() {
     async function loadPostServiceData() {
       setLoading(true);
       setError("");
+      setSuccessMessage("");
 
       try {
         const [flowData, savedRecords, savedAnswers, savedCases] = await Promise.all([
@@ -483,9 +599,10 @@ export default function PosServicoPage() {
         ]);
         if (!active) return;
         setVehicles(flowData.filter((vehicle) => vehicle.currentLane === "entregue"));
-        setHgsiRecords(savedRecords.map((record) => ({
+        const nextRecords = savedRecords.map((record) => ({
           chassi: normalizeChassi(record.chassi),
           osNumber: record.osNumber,
+          importBatchId: record.importBatchId,
           status: record.recordStatus,
           valid: Boolean(record.isValidRecord) && isValidHgsiRecordStatus(record.recordStatus),
           clientName: (record as { clientName?: string }).clientName,
@@ -493,15 +610,19 @@ export default function PosServicoPage() {
           serviceLabel: (record as { serviceLabel?: string }).serviceLabel,
           consultantName: (record as { consultantName?: string }).consultantName,
           raw: record.rawPayload ?? {},
-        })));
-        setHgsiAnswers(savedAnswers.map((answer) => ({
+          sourceMonth: record.sourceMonth || monthFromValue(record.importedAt),
+          importedAt: record.importedAt,
+        }));
+        const nextAnswers = savedAnswers.map((answer) => ({
           chassi: normalizeChassi(answer.chassi),
           osNumber: answer.osNumber ?? "",
+          importBatchId: answer.importBatchId,
           responseStatus: (answer as { responseStatus?: string }).responseStatus,
           clientName: (answer as { clientName?: string }).clientName,
           plate: (answer as { plate?: string }).plate,
           serviceLabel: (answer as { serviceLabel?: string }).serviceLabel,
           consultantName: (answer as { consultantName?: string }).consultantName,
+          serviceDate: answer.serviceDate || textFrom(answer.rawPayload ?? {}, ["datas servico", "data servico"]),
           answerDate: answer.answerDate,
           nps: answer.nps,
           recommendation: answer.recommendation,
@@ -514,7 +635,17 @@ export default function PosServicoPage() {
           correctServiceScore: answer.correctServiceScore,
           correctService: answer.correctService,
           raw: answer.rawPayload ?? {},
-        })).filter((answer) => answer.chassi || answer.osNumber));
+          sourceMonth: monthFromValue(answer.serviceDate || textFrom(answer.rawPayload ?? {}, ["datas servico", "data servico"])) || answer.sourceMonth || monthFromValue(answer.importedAt),
+          importedAt: answer.importedAt,
+        })).filter((answer) => answer.chassi || answer.osNumber);
+        setHgsiRecords(nextRecords);
+        setHgsiAnswers(nextAnswers);
+        const loadedMonths = Array.from(new Set([
+          ...flowData.map((vehicle) => monthFromValue(vehicle.deliveredAt)),
+          ...nextRecords.map((record) => record.sourceMonth),
+          ...nextAnswers.map((answer) => answer.sourceMonth),
+        ].filter(Boolean) as string[])).sort((first, second) => second.localeCompare(first));
+        setSelectedMonth(loadedMonths[0] || new Date().toISOString().slice(0, 7));
         setPostCases(savedCases);
       } catch (currentError) {
         if (!active) return;
@@ -532,6 +663,30 @@ export default function PosServicoPage() {
 
   const flowItems = useMemo(() => vehicles.map(vehicleToItem), [vehicles]);
 
+  const availableMonths = useMemo(() => Array.from(new Set([
+    ...campaignPeriods.map((period) => period.month),
+    ...flowItems.map((item) => item.sourceMonth),
+    ...hgsiRecords.map((record) => record.sourceMonth || monthFromValue(record.importedAt)),
+    ...hgsiAnswers.map(answerSourceMonth),
+  ].filter(Boolean) as string[])).sort((first, second) => second.localeCompare(first)), [flowItems, hgsiRecords, hgsiAnswers]);
+
+  const filterByMonth = (item: Pick<FunnelItem, "sourceMonth">) => (
+    selectedMonth === "Todos" || item.sourceMonth === selectedMonth
+  );
+  const campaignClosed = selectedMonth !== "Todos" && isCampaignClosed(selectedMonth);
+  const monthScopedFlowItems = flowItems.filter(filterByMonth);
+  const candidateMonthRecords = campaignClosed ? [] : hgsiRecords.filter((record) => filterByMonth({ sourceMonth: record.sourceMonth || monthFromValue(record.importedAt) }));
+  const latestRecord = candidateMonthRecords.reduce<HgsiRecordImport | null>((latest, record) => {
+    if (!latest) return record;
+    const timeDifference = timeFromValue(record.importedAt) - timeFromValue(latest.importedAt);
+    if (timeDifference !== 0) return timeDifference > 0 ? record : latest;
+    return (record.importBatchId || "") > (latest.importBatchId || "") ? record : latest;
+  }, null);
+  const monthScopedRecords = latestRecord?.importBatchId
+    ? candidateMonthRecords.filter((record) => record.importBatchId === latestRecord.importBatchId)
+    : candidateMonthRecords;
+  const monthScopedAnswers = hgsiAnswers.filter((answer) => filterByMonth({ sourceMonth: answerSourceMonth(answer) }));
+
   const casesByItemKey = useMemo(() => {
     const mapped = new Map<string, PostServiceCase>();
     postCases.forEach((postCase) => {
@@ -542,21 +697,22 @@ export default function PosServicoPage() {
 
   const answersByChassi = useMemo(() => {
     const mapped = new Map<string, HgsiAnswerImport>();
-    dedupeByKey(hgsiAnswers.filter(isAnswerInHgsiBase), answerKey).forEach((answer) => {
+    dedupeByKey(monthScopedAnswers.filter(isAnswerInHgsiBase), answerKey, preferLatestAnswer).forEach((answer) => {
       if (answer.chassi) mapped.set(normalizeChassi(answer.chassi), answer);
     });
     return mapped;
-  }, [hgsiAnswers]);
-  const hgsiBaseAnswers = useMemo(() => dedupeByKey(hgsiAnswers.filter(isAnswerInHgsiBase), answerKey), [hgsiAnswers]);
-  const allAnsweredAnswers = useMemo(() => dedupeByKey(hgsiAnswers, answerKey), [hgsiAnswers]);
+  }, [monthScopedAnswers]);
+  const hgsiBaseAnswers = useMemo(() => dedupeByKey(monthScopedAnswers.filter(isAnswerInHgsiBase), answerKey, preferLatestAnswer), [monthScopedAnswers]);
+  const allAnsweredAnswers = useMemo(() => dedupeByKey(monthScopedAnswers, answerKey, preferLatestAnswer), [monthScopedAnswers]);
   const unauthorizedAnswers = useMemo(() => dedupeByKey(
-    hgsiAnswers.filter((answer) => !isAnswerInHgsiBase(answer)),
+    monthScopedAnswers.filter((answer) => !isAnswerInHgsiBase(answer)),
     answerKey,
-  ), [hgsiAnswers]);
+    preferLatestAnswer,
+  ), [monthScopedAnswers]);
 
   const validRecordKeys = useMemo(() => {
     const mapped = new Set<string>();
-    hgsiRecords.forEach((record) => {
+    monthScopedRecords.forEach((record) => {
       if (!record.valid) return;
       const chassi = normalizeChassi(record.chassi);
       const osNumber = record.osNumber?.trim();
@@ -564,48 +720,48 @@ export default function PosServicoPage() {
       if (osNumber) mapped.add(osNumber);
     });
     return mapped;
-  }, [hgsiRecords]);
+  }, [monthScopedRecords]);
   const validRecords = useMemo(() => dedupeByKey(
-    hgsiRecords.filter((record) => validRecordKeys.has(recordKey(record))),
+    monthScopedRecords.filter((record) => validRecordKeys.has(recordKey(record))),
     recordKey,
-  ), [hgsiRecords, validRecordKeys]);
+  ), [monthScopedRecords, validRecordKeys]);
   const validChassis = useMemo(() => new Set(
-    hgsiRecords
+    monthScopedRecords
       .filter((record) => record.valid)
       .map((record) => normalizeChassi(record.chassi))
       .filter(Boolean),
-  ), [hgsiRecords]);
-  const flowKeys = useMemo(() => new Set(flowItems.map(itemKey)), [flowItems]);
+  ), [monthScopedRecords]);
+  const flowKeys = useMemo(() => new Set(monthScopedFlowItems.map(itemKey)), [monthScopedFlowItems]);
 
   const validRecordItems = useMemo(() => {
-    const matched = flowItems.filter((item) => validChassis.has(normalizeChassi(item.chassi)));
+    const matched = monthScopedFlowItems.filter((item) => validChassis.has(normalizeChassi(item.chassi)));
     const basic = validRecords
       .filter((record) => !flowKeys.has(recordKey(record)))
       .map(recordToItem);
     return dedupeByKey([...matched, ...basic], itemKey);
-  }, [flowItems, flowKeys, validChassis, validRecords]);
+  }, [monthScopedFlowItems, flowKeys, validChassis, validRecords]);
 
   const answeredItems = useMemo(() => {
     const answeredKeys = new Set(hgsiBaseAnswers.map(answerKey).filter(Boolean));
-    const matched = flowItems.filter((item) => answeredKeys.has(normalizeChassi(item.chassi)) || answeredKeys.has(item.osNumber ?? ""));
+    const matched = monthScopedFlowItems.filter((item) => answeredKeys.has(normalizeChassi(item.chassi)) || answeredKeys.has(item.osNumber ?? ""));
     const basic = hgsiBaseAnswers
       .filter((answer) => !flowKeys.has(answerKey(answer)))
       .map(answerToItem);
     return dedupeByKey([...matched, ...basic], itemKey);
-  }, [flowItems, flowKeys, hgsiBaseAnswers]);
+  }, [monthScopedFlowItems, flowKeys, hgsiBaseAnswers]);
 
   const allAnsweredItems = useMemo(() => {
     const answeredKeys = new Set(allAnsweredAnswers.map(answerKey).filter(Boolean));
-    const matched = flowItems.filter((item) => answeredKeys.has(normalizeChassi(item.chassi)) || answeredKeys.has(item.osNumber ?? ""));
+    const matched = monthScopedFlowItems.filter((item) => answeredKeys.has(normalizeChassi(item.chassi)) || answeredKeys.has(item.osNumber ?? ""));
     const basic = allAnsweredAnswers
       .filter((answer) => !flowKeys.has(answerKey(answer)))
       .map(answerToItem);
     return dedupeByKey([...matched, ...basic], itemKey);
-  }, [allAnsweredAnswers, flowItems, flowKeys]);
+  }, [allAnsweredAnswers, monthScopedFlowItems, flowKeys]);
 
   const answeredWithoutValidRecord = useMemo(() => (
-    hgsiBaseAnswers.filter((answer) => !validRecordKeys.has(answerKey(answer)))
-  ), [hgsiBaseAnswers, validRecordKeys]);
+    campaignClosed ? [] : hgsiBaseAnswers.filter((answer) => !validRecordKeys.has(answerKey(answer)))
+  ), [campaignClosed, hgsiBaseAnswers, validRecordKeys]);
 
   const answersByKey = useMemo(() => {
     const mapped = new Map<string, HgsiAnswerImport>();
@@ -638,7 +794,7 @@ export default function PosServicoPage() {
   };
 
   const isTreatedItem = (item: FunnelItem) => casesByItemKey.get(itemKey(item))?.treatmentStatus === "tratado";
-  const searchedFlowItems = flowItems.filter(filterBySearch);
+  const searchedFlowItems = monthScopedFlowItems.filter(filterBySearch);
   const searchedValidRecordItems = validRecordItems.filter(filterBySearch);
   const searchedAnsweredItems = allAnsweredItems.filter(filterBySearch);
   const deliveredItems = searchedFlowItems.filter((item) => filterByConsultant(item, deliveredConsultantFilter));
@@ -649,23 +805,17 @@ export default function PosServicoPage() {
     .filter((item) => !isTreatedItem(item));
   const treatmentItems = pendingValidItems.filter(needsTreatment);
   const requestReadyItems = pendingValidItems.filter((item) => !needsTreatment(item));
-  const treatedSourceItems = [...flowItems, ...validRecordItems, ...answeredItems];
+  const treatedSourceItems = [...monthScopedFlowItems, ...validRecordItems, ...answeredItems];
   const treatedItemsByKey = new Map(treatedSourceItems.map((item) => [itemKey(item), item]));
   const treatedItems = postCases
     .filter((postCase) => postCase.treatmentStatus === "tratado")
-    .map((postCase) => treatedItemsByKey.get(postCase.vehicleFlowId) ?? ({
-      id: postCase.vehicleFlowId,
-      source: "route" as const,
-      clientName: "Cliente tratado",
-      chassi: postCase.vehicleFlowId,
-    }))
+    .map((postCase) => treatedItemsByKey.get(postCase.vehicleFlowId))
+    .filter((item): item is FunnelItem => Boolean(item))
     .filter(filterBySearch)
     .filter((item) => filterByConsultant(item, treatedConsultantFilter))
     .filter((item) => filterByTreatmentOwner(item, treatedByFilter));
   const treatedByOptions = Array.from(new Set(
-    postCases
-      .filter((postCase) => postCase.treatmentStatus === "tratado")
-      .map((postCase) => postCase.treatmentBy || "-"),
+    treatedItems.map((item) => casesByItemKey.get(itemKey(item))?.treatmentBy || "-"),
   )).sort((first, second) => first.localeCompare(second));
 
   const consultantStats = useMemo(() => {
@@ -744,14 +894,17 @@ export default function PosServicoPage() {
     });
   }, [hgsiBaseAnswers, unauthorizedAnswers]);
 
-  const metrics = [
-    { label: "Veículos entregues", value: deliveredItems.length },
+  const activeCampaignMetrics = campaignClosed ? [] : [
     { label: "Registro válido Route", value: filteredValidRecordItems.length },
     { label: "Solicitar resposta HGSI", value: requestReadyItems.length },
     { label: "Tratar antes", value: treatmentItems.length },
+    { label: "Respondidos sem registro válido", value: answeredWithoutValidRecord.length },
+  ];
+  const metrics = [
+    { label: "Veículos entregues", value: deliveredItems.length },
+    ...activeCampaignMetrics,
     { label: "Clientes tratados", value: treatedItems.length },
     { label: "Clientes que responderam", value: filteredAnsweredItems.length },
-    { label: "Respondidos sem registro válido", value: answeredWithoutValidRecord.length },
   ];
 
   function openTreatmentModal(item: FunnelItem) {
@@ -820,7 +973,14 @@ export default function PosServicoPage() {
     if (!file) return;
 
     try {
-      const rows = await parseRows(file);
+      const parsed = await parseRows(file);
+      const rows = parsed.rows;
+      const sourceMonth = parsed.campaignMonth || selectedMonth;
+      setSelectedMonth(sourceMonth);
+      if (isCampaignClosed(sourceMonth)) {
+        setSuccessMessage(`A campanha de ${displayMonth(sourceMonth)} está encerrada. Os registros válidos não foram armazenados.`);
+        return;
+      }
       const records = rows.map((row) => {
         const status = textFrom(row, ["status", "registro"]);
         const chassi = textFrom(row, ["chassi", "vin"]).toUpperCase();
@@ -836,6 +996,7 @@ export default function PosServicoPage() {
           serviceLabel: textFrom(row, ["servico", "serviço", "tipo"]),
           consultantName: consultantDisplayName(textFrom(row, ["consultor responsavel", "consultor tecnico", "consultor"])),
           rawPayload: row,
+          sourceMonth,
         };
       });
 
@@ -846,6 +1007,7 @@ export default function PosServicoPage() {
       });
 
       setHgsiRecords(records.map((record) => ({ ...record, raw: record.rawPayload })));
+      setSuccessMessage(`${records.length} registro(s) Route gravado(s) na base de ${displayMonth(sourceMonth)}.`);
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível ler a planilha de status HGSI.");
     }
@@ -855,10 +1017,15 @@ export default function PosServicoPage() {
     if (!file) return;
 
     try {
-      const rows = await parseRows(file);
+      const parsed = await parseRows(file);
+      const rows = parsed.rows;
+      const fileMonth = parsed.campaignMonth || selectedMonth;
       const answers = rows.map((row) => {
         const chassi = textFrom(row, ["chassi", "vin"]).toUpperCase();
         const osNumber = textFrom(row, ["o.s", "os", "ordem"]);
+        const serviceDate = textFrom(row, ["datas servico", "data servico"]);
+        const answerDate = textFrom(row, ["datas entrevista", "data entrevista", "entrevista", "data resposta", "respondido"]);
+        const sourceMonth = monthFromValue(serviceDate) || fileMonth;
 
         return {
           chassi,
@@ -868,7 +1035,8 @@ export default function PosServicoPage() {
           plate: textFrom(row, ["placa"]),
           serviceLabel: textFrom(row, ["dados do cliente veiculo", "veiculo", "veículo", "servico", "serviço", "tipo"]),
           consultantName: consultantDisplayName(textFrom(row, ["consultor responsavel", "consultor tecnico", "consultor"])),
-          answerDate: textFrom(row, ["datas entrevista", "data entrevista", "entrevista", "data resposta", "respondido"]),
+          serviceDate,
+          answerDate,
           nps: numberFrom(row, ["indice hgsi", "índice hgsi", "nps", "nota"]),
           recommendation: boolFrom(row, ["q1.3", "1.3", "recomendacao concessionaria", "recomendação concessionária", "recomendacao", "recomendação", "recomenda", "recomendaria"]),
           installationScore: numberFrom(row, ["q2 instalacoes", "q2 instalações", "instalacoes", "instalações"]),
@@ -880,8 +1048,11 @@ export default function PosServicoPage() {
           correctServiceScore: numberFrom(row, ["q14.3 correto na primeira vez", "correto na primeira vez", "servico correto", "serviço correto"]),
           correctService: boolFrom(row, ["correto na primeira vez", "servico correto", "serviço correto", "servico realizado"]),
           rawPayload: row,
+          sourceMonth,
         };
       }).filter((answer) => answer.chassi || answer.osNumber);
+      const sourceMonth = answers[0]?.sourceMonth || fileMonth;
+      setSelectedMonth(sourceMonth);
 
       await saveHgsiAnswers({
         sourceFileName: file.name,
@@ -893,6 +1064,7 @@ export default function PosServicoPage() {
         ...answer,
         raw: answer.rawPayload ?? {},
       })));
+      setSuccessMessage(`${answers.length} resposta(s) HGSI gravada(s) na base de ${displayMonth(sourceMonth)}.`);
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível ler a planilha de respostas HGSI.");
     }
@@ -924,11 +1096,20 @@ export default function PosServicoPage() {
               />
             </label>
 
-            <label className="file-button compact-file">
-              <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiRecords(event.target.files?.[0])} />
-              <strong>Status Route</strong>
-              <span>{validRecords.length} registro(s) válido(s)</span>
+            <label className="flow-filter">
+              <span>Mês da base</span>
+              <select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
+                {availableMonths.map((month) => <option key={month} value={month}>{displayMonth(month)}</option>)}
+              </select>
             </label>
+
+            {!campaignClosed && (
+              <label className="file-button compact-file">
+                <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiRecords(event.target.files?.[0])} />
+                <strong>Status Route</strong>
+                <span>{validRecords.length} registro(s) válido(s)</span>
+              </label>
+            )}
 
             <label className="file-button compact-file">
               <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiAnswers(event.target.files?.[0])} />
@@ -939,6 +1120,7 @@ export default function PosServicoPage() {
         </section>
 
         {error && <div className="duplicate-alert"><strong>Erro no pós-serviço</strong><span>{error}</span></div>}
+        {successMessage && <div className="success-alert" role="status"><strong>Importação concluída</strong><span>{successMessage}</span></div>}
 
         {answeredWithoutValidRecord.length > 0 && (
           <section className="duplicate-alert">
@@ -998,7 +1180,7 @@ export default function PosServicoPage() {
             )}
           </section>
 
-          <section className="post-funnel-block">
+          {!campaignClosed && <section className="post-funnel-block">
             <div className="post-funnel-block-head">
               <button type="button" className="ghost-btn" onClick={() => toggleStage("aptos")}>
                 {expandedStages.aptos ? "Recolher" : "Expandir"}
@@ -1018,7 +1200,7 @@ export default function PosServicoPage() {
             </div>
             {expandedStages.aptos && (
               <div className="post-list">
-                {hgsiRecords.length === 0 ? (
+                {monthScopedRecords.length === 0 ? (
                   <p className="empty">Importe o Status Route para identificar registros válidos.</p>
                 ) : pendingValidItems.length ? pendingValidItems.map((item) => (
                   <FunnelRow
@@ -1034,7 +1216,7 @@ export default function PosServicoPage() {
                 )}
               </div>
             )}
-          </section>
+          </section>}
 
           <section className="post-funnel-block">
             <div className="post-funnel-block-head treated-head">
@@ -1087,7 +1269,7 @@ export default function PosServicoPage() {
               </button>
               <div>
                 <h2>Clientes que responderam</h2>
-                <span>Lista pesquisável de respostas HGSI, inclusive fora da base válida.</span>
+                <span>Respostas HGSI correspondentes exclusivamente à campanha selecionada.</span>
               </div>
               <strong>{filteredAnsweredItems.length}</strong>
               <label className="flow-filter stage-filter">
@@ -1251,7 +1433,7 @@ export default function PosServicoPage() {
                 <div className="detail"><span>Pedido de peça</span>{indicatorItem.partsOrdered ? "Sim" : "Não"}</div>
                 <div className="detail"><span>Pendência</span>{indicatorItem.hasPendingIssue || indicatorItem.partsOrdered || (typeof indicatorItem.internalNps === "number" && indicatorItem.internalNps < 8) ? "Sim" : "Não"}</div>
                 <div className="detail"><span>NPS interno</span>{indicatorItem.internalNps ?? "-"}</div>
-                <div className="detail"><span>Registro válido</span>{validChassis.has(normalizeChassi(indicatorItem.chassi)) ? "Sim" : "Não"}</div>
+                {!campaignClosed && <div className="detail"><span>Registro válido</span>{validChassis.has(normalizeChassi(indicatorItem.chassi)) ? "Sim" : "Não"}</div>}
                 <div className="detail"><span>Resposta HGSI</span>{answersByChassi.has(normalizeChassi(indicatorItem.chassi)) ? "Sim" : "Não"}</div>
                 <div className="detail"><span>Status tratativa</span>{casesByItemKey.get(itemKey(indicatorItem))?.treatmentStatus ?? "-"}</div>
                 <div className="detail"><span>Tratado por</span>{casesByItemKey.get(itemKey(indicatorItem))?.treatmentBy || "-"}</div>

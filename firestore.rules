@@ -99,6 +99,16 @@ service cloud.firestore {
       allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'consultor_funilaria', 'estoquista', 'agendamento']);
     }
 
+    match /partsCounterEntries/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'consultor', 'consultor_funilaria', 'estoquista']);
+    }
+
+    match /partsSalesGoals/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'estoquista']);
+    }
+
     match /partsCatalog/{document} {
       allow read: if operations();
       allow write: if hasRole(['admin']);

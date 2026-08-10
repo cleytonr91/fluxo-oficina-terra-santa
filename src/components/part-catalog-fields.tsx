@@ -45,7 +45,7 @@ export function PartCatalogFields({
   index: number;
   reference: string;
   description: string;
-  onChange: (value: { partReference?: string; partDescription?: string }) => void;
+  onChange: (value: { partReference?: string; partDescription?: string; salePrice?: number }) => void;
 }) {
   const [catalog, setCatalog] = useState<SearchableCatalogItem[]>(catalogCache ?? []);
   const [open, setOpen] = useState(false);
@@ -80,7 +80,7 @@ export function PartCatalogFields({
   }, [catalog, query]);
 
   function choose(item: HyundaiPartCatalogItem) {
-    onChange({ partReference: item.reference, partDescription: item.description });
+    onChange({ partReference: item.reference, partDescription: item.description, salePrice: item.salePrice });
     setSearchText(item.reference);
     setOpen(false);
   }
@@ -117,7 +117,7 @@ export function PartCatalogFields({
           ) : suggestions.length ? suggestions.map((item) => (
             <button key={item.reference} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(item)}>
               <strong>{item.reference}</strong>
-              <span>{item.description}</span>
+              <span>{item.description}{typeof item.salePrice === "number" ? ` · ${item.salePrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}</span>
             </button>
           )) : (
             <span className="catalog-message">Item não encontrado. O preenchimento manual continua disponível.</span>
