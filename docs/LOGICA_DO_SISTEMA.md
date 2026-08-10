@@ -704,7 +704,7 @@ O Balcão é um módulo comercial autenticado do Fluxo, separado do acompanhamen
 - Cliente classificado como PF ou PJ.
 - Vendedor responsável, frete e observações.
 - Venda exige estado de destino e considera todos os itens disponíveis em estoque.
-- Pedido permite indicar, por item, disponibilidade em estoque ou origem: Mobis, Rede, Natal, Mossoró ou Juazeiro.
+- Pedido exige estado de destino e permite indicar, por item, disponibilidade em estoque ou origem: Mobis, Rede, Natal, Mossoró ou Juazeiro.
 - Todos os textos digitados são armazenados em caixa alta.
 
 ### 16.2 Catálogo Hyundai
