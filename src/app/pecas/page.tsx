@@ -27,6 +27,26 @@ type StandalonePartOrderFormFields = PartOrderFormFields & {
   plate: string;
 };
 
+type TransportInfoModal = "tip" | "contacts" | null;
+
+const trackingLinks = {
+  glovis: "https://glovistms.eslcloud.com.br/recipient_tracking",
+  ceva: "https://orionbr.cevalogistics.com/Tracking/TrackingInvoice.aspx",
+};
+
+const carrierContacts = [
+  { carrier: "GLOVIS", area: "Programação/Operação", name: "Marcelo Vedoveto", email: "marcelo.vedoveto@glovis.com.br", phone: "(19) 97411-1563" },
+  { carrier: "GLOVIS", area: "Programação/Operação", name: "Adler Heleno", email: "adler.heleno@glovis.com.br", phone: "Sem telefone disponível" },
+  { carrier: "GLOVIS", area: "Atendimento ao cliente", name: "Pamela Leite", email: "pamela.leite@glovis.com.br", phone: "(11) 91841-3151" },
+  { carrier: "GLOVIS", area: "Filial Paulista", name: "Douglas Barral", email: "douglas.barral@glovis.com.br", phone: "(19) 97409-9052" },
+  { carrier: "GLOVIS", area: "Filial Juiz de Fora", name: "Geraldo Junior", email: "geraldo.junior@glovis.com.br", phone: "(32) 99182-0888" },
+  { carrier: "GLOVIS", area: "Filial Lages", name: "Emanuel Silva", email: "emanuel.silva@glovis.com.br", phone: "(11) 94726-8418" },
+  { carrier: "GLOVIS", area: "Gestão", name: "Davi An", email: "davi.an@glovis.com.br", phone: "(11) 97207-9293" },
+  { carrier: "CEVA", area: "Programação/Operação", name: "Renata Lilo", email: "ext.renata.lilo@cevalogistics.com", phone: "Sem telefone disponível" },
+  { carrier: "CEVA", area: "Atendimento ao cliente", name: "Murilo Anjos", email: "ext.murilo.anjos@cevalogistics.com", phone: "(19) 98925-5917" },
+  { carrier: "CEVA", area: "Gestão", name: "Rodrigo Zanardo", email: "ext.rodrigo.zanardo@cevalogistics.com", phone: "(11) 99136-9323" },
+] as const;
+
 const statusLabels: Record<PartOrderStatus, string> = {
   solicitado_oficina: "Solicitado oficina",
   necessidade_identificada: "Solicitado oficina",
@@ -265,6 +285,7 @@ export default function PecasPage() {
   const [applyingReceiptId, setApplyingReceiptId] = useState("");
   const [syncingPortal, setSyncingPortal] = useState(false);
   const [standaloneOpen, setStandaloneOpen] = useState(false);
+  const [transportInfoModal, setTransportInfoModal] = useState<TransportInfoModal>(null);
   const [standaloneForm, setStandaloneForm] = useState<StandalonePartOrderFormFields>(emptyStandalonePartOrder);
   const [savingStandalone, setSavingStandalone] = useState(false);
   const [catalogImporting, setCatalogImporting] = useState(false);
@@ -880,7 +901,65 @@ export default function PecasPage() {
           )}
         </div>
 
+        <section className="parts-tracking-tools" aria-label="Rastreamento de transportadoras">
+          <div className="parts-tracking-copy">
+            <strong>Rastreamento de pedidos</strong>
+            <span>Consulte a transportadora, os contatos e acompanhe a entrega.</span>
+          </div>
+          <button className="ghost-btn" type="button" onClick={() => setTransportInfoModal("tip")}>Dica</button>
+          <button className="ghost-btn" type="button" onClick={() => setTransportInfoModal("contacts")}>Contatos</button>
+          <a className="primary-btn" href={trackingLinks.glovis} target="_blank" rel="noreferrer">Rastreio GLOVIS</a>
+          <a className="primary-btn" href={trackingLinks.ceva} target="_blank" rel="noreferrer">Rastreio CEVA</a>
+        </section>
+
         {catalogMessage && <p className="catalog-import-success">{catalogMessage}</p>}
+
+        {transportInfoModal && (
+          <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTransportInfoModal(null); }}>
+            <section className={`flow-modal transport-info-modal ${transportInfoModal === "contacts" ? "contacts" : ""}`} role="dialog" aria-modal="true" aria-labelledby="transport-info-title">
+              <div className="modal-head">
+                <div>
+                  <strong id="transport-info-title">{transportInfoModal === "tip" ? "Como identificar a transportadora" : "Contatos das transportadoras"}</strong>
+                  <span>Informações do boletim Mobis MBR2026/066.</span>
+                </div>
+                <button className="icon-btn" type="button" onClick={() => setTransportInfoModal(null)} aria-label="Fechar">×</button>
+              </div>
+
+              {transportInfoModal === "tip" ? (
+                <div className="transport-tip-content">
+                  <ol>
+                    <li>Acesse o <strong>DPOS</strong>.</li>
+                    <li>Entre na transação <strong>DP26</strong>.</li>
+                    <li>Consulte o código da transportadora, a nota fiscal e as informações do pedido.</li>
+                  </ol>
+                  <div className="transport-code-grid">
+                    <div><span>Código AQ2K</span><strong>GLOVIS</strong></div>
+                    <div><span>Código C16K</span><strong>CEVA</strong></div>
+                  </div>
+                </div>
+              ) : (
+                <div className="transport-contact-list">
+                  {(["GLOVIS", "CEVA"] as const).map((carrier) => (
+                    <section key={carrier} className="transport-contact-group">
+                      <h3>{carrier}</h3>
+                      <div className="transport-contact-table">
+                        {carrierContacts.filter((contact) => contact.carrier === carrier).map((contact) => (
+                          <div className="transport-contact-row" key={`${contact.carrier}-${contact.email}`}>
+                            <div><span>Área</span><strong>{contact.area}</strong></div>
+                            <div><span>Contato</span><strong>{contact.name}</strong></div>
+                            <div><span>E-mail</span><a href={`mailto:${contact.email}`}>{contact.email}</a></div>
+                            <div><span>Telefone</span><strong>{contact.phone}</strong></div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                  <small className="transport-hours">Horário administrativo de atendimento: 08:00 às 18:00.</small>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
 
         {standaloneOpen && (
           <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setStandaloneOpen(false); }}>

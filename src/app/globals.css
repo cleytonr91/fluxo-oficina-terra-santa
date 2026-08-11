@@ -5388,6 +5388,158 @@ textarea {
   text-decoration: none;
 }
 
+.parts-tracking-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-left: 4px solid #14536c;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.parts-tracking-copy {
+  display: grid;
+  flex: 1 1 280px;
+  gap: 2px;
+}
+
+.parts-tracking-copy strong {
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.parts-tracking-copy span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.parts-tracking-tools a {
+  text-decoration: none;
+}
+
+.transport-info-modal {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+}
+
+.transport-info-modal.contacts {
+  width: min(980px, 100%);
+}
+
+.transport-tip-content {
+  display: grid;
+  gap: 14px;
+}
+
+.transport-tip-content ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.transport-code-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.transport-code-grid div {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f4f8f8;
+  padding: 12px;
+}
+
+.transport-code-grid span,
+.transport-contact-row span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.transport-code-grid strong {
+  color: #14536c;
+  font-size: 17px;
+}
+
+.transport-contact-list,
+.transport-contact-group,
+.transport-contact-table {
+  display: grid;
+  gap: 10px;
+}
+
+.transport-contact-group h3 {
+  margin: 0;
+  color: #14536c;
+  font-size: 14px;
+}
+
+.transport-contact-row {
+  display: grid;
+  grid-template-columns: 1.1fr 0.8fr 1.6fr 0.9fr;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 9px;
+}
+
+.transport-contact-row > div {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  min-width: 0;
+}
+
+.transport-contact-row strong,
+.transport-contact-row a {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.transport-contact-row a {
+  color: #14536c;
+}
+
+.transport-hours {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .parts-tracking-tools > .ghost-btn,
+  .parts-tracking-tools > .primary-btn {
+    flex: 1 1 calc(50% - 8px);
+    justify-content: center;
+    text-align: center;
+  }
+
+  .transport-contact-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 460px) {
+  .transport-code-grid,
+  .transport-contact-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .mobis-receipt-panel .panel-head {
   align-items: center;
 }
