@@ -65,6 +65,10 @@ type WalkInVehicleInput = {
   note?: string;
 };
 
+type ReuseVehicleAsWalkInInput = WalkInVehicleInput & {
+  vehicleFlowId: string;
+};
+
 type VehicleFlowConflictInput = {
   plate?: string;
   chassi?: string;
@@ -1436,6 +1440,137 @@ export async function createWalkInVehicle({
   });
 
   await batch.commit();
+}
+
+export async function reuseVehicleAsWalkIn({
+  vehicleFlowId,
+  client,
+  phone,
+  plate,
+  model,
+  chassi,
+  service,
+  promisedDeliveryAt,
+  consultant,
+  technician,
+  washType,
+  appointmentDate,
+  appointmentTime,
+  createdBy,
+  note,
+}: ReuseVehicleAsWalkInInput) {
+  const db = getFirebaseDb();
+  const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
+  const flowEventRef = doc(collection(db, collections.flowEvents));
+  const walkInRef = doc(collection(db, collections.walkInCustomers), vehicleFlowId);
+  const initialLane: FlowLane = isWashService(service) ? "aguardando_lavagem" : "aguardando_servico";
+  const normalizedWashType = washTypeFromService(service, washType);
+  const washOnlyService = isWashService(service);
+
+  if (!service.trim()) {
+    throw new Error("Informe o tipo de serviço para cadastrar o passante.");
+  }
+  if (!promisedDeliveryAt || Number.isNaN(new Date(promisedDeliveryAt).getTime())) {
+    throw new Error("Informe uma previsão de entrega válida para cadastrar o passante.");
+  }
+  if (washOnlyService && (!washType || washType === "nao")) {
+    throw new Error("Informe o tipo da lavagem para cadastrar Embelezamento.");
+  }
+
+  const promisedDate = Timestamp.fromDate(new Date(promisedDeliveryAt));
+
+  await runTransaction(db, async (transaction) => {
+    const flowSnapshot = await transaction.get(flowRef);
+    if (!flowSnapshot.exists()) {
+      throw new Error("O agendamento encontrado não existe mais. Atualize a página e tente novamente.");
+    }
+
+    const current = flowSnapshot.data() as VehicleFlow;
+    if (current.status !== "ativo" || current.currentLane !== "preparacao_confirmada") {
+      throw new Error("Este veículo já avançou no fluxo e não pode ser reaproveitado como passante.");
+    }
+    if (current.appointmentDate === appointmentDate) {
+      throw new Error("Este veículo já está no Agendamento do Dia. Movimente o chip existente para recebê-lo.");
+    }
+
+    const appointmentRef = doc(collection(db, collections.appointments), current.appointmentId || vehicleFlowId);
+    const previousDate = current.appointmentDate || "data anterior";
+
+    transaction.set(appointmentRef, withoutUndefined({
+      appointmentDate,
+      appointmentTime: appointmentTime || "",
+      clientName: client,
+      phone,
+      plate,
+      chassi,
+      model,
+      consultantName: consultant,
+      serviceType: serviceTypeFromLabel(service),
+      serviceLabel: service,
+      promisedDeliveryAt: promisedDate,
+      importedNotes: note,
+      updatedAt: serverTimestamp(),
+    }), { merge: true });
+
+    transaction.set(walkInRef, withoutUndefined({
+      clientName: client,
+      phone,
+      plate,
+      chassi,
+      model,
+      serviceLabel: service,
+      consultantName: consultant,
+      technicianName: technician || "",
+      washType: normalizedWashType,
+      promisedDeliveryAt: promisedDate,
+      appointmentDate,
+      appointmentTime: appointmentTime || "",
+      note,
+      createdBy,
+      sourceVehicleFlowId: vehicleFlowId,
+      createdAt: serverTimestamp(),
+    }), { merge: true });
+
+    transaction.update(flowRef, withoutUndefined({
+      origin: "passante",
+      currentLane: initialLane,
+      appointmentDate,
+      appointmentTime: appointmentTime || "",
+      clientName: client,
+      phone,
+      plate,
+      chassi,
+      model,
+      serviceLabel: service,
+      consultantName: consultant,
+      technicianName: technician || "",
+      importedNotes: note,
+      customerWaits: false,
+      washType: normalizedWashType,
+      promisedDeliveryAt: promisedDate,
+      attendanceStartedAt: serverTimestamp(),
+      attendanceStartedBy: createdBy,
+      roadTestRequired: false,
+      roadTestDone: false,
+      chiefPresenceRequired: false,
+      serviceCompleted: washOnlyService,
+      washingAdvanced: false,
+      washDone: false,
+      noShow: false,
+      noShowAt: null,
+      status: "ativo",
+      updatedAt: serverTimestamp(),
+    }));
+
+    transaction.set(flowEventRef, withoutUndefined({
+      vehicleFlowId,
+      fromLane: "preparacao_confirmada",
+      toLane: initialLane,
+      actionBy: createdBy,
+      actionNote: `Agendamento de ${previousDate} reaproveitado como passante em ${appointmentDate}`,
+      createdAt: serverTimestamp(),
+    }));
+  });
 }
 
 export async function markVehicleNoShow({

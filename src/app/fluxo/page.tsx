@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, savePartOrder, saveVehicleRoadTestForm, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, reuseVehicleAsWalkIn, savePartOrder, saveVehicleRoadTestForm, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -1421,21 +1421,73 @@ export default function FluxoPage() {
       });
 
       if (conflict) {
-        throw new Error(duplicateVehicleMessage(conflict));
+        const canReusePreviousAppointment = conflict.currentLane === "preparacao_confirmada"
+          && conflict.appointmentDate !== selectedDate;
+
+        if (!canReusePreviousAppointment) {
+          throw new Error(duplicateVehicleMessage(conflict));
+        }
+
+        const shouldReuse = window.confirm([
+          "Este veículo possui um agendamento anterior ainda ativo.",
+          "",
+          `Cliente: ${conflict.clientName || "-"}`,
+          `Data anterior: ${conflict.appointmentDate || "-"}`,
+          `Placa: ${conflict.plate || "-"}`,
+          "",
+          "Deseja reaproveitar o mesmo chip como passante do dia selecionado?",
+        ].join("\n"));
+
+        if (!shouldReuse) return;
+
+        await reuseVehicleAsWalkIn({
+          vehicleFlowId: conflict.id,
+          ...walkInForm,
+          washType: normalizedWashType,
+          appointmentDate: selectedDate,
+          appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          createdBy: profile?.name ?? user?.email ?? user?.uid,
+        });
+      } else {
+        await createWalkInVehicle({
+          ...walkInForm,
+          washType: normalizedWashType,
+          appointmentDate: selectedDate,
+          appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          createdBy: profile?.name ?? user?.email ?? user?.uid,
+        });
       }
 
-      await createWalkInVehicle({
-        ...walkInForm,
-        washType: normalizedWashType,
-        appointmentDate: selectedDate,
-        appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-        createdBy: profile?.name ?? user?.email ?? user?.uid,
-      });
-
       const id = `passante-${selectedDate}-${walkInForm.plate}`.replace(/[^a-zA-Z0-9-]/g, "-");
-      setVehicles((current) => [
-        ...current,
-        {
+      setVehicles((current) => conflict
+        ? current.map((vehicle) => vehicle.id === conflict.id ? {
+          ...vehicle,
+          origin: "passante",
+          currentLane: initialLane,
+          appointmentDate: selectedDate,
+          appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          clientName: walkInForm.client,
+          phone: walkInForm.phone,
+          plate: walkInForm.plate,
+          chassi: walkInForm.chassi,
+          model: walkInForm.model,
+          serviceLabel: walkInForm.service,
+          promisedDeliveryAt: walkInForm.promisedDeliveryAt,
+          consultantName: walkInForm.consultant,
+          technicianName: walkInForm.technician,
+          importedNotes: walkInForm.note,
+          customerWaits: false,
+          washType: normalizedWashType,
+          serviceCompleted: isWashService(walkInForm.service),
+          washingAdvanced: false,
+          washDone: false,
+          noShow: false,
+          status: "ativo",
+          updatedAt: new Date().toISOString(),
+        } : vehicle)
+        : [
+          ...current,
+          {
           id,
           appointmentId: id,
           origin: "passante",
@@ -1461,8 +1513,8 @@ export default function FluxoPage() {
           status: "ativo",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        },
-      ]);
+          },
+        ]);
       setWalkInForm({
         client: "",
         phone: "",
