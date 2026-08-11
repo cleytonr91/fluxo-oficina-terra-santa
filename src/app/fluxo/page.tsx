@@ -418,17 +418,20 @@ function timeProgress(vehicle: VehicleFlow, now: Date) {
 }
 
 function immobilizedStay(vehicle: VehicleFlow, now: Date) {
-  const receivedAt = toDate(vehicle.attendanceStartedAt);
-  if (!receivedAt) return null;
+  const attendanceStartedAt = toDate(vehicle.attendanceStartedAt);
+  const walkInCreatedAt = vehicle.origin === "passante" ? toDate(vehicle.createdAt) : null;
+  const referenceAt = attendanceStartedAt ?? walkInCreatedAt;
+  if (!referenceAt) return null;
 
-  const receivedDay = new Date(receivedAt.getFullYear(), receivedAt.getMonth(), receivedAt.getDate());
+  const receivedDay = new Date(referenceAt.getFullYear(), referenceAt.getMonth(), referenceAt.getDate());
   const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const days = Math.max(1, Math.floor((currentDay.getTime() - receivedDay.getTime()) / 86400000) + 1);
 
   return {
     days,
     unit: days === 1 ? "dia" : "dias",
-    receivedAt: formatDateTime(receivedAt),
+    referenceAt: formatDateTime(referenceAt),
+    basis: attendanceStartedAt ? "Recebido em" : "Passante cadastrado em",
   };
 }
 
@@ -574,7 +577,7 @@ function FlowChip({
       </div>
 
       {immobilized ? (
-        <div className="immobilized-stay" title={stay ? `Recebido em ${stay.receivedAt}` : "Recebimento sem data registrada"}>
+        <div className="immobilized-stay" title={stay ? `${stay.basis} ${stay.referenceAt}` : "Recebimento sem data registrada"}>
           <strong><b>{stay?.days ?? "-"}</b><small>{stay?.unit ?? "dias"}</small></strong>
         </div>
       ) : progress && (
