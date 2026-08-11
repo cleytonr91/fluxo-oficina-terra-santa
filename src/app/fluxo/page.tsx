@@ -777,20 +777,29 @@ export default function FluxoPage() {
 
     if (!candidates.length) return;
 
-    candidates.forEach((vehicle) => {
-      markVehicleNoShow({
+    let cancelled = false;
+
+    void Promise.all(candidates.map(async (vehicle) => ({
+      id: vehicle.id,
+      marked: await markVehicleNoShow({
         vehicleFlowId: vehicle.id,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
-      }).catch(() => undefined);
-    });
+      }).catch(() => false),
+    }))).then((results) => {
+      if (cancelled) return;
+      const markedIds = new Set(results.filter((result) => result.marked).map((result) => result.id));
+      if (!markedIds.size) return;
 
-    window.requestAnimationFrame(() => {
       setVehicles((current) => current.map((vehicle) => (
-        candidates.some((candidate) => candidate.id === vehicle.id)
+        markedIds.has(vehicle.id)
           ? { ...vehicle, noShow: true, noShowAt: new Date().toISOString() }
           : vehicle
       )));
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [now, profile?.name, user?.email, user?.uid, vehicles]);
 
   function openReceiveModal(vehicle: VehicleFlow) {
@@ -1957,7 +1966,7 @@ export default function FluxoPage() {
         const plateMatches = !normalizedPlateFilter || (vehicle.plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().includes(normalizedPlateFilter);
         return (
           immobilizedVehicleIds.has(vehicle.id)
-          && !vehicle.noShow
+          && !isActiveNoShow(vehicle)
           && vehicle.currentLane !== "entregue"
           && vehicle.status !== "cancelado"
           && consultantMatches

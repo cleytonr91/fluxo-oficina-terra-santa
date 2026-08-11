@@ -8,6 +8,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -1445,26 +1446,49 @@ export async function markVehicleNoShow({
   actionBy?: string;
 }) {
   const db = getFirebaseDb();
-  const batch = writeBatch(db);
   const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
   const flowEventRef = doc(collection(db, collections.flowEvents));
 
-  batch.set(flowRef, {
-    noShow: true,
-    noShowAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
+  return runTransaction(db, async (transaction) => {
+    const flowSnapshot = await transaction.get(flowRef);
+    if (!flowSnapshot.exists()) return false;
 
-  batch.set(flowEventRef, {
-    vehicleFlowId,
-    fromLane: "preparacao_confirmada",
-    toLane: "preparacao_confirmada",
-    actionBy,
-    actionNote: "NO-SHOW identificado automaticamente",
-    createdAt: serverTimestamp(),
+    const vehicle = flowSnapshot.data() as Partial<VehicleFlow>;
+    const attendanceAlreadyStarted = Boolean(
+      vehicle.attendanceStartedAt
+      || vehicle.promisedDeliveryAt
+      || vehicle.receiveNote
+      || vehicle.promiseHistory?.length,
+    );
+
+    // The lane may change while the automatic check is running. Revalidate it
+    // inside the transaction so a received vehicle can never become a no-show.
+    if (
+      vehicle.currentLane !== "preparacao_confirmada"
+      || vehicle.noShow
+      || vehicle.status === "cancelado"
+      || attendanceAlreadyStarted
+    ) {
+      return false;
+    }
+
+    transaction.set(flowRef, {
+      noShow: true,
+      noShowAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    transaction.set(flowEventRef, {
+      vehicleFlowId,
+      fromLane: "preparacao_confirmada",
+      toLane: "preparacao_confirmada",
+      actionBy,
+      actionNote: "NO-SHOW identificado automaticamente",
+      createdAt: serverTimestamp(),
+    });
+
+    return true;
   });
-
-  await batch.commit();
 }
 
 export async function cancelVehicleFlow({
