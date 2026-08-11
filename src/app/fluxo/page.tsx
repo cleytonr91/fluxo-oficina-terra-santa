@@ -32,6 +32,32 @@ const washOptions: Array<{ value: WashType; label: string }> = [
 
 const washLabels = Object.fromEntries(washOptions.map((option) => [option.value, option.label])) as Record<WashType, string>;
 
+const partOrderStatusLabels: Record<PartOrder["orderStatus"], string> = {
+  solicitado_oficina: "Solicitado à oficina",
+  necessidade_identificada: "Solicitado à oficina",
+  aguardando_pecas: "Solicitado à oficina",
+  pedido_realizado: "Pedido realizado",
+  back_order: "B.O (Back Order)",
+  em_transito: "Em trânsito",
+  recebido: "Recebido",
+  disponivel: "Disponível",
+  cancelado: "Cancelado",
+};
+
+const partOrderSourceLabels: Record<NonNullable<PartOrder["orderSource"]>, string> = {
+  mobis: "Mobis",
+  natal: "Natal",
+  mossoro: "Mossoró",
+  juazeiro: "Juazeiro",
+  rede_autorizada: "Rede Autorizada",
+};
+
+const partOrderKindLabels: Record<NonNullable<PartOrder["orderKind"]>, string> = {
+  garantia: "Garantia",
+  campanha: "Campanha",
+  externo: "Externo",
+};
+
 const fixedConsultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
 
 const workshopTechnicians = ["Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan", "Igo"];
@@ -71,6 +97,22 @@ function duplicateVehicleMessage(conflict: VehicleFlow) {
 function hasActivePartOrder(vehicleId?: string, orders: PartOrder[] = []) {
   if (!vehicleId) return false;
   return orders.some((order) => order.vehicleFlowId === vehicleId && order.orderStatus !== "cancelado");
+}
+
+function partOrderItems(order: PartOrder) {
+  if (order.parts?.length) return order.parts;
+  return [{ id: `${order.id}-part`, partReference: order.partReference ?? "", partDescription: order.partDescription ?? "" }];
+}
+
+function partOrderTone(status: PartOrder["orderStatus"]) {
+  if (status === "disponivel" || status === "recebido") return "good";
+  if (status === "cancelado") return "bad";
+  if (status === "pedido_realizado" || status === "back_order" || status === "em_transito") return "warn";
+  return "";
+}
+
+function effectivePartOrderStatus(order: PartOrder): PartOrder["orderStatus"] {
+  return order.cancellationReason?.trim() ? "cancelado" : order.orderStatus;
 }
 
 
@@ -510,15 +552,19 @@ function hasPendingWash(vehicle: VehicleFlow) {
 function FlowChip({
   vehicle,
   immobilized,
+  partOrder,
   onAdvance,
   onDetails,
+  onPartOrder,
   now,
   selectedDate,
 }: {
   vehicle: VehicleFlow;
   immobilized?: boolean;
+  partOrder?: PartOrder;
   onAdvance?: (vehicle: VehicleFlow) => void;
   onDetails: (vehicle: VehicleFlow) => void;
+  onPartOrder?: (order: PartOrder) => void;
   now: Date;
   selectedDate?: string;
 }) {
@@ -567,6 +613,20 @@ function FlowChip({
           </span>
         )}
         {vehicle.budgetStatus === "realizado" && <span className="tag">{partAvailabilityIcon(vehicle.partAvailability)} Peças</span>}
+        {partOrder && onPartOrder && (
+          <button
+            type="button"
+            className="chip-parts-shortcut"
+            title="Visualizar pedido de peças"
+            aria-label={`Visualizar pedido de peças de ${vehicle.clientName ?? "veículo"}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              onPartOrder(partOrder);
+            }}
+          >
+            Peças
+          </button>
+        )}
         {vehicle.currentLane === "entregue" && typeof vehicle.internalNps === "number" && <span className="tag">NPS {vehicle.internalNps}</span>}
       </div>
 
@@ -616,6 +676,7 @@ export default function FluxoPage() {
   const canReducePromisedDelivery = profile?.role === "admin" || profile?.role === "gerente" || user?.email === "cleyton91@gmail.com";
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
+  const [viewedPartOrderId, setViewedPartOrderId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [consultantFilter, setConsultantFilter] = useState("Todos");
@@ -754,9 +815,19 @@ export default function FluxoPage() {
 
   const partOrdersByVehicle = useMemo(() => {
     const mapped = new Map<string, PartOrder>();
-    partOrders.forEach((order) => mapped.set(order.vehicleFlowId, order));
+    partOrders.forEach((order) => {
+      const current = mapped.get(order.vehicleFlowId);
+      if (!current || (current.orderStatus === "cancelado" && order.orderStatus !== "cancelado")) {
+        mapped.set(order.vehicleFlowId, order);
+      }
+    });
     return mapped;
   }, [partOrders]);
+
+  const viewedPartOrder = useMemo(
+    () => partOrders.find((order) => order.id === viewedPartOrderId) ?? null,
+    [partOrders, viewedPartOrderId],
+  );
 
   const immobilizedVehicleIds = useMemo(() => (
     new Set(vehicles.filter((vehicle) => vehicle.vehicleImmobilized).map((vehicle) => vehicle.id))
@@ -2373,8 +2444,10 @@ export default function FluxoPage() {
                           key={vehicle.id}
                           vehicle={vehicle}
                           immobilized={immobilizedVehicleIds.has(vehicle.id)}
+                          partOrder={partOrdersByVehicle.get(vehicle.id)}
                           onAdvance={openBudgetCompleteModal}
                           onDetails={openDetailModal}
+                          onPartOrder={(order) => setViewedPartOrderId(order.id)}
                           now={now}
                           selectedDate={flowDate}
                         />
@@ -2387,8 +2460,10 @@ export default function FluxoPage() {
                           key={vehicle.id}
                           vehicle={vehicle}
                           immobilized={immobilizedVehicleIds.has(vehicle.id)}
+                          partOrder={partOrdersByVehicle.get(vehicle.id)}
                           onAdvance={openBudgetReturnModal}
                           onDetails={openDetailModal}
+                          onPartOrder={(order) => setViewedPartOrderId(order.id)}
                           now={now}
                           selectedDate={flowDate}
                         />
@@ -2406,6 +2481,7 @@ export default function FluxoPage() {
                             key={vehicle.id}
                             vehicle={vehicle}
                             immobilized={immobilizedVehicleIds.has(vehicle.id)}
+                            partOrder={partOrdersByVehicle.get(vehicle.id)}
                             now={now}
                             selectedDate={flowDate}
                             onAdvance={
@@ -2424,6 +2500,7 @@ export default function FluxoPage() {
                                           : undefined
                             }
                             onDetails={openDetailModal}
+                            onPartOrder={(order) => setViewedPartOrderId(order.id)}
                           />
                         ))
                       ) : (
@@ -2443,10 +2520,12 @@ export default function FluxoPage() {
                               key={`no-show-${vehicle.id}`}
                               vehicle={vehicle}
                               immobilized={immobilizedVehicleIds.has(vehicle.id)}
+                              partOrder={partOrdersByVehicle.get(vehicle.id)}
                               now={now}
                               selectedDate={flowDate}
                               onAdvance={openReceiveModal}
                               onDetails={openDetailModal}
+                              onPartOrder={(order) => setViewedPartOrderId(order.id)}
                             />
                           )) : (
                             <EmptyLane text="Nenhum no-show neste dia." />
@@ -2462,6 +2541,72 @@ export default function FluxoPage() {
         </section>
         )}
       </main>
+
+      {viewedPartOrder && (
+        <div
+          className="modal-backdrop parts-quick-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setViewedPartOrderId("");
+          }}
+        >
+          <section className="flow-modal parts-quick-modal" role="dialog" aria-modal="true" aria-labelledby="parts-quick-title">
+            <div className="modal-head">
+              <div>
+                <strong id="parts-quick-title">Pedido de peças</strong>
+                <span>{viewedPartOrder.clientName || "Cliente não informado"} · {viewedPartOrder.plate || "Sem placa"}</span>
+              </div>
+              <button type="button" className="ghost-btn icon-btn" aria-label="Fechar pedido de peças" onClick={() => setViewedPartOrderId("")}>
+                ×
+              </button>
+            </div>
+
+            <div className="parts-quick-status-row">
+              <span className={`tag ${partOrderTone(effectivePartOrderStatus(viewedPartOrder))}`}>
+                {partOrderStatusLabels[effectivePartOrderStatus(viewedPartOrder)]}
+              </span>
+              {viewedPartOrder.orderVor && <span className="tag bad">Pedido VOR</span>}
+              {viewedPartOrder.vehicleImmobilized && <span className="tag bad">Veículo imobilizado</span>}
+            </div>
+
+            <div className="parts-quick-grid">
+              <div><span>ID Cliente</span><strong>{viewedPartOrder.customerId || "-"}</strong></div>
+              <div><span>Tipo</span><strong>{viewedPartOrder.orderKind ? partOrderKindLabels[viewedPartOrder.orderKind] : "-"}</strong></div>
+              <div><span>Origem</span><strong>{viewedPartOrder.orderSource ? partOrderSourceLabels[viewedPartOrder.orderSource] : "-"}</strong></div>
+              <div><span>Número do pedido</span><strong>{viewedPartOrder.orderNumber || "-"}</strong></div>
+              <div><span>Data do pedido</span><strong>{formatDateOnly(viewedPartOrder.orderDate)}</strong></div>
+              <div><span>Nota fiscal</span><strong>{viewedPartOrder.invoiceNumber || "-"}</strong></div>
+              <div><span>Previsão de chegada</span><strong>{formatDateOnly(viewedPartOrder.expectedArrivalDate)}</strong></div>
+              <div><span>Solicitado por</span><strong>{formatActionSignature(viewedPartOrder.requestedBy, viewedPartOrder.createdAt, "-")}</strong></div>
+              <div className="parts-quick-updated"><span>Atualizado por</span><strong>{formatActionSignature(viewedPartOrder.updatedBy || viewedPartOrder.requestedBy, viewedPartOrder.updatedAt, "-")}</strong></div>
+            </div>
+
+            <section className="parts-quick-items">
+              <h3>Itens solicitados</h3>
+              <div className="parts-quick-items-list">
+                {partOrderItems(viewedPartOrder).map((part, index) => (
+                  <div key={part.id || `${viewedPartOrder.id}-part-${index}`}>
+                    <span>{index + 1}</span>
+                    <strong>{part.partReference || "Sem referência"}</strong>
+                    <p>{part.partDescription || "Descrição não informada"}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {viewedPartOrder.cancellationReason && (
+              <div className="parts-quick-cancellation">
+                <span>Motivo do cancelamento</span>
+                <strong>{viewedPartOrder.cancellationReason}</strong>
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button type="button" className="primary-btn" onClick={() => setViewedPartOrderId("")}>Fechar</button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {receivingVehicle && (
         <div className="modal-backdrop" role="presentation">
