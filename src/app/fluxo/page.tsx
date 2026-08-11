@@ -427,7 +427,7 @@ function immobilizedStay(vehicle: VehicleFlow, now: Date) {
 
   return {
     days,
-    label: `${days} ${days === 1 ? "dia" : "dias"}`,
+    unit: days === 1 ? "dia" : "dias",
     receivedAt: formatDateTime(receivedAt),
   };
 }
@@ -575,8 +575,7 @@ function FlowChip({
 
       {immobilized ? (
         <div className="immobilized-stay" title={stay ? `Recebido em ${stay.receivedAt}` : "Recebimento sem data registrada"}>
-          <span>Desde o recebimento</span>
-          <strong>{stay?.label ?? "Sem registro"}</strong>
+          <strong><b>{stay?.days ?? "-"}</b><small>{stay?.unit ?? "dias"}</small></strong>
         </div>
       ) : progress && (
         <div className={`time-bar ${progress.status}`}>

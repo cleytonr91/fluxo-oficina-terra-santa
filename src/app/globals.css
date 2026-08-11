@@ -1474,32 +1474,37 @@ textarea {
 }
 
 .immobilized-stay {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  display: grid;
+  width: 42px;
+  place-items: center;
   margin-top: 8px;
   margin-right: 42px;
+  margin-left: auto;
   border: 1px solid #e8a7a0;
   border-left: 4px solid #c43d32;
   border-radius: 4px;
   background: #fff1ef;
-  padding: 6px 8px;
+  padding: 5px 4px;
   color: #7e241e;
 }
 
-.immobilized-stay span {
-  font-size: 9px;
-  font-weight: 900;
+.immobilized-stay strong {
+  display: grid;
+  min-width: 28px;
+  place-items: center;
+  line-height: 0.9;
   text-transform: uppercase;
 }
 
-.immobilized-stay strong {
-  white-space: nowrap;
-  font-size: 16px;
+.immobilized-stay strong b {
+  font-size: 18px;
   font-weight: 950;
-  line-height: 1;
-  text-transform: uppercase;
+}
+
+.immobilized-stay strong small {
+  margin-top: 3px;
+  font-size: 8px;
+  font-weight: 900;
 }
 
 .time-bar-top {
