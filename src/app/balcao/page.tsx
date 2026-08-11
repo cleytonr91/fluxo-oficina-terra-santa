@@ -43,15 +43,20 @@ const statusOptions: Array<{ value: PartsCounterOrderStatus; label: string }> = 
   { value: "disponivel", label: "Disponível" },
 ];
 
-function newItem(index = 1): PartsCounterItem {
+const sellerOptions = [
+  { value: "ALISSON", label: "Alisson" },
+  { value: "FELIPE", label: "Felipe" },
+];
+
+function newItem(index = 1, availableInStock = false): PartsCounterItem {
   return {
     id: `item-${Date.now()}-${index}`,
     partReference: "",
     partDescription: "",
     quantity: 1,
     unitPrice: 0,
-    availableInStock: false,
-    orderStatus: "necessario_pedido",
+    availableInStock,
+    orderStatus: availableInStock ? "disponivel" : "necessario_pedido",
   };
 }
 
@@ -104,33 +109,18 @@ export default function BalcaoPage() {
   const [entryType, setEntryType] = useState<PartsCounterEntryType>("venda");
   const [clientName, setClientName] = useState("");
   const [customerType, setCustomerType] = useState<PartsCounterCustomerType>("PF");
-  const [sellerName, setSellerName] = useState(operator);
+  const [sellerName, setSellerName] = useState("ALISSON");
   const [destinationState, setDestinationState] = useState("");
   const [freightAmount, setFreightAmount] = useState(0);
   const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<PartsCounterItem[]>([newItem()]);
+  const [items, setItems] = useState<PartsCounterItem[]>([newItem(1, true)]);
   const [orderDrafts, setOrderDrafts] = useState<Record<string, PartsCounterItem[]>>({});
   const [savingOrderId, setSavingOrderId] = useState("");
-  const [goalValue, setGoalValue] = useState(0);
+  const [goalDraft, setGoalDraft] = useState<{ month: string; value: number } | null>(null);
   const [savingGoal, setSavingGoal] = useState(false);
 
   useEffect(() => subscribePartsCounterEntries(setEntries, (currentError) => setError(currentError.message)), []);
   useEffect(() => subscribePartsSalesGoals(setGoals, (currentError) => setError(currentError.message)), []);
-
-  useEffect(() => {
-    setSellerName(operator);
-  }, [operator]);
-
-  useEffect(() => {
-    const goal = goals.find((item) => item.month === month);
-    setGoalValue(goal?.targetAmount ?? 0);
-  }, [goals, month]);
-
-  useEffect(() => {
-    if (entryType === "venda") {
-      setItems((current) => current.map((item) => ({ ...item, availableInStock: true, orderStatus: "disponivel" })));
-    }
-  }, [entryType]);
 
   const sellers = useMemo(() => [...new Set(entries.map((entry) => entry.sellerName).filter(Boolean))].sort(), [entries]);
   const monthEntries = useMemo(() => entries.filter((entry) => entryMonth(entry) === month), [entries, month]);
@@ -163,20 +153,28 @@ export default function BalcaoPage() {
   const maxComparison = Math.max(...monthlyComparison.map((item) => item.total), 1);
   const pfPercent = indicators.sold ? Math.round((indicators.pf / indicators.sold) * 100) : 0;
   const goal = goals.find((item) => item.month === month)?.targetAmount ?? 0;
+  const goalValue = goalDraft?.month === month ? goalDraft.value : goal;
   const goalPercent = goal ? Math.min(100, Math.round((indicators.sold / goal) * 100)) : 0;
 
   function updateItem(itemId: string, patch: Partial<PartsCounterItem>) {
     setItems((current) => current.map((item) => item.id === itemId ? { ...item, ...patch } : item));
   }
 
+  function changeEntryType(nextType: PartsCounterEntryType) {
+    setEntryType(nextType);
+    if (nextType === "venda") {
+      setItems((current) => current.map((item) => ({ ...item, availableInStock: true, orderStatus: "disponivel" })));
+    }
+  }
+
   function resetForm() {
     setClientName("");
     setCustomerType("PF");
-    setSellerName(operator);
+    setSellerName("ALISSON");
     setDestinationState("");
     setFreightAmount(0);
     setNotes("");
-    setItems([newItem()]);
+    setItems([newItem(1, entryType === "venda")]);
   }
 
   async function submitEntry(event: FormEvent) {
@@ -303,13 +301,13 @@ export default function BalcaoPage() {
               <div className={styles.formGrid}>
                 <label><span>Cliente</span><input required value={clientName} onChange={(event) => setClientName(event.target.value.toUpperCase())} /></label>
                 <label><span>Pessoa</span><select value={customerType} onChange={(event) => setCustomerType(event.target.value as PartsCounterCustomerType)}><option>PF</option><option>PJ</option></select></label>
-                <label><span>Vendedor</span><input required value={sellerName} onChange={(event) => setSellerName(event.target.value.toUpperCase())} /></label>
-                <label><span>Tipo de lançamento</span><select value={entryType} onChange={(event) => setEntryType(event.target.value as PartsCounterEntryType)}><option value="venda">Venda</option><option value="pedido">Pedido</option><option value="venda_perdida">Venda perdida</option></select></label>
+                <label><span>Vendedor</span><select required value={sellerName} onChange={(event) => setSellerName(event.target.value)}>{sellerOptions.map((seller) => <option key={seller.value} value={seller.value}>{seller.label}</option>)}</select></label>
+                <label><span>Tipo de lançamento</span><select value={entryType} onChange={(event) => changeEntryType(event.target.value as PartsCounterEntryType)}><option value="venda">Venda</option><option value="pedido">Pedido</option><option value="venda_perdida">Venda perdida</option></select></label>
                 {(entryType === "venda" || entryType === "pedido") && <label><span>Destino</span><select required value={destinationState} onChange={(event) => setDestinationState(event.target.value)}><option value="">Selecione o estado</option>{states.map((state) => <option key={state}>{state}</option>)}</select></label>}
                 <label><span>Frete</span><input type="number" min="0" step="0.01" value={freightAmount} onChange={(event) => setFreightAmount(Number(event.target.value))} /></label>
               </div>
 
-              <div className={styles.itemsHead}><div><span className={styles.eyebrow}>ITENS</span><h3>Peças do lançamento</h3></div><button type="button" className={styles.secondaryButton} onClick={() => setItems((current) => [...current, newItem(current.length + 1)])}>+ Adicionar item</button></div>
+              <div className={styles.itemsHead}><div><span className={styles.eyebrow}>ITENS</span><h3>Peças do lançamento</h3></div><button type="button" className={styles.secondaryButton} onClick={() => setItems((current) => [...current, newItem(current.length + 1, entryType === "venda")])}>+ Adicionar item</button></div>
               <div className={styles.itemStack}>
                 {items.map((item, index) => (
                   <article className={styles.itemCard} key={item.id}>
@@ -331,7 +329,7 @@ export default function BalcaoPage() {
 
           {section === "vendas" && (
             <div className={styles.stack}>
-              <div className={styles.hero}><div><span className={styles.eyebrow}>RESULTADO COMERCIAL</span><h2>Vendas do mês</h2><p>Acompanhe volume, destino e entrega por vendedor.</p></div><button className={styles.primaryButton} type="button" onClick={() => { setEntryType("venda"); setSection("nova"); }}>+ Nova venda</button></div>
+              <div className={styles.hero}><div><span className={styles.eyebrow}>RESULTADO COMERCIAL</span><h2>Vendas do mês</h2><p>Acompanhe volume, destino e entrega por vendedor.</p></div><button className={styles.primaryButton} type="button" onClick={() => { changeEntryType("venda"); setSection("nova"); }}>+ Nova venda</button></div>
               <div className={styles.filters}><label><span>Mês</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label><label><span>Vendedor</span><select value={sellerFilter} onChange={(event) => setSellerFilter(event.target.value)}><option>TODOS</option>{sellers.map((seller) => <option key={seller}>{seller}</option>)}</select></label><div className={styles.filterTotal}><span>Total filtrado</span><strong>{money(filteredSales.reduce((total, entry) => total + entryTotal(entry), 0))}</strong></div></div>
               <div className={styles.tablePanel}><div className={styles.tableHeader}><span>Data</span><span>Cliente</span><span>PF/PJ</span><span>Vendedor</span><span>Destino</span><span>Itens</span><span>Total</span></div>{filteredSales.length ? filteredSales.map((entry) => <div className={styles.tableRow} key={entry.id}><span>{formatDate(entry.createdAt)}</span><strong>{entry.clientName}</strong><span><em>{entry.customerType}</em></span><span>{entry.sellerName}</span><span>{entry.destinationState ?? "-"}</span><span>{entry.items.reduce((total, item) => total + item.quantity, 0)}</span><strong>{money(entryTotal(entry))}</strong></div>) : <p className={styles.empty}>Nenhuma venda encontrada para os filtros selecionados.</p>}</div>
               <div className={styles.sellerGrid}>{sellers.map((seller) => { const sellerSales = sales.filter((entry) => entry.sellerName === seller); const total = sellerSales.reduce((sum, entry) => sum + entryTotal(entry), 0); return <article key={seller}><span>{sellerSales.length} vendas</span><h3>{seller}</h3><strong>{money(total)}</strong></article>; })}</div>
@@ -340,7 +338,7 @@ export default function BalcaoPage() {
 
           {section === "pedidos" && (
             <div className={styles.stack}>
-              <div className={styles.hero}><div><span className={styles.eyebrow}>ACOMPANHAMENTO</span><h2>Pedidos em andamento</h2><p>Atualize cada item até a chegada ou converta o negócio.</p></div><button className={styles.primaryButton} type="button" onClick={() => { setEntryType("pedido"); setSection("nova"); }}>+ Novo pedido</button></div>
+              <div className={styles.hero}><div><span className={styles.eyebrow}>ACOMPANHAMENTO</span><h2>Pedidos em andamento</h2><p>Atualize cada item até a chegada ou converta o negócio.</p></div><button className={styles.primaryButton} type="button" onClick={() => { changeEntryType("pedido"); setSection("nova"); }}>+ Novo pedido</button></div>
               {orders.length ? orders.map((entry) => <article className={styles.orderCard} key={entry.id}><div className={styles.orderHeader}><div><span className={styles.eyebrow}>{formatDate(entry.createdAt)} · {entry.customerType} · DESTINO {entry.destinationState ?? "NÃO INFORMADO"}</span><h3>{entry.clientName}</h3><p>{entry.sellerName} · {money(entryTotal(entry))}</p></div><div className={styles.orderActions}><button type="button" className={styles.secondaryButton} disabled={savingOrderId === entry.id} onClick={() => convertEntry(entry, "venda_perdida")}>Venda perdida</button><button type="button" className={styles.primaryButton} disabled={savingOrderId === entry.id} onClick={() => convertEntry(entry, "venda")}>Transformar em venda</button></div></div><div className={styles.orderItems}>{orderItems(entry).map((item) => <div className={styles.orderLine} key={item.id}><div className={styles.orderPart}><strong>{item.partReference}</strong><span>{item.partDescription}</span><small>{item.quantity} × {money(item.unitPrice)}</small></div><label><span>Status</span><select value={item.orderStatus ?? "necessario_pedido"} onChange={(event) => updateOrderItem(entry, item.id, { orderStatus: event.target.value as PartsCounterOrderStatus, availableInStock: event.target.value === "disponivel" })}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>Origem</span><select value={item.orderSource ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { orderSource: event.target.value as PartOrderSource })}><option value="">Selecione</option>{sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>NF</span><input value={item.invoiceNumber ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { invoiceNumber: event.target.value.toUpperCase() })} /></label><label><span>Previsão de chegada</span><input type="date" value={item.expectedArrivalDate ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { expectedArrivalDate: event.target.value })} /></label><label className={styles.noteField}><span>Observações de NF e previsão</span><input value={item.orderNote ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { orderNote: event.target.value.toUpperCase() })} /></label></div>)}</div><div className={styles.saveRow}><button type="button" className={styles.secondaryButton} disabled={!orderDrafts[entry.id] || savingOrderId === entry.id} onClick={() => saveOrder(entry)}>{savingOrderId === entry.id ? "Salvando..." : "Salvar andamento"}</button></div></article>) : <div className={styles.panel}><p className={styles.empty}>Nenhum pedido em andamento.</p></div>}
             </div>
           )}
@@ -350,7 +348,7 @@ export default function BalcaoPage() {
               <div className={styles.hero}><div><span className={styles.eyebrow}>GESTÃO COMERCIAL</span><h2>Indicadores do Balcão</h2><p>Vendas, perdas, expectativa e meta em uma única visão.</p></div><label className={styles.monthPicker}><span>Mês analisado</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label></div>
               <div className={styles.kpiGrid}><article><span>Vendas realizadas</span><strong>{money(indicators.sold)}</strong><small>{sales.length} lançamentos</small></article><article><span>Vendas perdidas</span><strong className={styles.dangerText}>{money(indicators.lost)}</strong><small>{lostSales.length} oportunidades</small></article><article><span>Expectativa do mês</span><strong>{money(indicators.expectation)}</strong><small>Vendas + pedidos</small></article><article><span>Meta cadastrada</span><strong>{money(goal)}</strong><small>{goalPercent}% atingido</small></article></div>
               <div className={styles.dashboardGrid}><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>PERFIL DE CLIENTE</span><h3>Representação PF e PJ</h3></div><strong>{money(indicators.sold)}</strong></div><div className={styles.donutWrap}><div className={styles.donut} style={{ background: `conic-gradient(#00a7a0 0 ${pfPercent}%, #003d7c ${pfPercent}% 100%)` }}><div><strong>{pfPercent}%</strong><span>PF</span></div></div><div className={styles.legend}><div><span className={styles.pfDot} />PF<strong>{money(indicators.pf)}</strong></div><div><span className={styles.pjDot} />PJ<strong>{money(indicators.pj)}</strong></div></div></div></article><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>EVOLUÇÃO</span><h3>Comparativo entre os meses</h3></div></div><div className={styles.barChart}>{monthlyComparison.map((item) => <div className={styles.barColumn} key={item.month}><span>{money(item.total)}</span><div><i style={{ height: `${Math.max(4, (item.total / maxComparison) * 100)}%` }} /></div><small>{monthLabel(item.month)}</small></div>)}</div></article></div>
-              <div className={styles.dashboardGrid}><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>META MENSAL</span><h3>Definir objetivo de vendas</h3></div></div><form className={styles.goalForm} onSubmit={saveGoal}><label><span>Mês</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label><label><span>Meta de venda</span><input type="number" min="0" step="0.01" value={goalValue} onChange={(event) => setGoalValue(Number(event.target.value))} /></label><button className={styles.primaryButton} disabled={savingGoal}>{savingGoal ? "Salvando..." : "Salvar meta"}</button></form><div className={styles.progress}><span style={{ width: `${goalPercent}%` }} /></div><small>{goal ? `${goalPercent}% da meta alcançada` : "Cadastre a meta para acompanhar o progresso"}</small></article><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>DESTINOS</span><h3>Para onde estamos vendendo</h3></div></div><div className={styles.destinationList}>{states.map((state) => ({ state, total: sales.filter((entry) => entry.destinationState === state).reduce((sum, entry) => sum + entryTotal(entry), 0) })).filter((item) => item.total > 0).sort((a, b) => b.total - a.total).slice(0, 6).map((item) => <div key={item.state}><strong>{item.state}</strong><span><i style={{ width: `${indicators.sold ? (item.total / indicators.sold) * 100 : 0}%` }} /></span><em>{money(item.total)}</em></div>)}{!sales.some((entry) => entry.destinationState) && <p className={styles.empty}>Os destinos aparecerão após as primeiras vendas.</p>}</div></article></div>
+              <div className={styles.dashboardGrid}><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>META MENSAL</span><h3>Definir objetivo de vendas</h3></div></div><form className={styles.goalForm} onSubmit={saveGoal}><label><span>Mês</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label><label><span>Meta de venda</span><input type="number" min="0" step="0.01" value={goalValue} onChange={(event) => setGoalDraft({ month, value: Number(event.target.value) })} /></label><button className={styles.primaryButton} disabled={savingGoal}>{savingGoal ? "Salvando..." : "Salvar meta"}</button></form><div className={styles.progress}><span style={{ width: `${goalPercent}%` }} /></div><small>{goal ? `${goalPercent}% da meta alcançada` : "Cadastre a meta para acompanhar o progresso"}</small></article><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>DESTINOS</span><h3>Para onde estamos vendendo</h3></div></div><div className={styles.destinationList}>{states.map((state) => ({ state, total: sales.filter((entry) => entry.destinationState === state).reduce((sum, entry) => sum + entryTotal(entry), 0) })).filter((item) => item.total > 0).sort((a, b) => b.total - a.total).slice(0, 6).map((item) => <div key={item.state}><strong>{item.state}</strong><span><i style={{ width: `${indicators.sold ? (item.total / indicators.sold) * 100 : 0}%` }} /></span><em>{money(item.total)}</em></div>)}{!sales.some((entry) => entry.destinationState) && <p className={styles.empty}>Os destinos aparecerão após as primeiras vendas.</p>}</div></article></div>
             </div>
           )}
         </section>

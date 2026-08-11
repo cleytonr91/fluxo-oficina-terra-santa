@@ -702,7 +702,7 @@ O Balcão é um módulo comercial autenticado do Fluxo, separado do acompanhamen
 
 - Tipos: Venda, Pedido e Venda Perdida.
 - Cliente classificado como PF ou PJ.
-- Vendedor responsável, frete e observações.
+- Vendedor responsável selecionado entre Alisson e Felipe, frete e observações.
 - Venda exige estado de destino e considera todos os itens disponíveis em estoque.
 - Pedido exige estado de destino e permite indicar, por item, disponibilidade em estoque ou origem: Mobis, Rede, Natal, Mossoró ou Juazeiro.
 - Todos os textos digitados são armazenados em caixa alta.
