@@ -417,6 +417,21 @@ function timeProgress(vehicle: VehicleFlow, now: Date) {
   return { percent, status: "ok", label: `No prazo ${timeText}`, promisedTime };
 }
 
+function immobilizedStay(vehicle: VehicleFlow, now: Date) {
+  const receivedAt = toDate(vehicle.attendanceStartedAt);
+  if (!receivedAt) return null;
+
+  const receivedDay = new Date(receivedAt.getFullYear(), receivedAt.getMonth(), receivedAt.getDate());
+  const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.max(1, Math.floor((currentDay.getTime() - receivedDay.getTime()) / 86400000) + 1);
+
+  return {
+    days,
+    label: `${days} ${days === 1 ? "dia" : "dias"}`,
+    receivedAt: formatDateTime(receivedAt),
+  };
+}
+
 function isPreviousDayVehicle(vehicle: VehicleFlow, selectedDate?: string) {
   return Boolean(selectedDate && vehicle.appointmentDate && vehicle.appointmentDate < selectedDate);
 }
@@ -507,6 +522,7 @@ function FlowChip({
   const serviceText = vehicle.serviceLabel ?? "Serviço não informado";
   const chipClass = isDiagnostic(vehicle) ? "diagnostico" : isGeneralRepair(vehicle) ? "reparo" : "";
   const progress = timeProgress(vehicle, now);
+  const stay = immobilized ? immobilizedStay(vehicle, now) : null;
   const previousDay = isPreviousDayVehicle(vehicle, selectedDate);
 
   return (
@@ -557,7 +573,12 @@ function FlowChip({
         {vehicle.appointmentTime && <div><span>Agenda:</span> {vehicle.appointmentTime}</div>}
       </div>
 
-      {progress && (
+      {immobilized ? (
+        <div className="immobilized-stay" title={stay ? `Recebido em ${stay.receivedAt}` : "Recebimento sem data registrada"}>
+          <span>Desde o recebimento</span>
+          <strong>{stay?.label ?? "Sem registro"}</strong>
+        </div>
+      ) : progress && (
         <div className={`time-bar ${progress.status}`}>
           <div className="time-bar-top">
             <span>Previsão de entrega</span>
