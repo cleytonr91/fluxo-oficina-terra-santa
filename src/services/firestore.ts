@@ -63,6 +63,7 @@ type WalkInVehicleInput = {
   appointmentTime?: string;
   createdBy?: string;
   note?: string;
+  partsOrdered?: boolean;
 };
 
 type ReuseVehicleAsWalkInInput = WalkInVehicleInput & {
@@ -1419,6 +1420,7 @@ export async function createWalkInVehicle({
   appointmentTime,
   createdBy,
   note,
+  partsOrdered = false,
 }: WalkInVehicleInput) {
   const db = getFirebaseDb();
   const conflict = await findVehicleFlowConflict({ plate, chassi });
@@ -1479,6 +1481,7 @@ export async function createWalkInVehicle({
     appointmentDate,
     appointmentTime: appointmentTime || "",
     note,
+    partsOrdered,
     createdBy,
     createdAt: serverTimestamp(),
   }, { merge: true });
@@ -1499,6 +1502,7 @@ export async function createWalkInVehicle({
     technicianName: technician || "",
     priority: "normal",
     importedNotes: note,
+    partsOrdered,
     customerWaits: false,
     washType: normalizedWashType,
     promisedDeliveryAt: promisedDate,
@@ -1539,6 +1543,7 @@ export async function reuseVehicleAsWalkIn({
   appointmentTime,
   createdBy,
   note,
+  partsOrdered = false,
 }: ReuseVehicleAsWalkInInput) {
   const db = getFirebaseDb();
   const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
@@ -1607,6 +1612,7 @@ export async function reuseVehicleAsWalkIn({
       appointmentDate,
       appointmentTime: appointmentTime || "",
       note,
+      partsOrdered: Boolean(current.partsOrdered || partsOrdered),
       createdBy,
       sourceVehicleFlowId: vehicleFlowId,
       createdAt: serverTimestamp(),
@@ -1626,6 +1632,7 @@ export async function reuseVehicleAsWalkIn({
       consultantName: consultant,
       technicianName: technician || "",
       importedNotes: note,
+      partsOrdered: Boolean(current.partsOrdered || partsOrdered),
       customerWaits: false,
       washType: normalizedWashType,
       promisedDeliveryAt: promisedDate,

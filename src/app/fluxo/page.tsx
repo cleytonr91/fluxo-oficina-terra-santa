@@ -111,6 +111,33 @@ function partOrderTone(status: PartOrder["orderStatus"]) {
   return "";
 }
 
+function linkedPartOrdersForVehicle(
+  identity: { id?: string; plate?: string; chassi?: string },
+  orders: PartOrder[],
+  flowVehicles: VehicleFlow[],
+) {
+  const normalize = (value: unknown) => String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase();
+  const plate = normalize(identity.plate);
+  const chassi = normalize(identity.chassi);
+
+  return orders.filter((order) => {
+    if (order.orderStatus === "cancelado") return false;
+    if (identity.id && order.vehicleFlowId === identity.id) return true;
+
+    const orderPlate = normalize(order.plate);
+    const linkedVehicle = flowVehicles.find((vehicle) => vehicle.id === order.vehicleFlowId);
+    const orderChassi = normalize(linkedVehicle?.chassi);
+    return Boolean(
+      (plate && orderPlate && plate === orderPlate)
+      || (chassi && orderChassi && chassi === orderChassi),
+    );
+  });
+}
+
 function effectivePartOrderStatus(order: PartOrder): PartOrder["orderStatus"] {
   return order.cancellationReason?.trim() ? "cancelado" : order.orderStatus;
 }
@@ -826,6 +853,18 @@ export default function FluxoPage() {
     return mapped;
   }, [partOrders]);
 
+  const walkInLinkedPartOrders = useMemo(() => linkedPartOrdersForVehicle(
+    { plate: walkInForm.plate, chassi: walkInForm.chassi },
+    partOrders,
+    vehicles,
+  ), [partOrders, vehicles, walkInForm.chassi, walkInForm.plate]);
+
+  function partOrderForVehicle(vehicle: VehicleFlow) {
+    const direct = partOrdersByVehicle.get(vehicle.id);
+    if (direct) return direct;
+    return linkedPartOrdersForVehicle(vehicle, partOrders, vehicles)[0];
+  }
+
   const viewedPartOrder = useMemo(
     () => partOrders.find((order) => order.id === viewedPartOrderId) ?? null,
     [partOrders, viewedPartOrderId],
@@ -1412,6 +1451,7 @@ export default function FluxoPage() {
       }
       const initialLane: FlowLane = isWashService(walkInForm.service) ? "aguardando_lavagem" : "aguardando_servico";
       const normalizedWashType = washTypeFromService(walkInForm.service, walkInForm.washType);
+      const partsOrdered = walkInLinkedPartOrders.length > 0;
 
       if (isWashService(walkInForm.service) && walkInForm.washType === "nao") {
         throw new Error("Informe o tipo da lavagem para cadastrar Embelezamento.");
@@ -1446,6 +1486,7 @@ export default function FluxoPage() {
           vehicleFlowId: conflict.id,
           ...walkInForm,
           washType: normalizedWashType,
+          partsOrdered,
           appointmentDate: selectedDate,
           appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
           createdBy: profile?.name ?? user?.email ?? user?.uid,
@@ -1454,6 +1495,7 @@ export default function FluxoPage() {
         await createWalkInVehicle({
           ...walkInForm,
           washType: normalizedWashType,
+          partsOrdered,
           appointmentDate: selectedDate,
           appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
           createdBy: profile?.name ?? user?.email ?? user?.uid,
@@ -1478,6 +1520,7 @@ export default function FluxoPage() {
           consultantName: walkInForm.consultant,
           technicianName: walkInForm.technician,
           importedNotes: walkInForm.note,
+          partsOrdered: Boolean(vehicle.partsOrdered || partsOrdered),
           customerWaits: false,
           washType: normalizedWashType,
           serviceCompleted: isWashService(walkInForm.service),
@@ -1507,6 +1550,7 @@ export default function FluxoPage() {
           technicianName: walkInForm.technician,
           priority: "normal",
           importedNotes: walkInForm.note,
+          partsOrdered,
           customerWaits: false,
           washType: normalizedWashType,
           serviceCompleted: isWashService(walkInForm.service),
@@ -2498,7 +2542,7 @@ export default function FluxoPage() {
                           key={vehicle.id}
                           vehicle={vehicle}
                           immobilized={immobilizedVehicleIds.has(vehicle.id)}
-                          partOrder={partOrdersByVehicle.get(vehicle.id)}
+                          partOrder={partOrderForVehicle(vehicle)}
                           onAdvance={openBudgetCompleteModal}
                           onDetails={openDetailModal}
                           onPartOrder={(order) => setViewedPartOrderId(order.id)}
@@ -2514,7 +2558,7 @@ export default function FluxoPage() {
                           key={vehicle.id}
                           vehicle={vehicle}
                           immobilized={immobilizedVehicleIds.has(vehicle.id)}
-                          partOrder={partOrdersByVehicle.get(vehicle.id)}
+                          partOrder={partOrderForVehicle(vehicle)}
                           onAdvance={openBudgetReturnModal}
                           onDetails={openDetailModal}
                           onPartOrder={(order) => setViewedPartOrderId(order.id)}
@@ -2535,7 +2579,7 @@ export default function FluxoPage() {
                             key={vehicle.id}
                             vehicle={vehicle}
                             immobilized={immobilizedVehicleIds.has(vehicle.id)}
-                            partOrder={partOrdersByVehicle.get(vehicle.id)}
+                            partOrder={partOrderForVehicle(vehicle)}
                             now={now}
                             selectedDate={flowDate}
                             onAdvance={
@@ -2574,7 +2618,7 @@ export default function FluxoPage() {
                               key={`no-show-${vehicle.id}`}
                               vehicle={vehicle}
                               immobilized={immobilizedVehicleIds.has(vehicle.id)}
-                              partOrder={partOrdersByVehicle.get(vehicle.id)}
+                              partOrder={partOrderForVehicle(vehicle)}
                               now={now}
                               selectedDate={flowDate}
                               onAdvance={openReceiveModal}
@@ -3696,6 +3740,22 @@ export default function FluxoPage() {
                 </select>
               </label>
             </div>
+
+            {walkInLinkedPartOrders.length > 0 && (
+              <div className="duplicate-alert parts-prep-alert" role="status">
+                <strong>Pedido de peça vinculado</strong>
+                <span>Este veículo já possui pedido registrado. O chip será criado com o alerta de peças.</span>
+                <small>
+                  {walkInLinkedPartOrders.map((order) => {
+                    const descriptions = partOrderItems(order)
+                      .map((part) => [part.partReference, part.partDescription].filter(Boolean).join(" - "))
+                      .filter(Boolean)
+                      .join(" | ");
+                    return `${descriptions || "Pedido sem descrição"} · ${partOrderStatusLabels[effectivePartOrderStatus(order)]}`;
+                  }).join(" / ")}
+                </small>
+              </div>
+            )}
 
             <label className="field">
               <span>Observação</span>
