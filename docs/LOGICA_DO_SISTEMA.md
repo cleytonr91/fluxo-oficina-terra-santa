@@ -706,6 +706,8 @@ O Balcão é um módulo comercial autenticado do Fluxo, separado do acompanhamen
 - Venda exige estado de destino e considera todos os itens disponíveis em estoque.
 - Pedido exige estado de destino e permite indicar, por item, disponibilidade em estoque ou origem: Mobis, Rede, Natal, Mossoró ou Juazeiro.
 - Todos os textos digitados são armazenados em caixa alta.
+- Cada lançamento possui uma data comercial editável, usada nas listagens, filtros mensais e indicadores; registros antigos usam a data original do cadastro enquanto não forem editados.
+- Vendas, pedidos e vendas perdidas podem ser reabertos no formulário para alteração completa dos dados e dos itens.
 
 ### 16.2 Catálogo Hyundai
 

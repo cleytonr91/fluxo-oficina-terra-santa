@@ -123,6 +123,7 @@ export interface PartsCounterItem {
 export interface PartsCounterEntry {
   id: string;
   entryType: PartsCounterEntryType;
+  occurredOn?: string;
   clientName: string;
   customerType: PartsCounterCustomerType;
   sellerName: string;

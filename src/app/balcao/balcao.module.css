@@ -172,6 +172,7 @@
 .formGrid label,
 .itemCard > label,
 .orderChoice > label,
+.orderDetails > label,
 .orderLine > label,
 .filters label,
 .monthPicker,
@@ -268,6 +269,19 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
+}
+
+.orderDetails {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr 1fr 1fr 2fr;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.orderDetails > label {
+  display: grid;
+  gap: 6px;
 }
 
 .check {
@@ -384,7 +398,7 @@
 .tableHeader,
 .tableRow {
   display: grid;
-  grid-template-columns: 95px minmax(180px, 1.5fr) 70px minmax(140px, 1fr) 80px 70px 130px;
+  grid-template-columns: 105px minmax(170px, 1.5fr) 65px minmax(120px, 1fr) 70px 60px 120px 72px;
   gap: 12px;
   align-items: center;
   padding: 13px 16px;
@@ -416,6 +430,40 @@
   font-size: 0.72rem;
   font-style: normal;
   font-weight: 850;
+}
+
+.editButton {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #9fc8c5;
+  border-radius: 6px;
+  background: #eef9f8;
+  color: #006d68;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.editButton:hover {
+  background: #dff3f1;
+}
+
+.listTitle {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 2px 0;
+}
+
+.listTitle h3 {
+  margin: 4px 0 0;
+  color: #173840;
+}
+
+.listTitle > strong {
+  color: #9b3035;
 }
 
 .sellerGrid,
@@ -711,6 +759,7 @@
   .formGrid { grid-template-columns: repeat(2, 1fr); }
   .itemCard { grid-template-columns: 42px minmax(300px, 1fr) 110px 140px; }
   .orderChoice { grid-column: 2 / -1; }
+  .orderDetails { grid-template-columns: repeat(2, 1fr); }
   .orderLine { grid-template-columns: repeat(3, 1fr); }
   .orderPart { grid-column: 1 / -1; }
   .noteField { grid-column: span 2; }
@@ -726,9 +775,10 @@
   .filterTotal { justify-self: stretch; text-align: left; }
   .itemCard { grid-template-columns: 42px 1fr; align-items: start; }
   .catalogFields, .itemCard > label, .orderChoice { grid-column: 2; }
+  .orderDetails { grid-column: 1 / -1; grid-template-columns: 1fr; }
   .catalogFields :global(.catalog-part-fields) { grid-template-columns: 1fr; }
   .tablePanel { overflow-x: auto; }
-  .tableHeader, .tableRow { min-width: 900px; }
+  .tableHeader, .tableRow { min-width: 1000px; }
   .orderLine { grid-template-columns: 1fr; }
   .orderPart, .noteField { grid-column: auto; }
   .goalForm { grid-template-columns: 1fr; }

@@ -237,6 +237,7 @@ export async function createPartsCounterEntry({
   const db = getFirebaseDb();
   await addDoc(collection(db, collections.partsCounterEntries), withoutUndefined({
     ...entry,
+    occurredOn: entry.occurredOn || undefined,
     clientName: entry.clientName.trim().toUpperCase(),
     sellerName: entry.sellerName.trim().toUpperCase(),
     destinationState: entry.destinationState?.trim().toUpperCase(),
@@ -247,6 +248,31 @@ export async function createPartsCounterEntry({
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }));
+}
+
+export async function updatePartsCounterEntryDetails({
+  entryId,
+  entry,
+  actionBy,
+}: {
+  entryId: string;
+  entry: Omit<PartsCounterEntry, "id" | "createdAt" | "updatedAt" | "createdBy" | "updatedBy">;
+  actionBy?: string;
+}) {
+  const db = getFirebaseDb();
+  await setDoc(doc(collection(db, collections.partsCounterEntries), entryId), {
+    entryType: entry.entryType,
+    occurredOn: entry.occurredOn || null,
+    clientName: entry.clientName.trim().toUpperCase(),
+    customerType: entry.customerType,
+    sellerName: entry.sellerName.trim().toUpperCase(),
+    destinationState: entry.destinationState?.trim().toUpperCase() || null,
+    freightAmount: Math.max(0, Number(entry.freightAmount) || 0),
+    notes: entry.notes?.trim().toUpperCase() || null,
+    items: normalizeCounterItems(entry.items, entry.entryType),
+    updatedBy: actionBy ?? null,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
 export async function updatePartsCounterEntry({

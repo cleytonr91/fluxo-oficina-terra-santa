@@ -5,12 +5,12 @@ import { ProtectedPage } from "@/components/protected-page";
 import { PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
 import {
-  convertPartsCounterEntry,
   createPartsCounterEntry,
   savePartsSalesGoal,
   subscribePartsCounterEntries,
   subscribePartsSalesGoals,
   updatePartsCounterEntry,
+  updatePartsCounterEntryDetails,
 } from "@/services/firestore";
 import type {
   PartOrderSource,
@@ -64,6 +64,10 @@ function currentMonth() {
   return new Date().toLocaleDateString("en-CA").slice(0, 7);
 }
 
+function currentDate() {
+  return new Date().toLocaleDateString("en-CA");
+}
+
 function asDate(value: unknown) {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -73,8 +77,14 @@ function asDate(value: unknown) {
 }
 
 function entryMonth(entry: PartsCounterEntry) {
+  if (entry.occurredOn) return entry.occurredOn.slice(0, 7);
   const date = asDate(entry.createdAt);
   return date ? date.toLocaleDateString("en-CA").slice(0, 7) : "";
+}
+
+function entryDate(entry: PartsCounterEntry) {
+  if (entry.occurredOn) return new Date(`${entry.occurredOn}T12:00:00`);
+  return asDate(entry.createdAt);
 }
 
 function formatDate(value: unknown) {
@@ -107,6 +117,9 @@ export default function BalcaoPage() {
   const [month, setMonth] = useState(currentMonth);
   const [sellerFilter, setSellerFilter] = useState("TODOS");
   const [entryType, setEntryType] = useState<PartsCounterEntryType>("venda");
+  const [editingEntryId, setEditingEntryId] = useState("");
+  const [editingReturnSection, setEditingReturnSection] = useState<Extract<Section, "vendas" | "pedidos">>("vendas");
+  const [occurredOn, setOccurredOn] = useState(currentDate);
   const [clientName, setClientName] = useState("");
   const [customerType, setCustomerType] = useState<PartsCounterCustomerType>("PF");
   const [sellerName, setSellerName] = useState("ALISSON");
@@ -128,6 +141,7 @@ export default function BalcaoPage() {
   const lostSales = useMemo(() => monthEntries.filter((entry) => entry.entryType === "venda_perdida"), [monthEntries]);
   const orders = useMemo(() => entries.filter((entry) => entry.entryType === "pedido"), [entries]);
   const filteredSales = useMemo(() => sales.filter((entry) => sellerFilter === "TODOS" || entry.sellerName === sellerFilter), [sales, sellerFilter]);
+  const filteredLostSales = useMemo(() => lostSales.filter((entry) => sellerFilter === "TODOS" || entry.sellerName === sellerFilter), [lostSales, sellerFilter]);
 
   const indicators = useMemo(() => {
     const sold = sales.reduce((total, entry) => total + entryTotal(entry), 0);
@@ -155,6 +169,7 @@ export default function BalcaoPage() {
   const goal = goals.find((item) => item.month === month)?.targetAmount ?? 0;
   const goalValue = goalDraft?.month === month ? goalDraft.value : goal;
   const goalPercent = goal ? Math.min(100, Math.round((indicators.sold / goal) * 100)) : 0;
+  const dateFieldLabel = entryType === "venda" ? "Data da venda" : entryType === "pedido" ? "Data do pedido" : "Data da perda";
 
   function updateItem(itemId: string, patch: Partial<PartsCounterItem>) {
     setItems((current) => current.map((item) => item.id === itemId ? { ...item, ...patch } : item));
@@ -167,14 +182,49 @@ export default function BalcaoPage() {
     }
   }
 
-  function resetForm() {
+  function resetForm(nextType: PartsCounterEntryType = entryType) {
+    setEditingEntryId("");
+    setOccurredOn(currentDate());
     setClientName("");
     setCustomerType("PF");
     setSellerName("ALISSON");
     setDestinationState("");
     setFreightAmount(0);
     setNotes("");
-    setItems([newItem(1, entryType === "venda")]);
+    setItems([newItem(1, nextType === "venda")]);
+  }
+
+  function startNewEntry(nextType: PartsCounterEntryType) {
+    setEntryType(nextType);
+    resetForm(nextType);
+    setSection("nova");
+  }
+
+  function editEntry(entry: PartsCounterEntry, nextType: PartsCounterEntryType = entry.entryType) {
+    setEditingEntryId(entry.id);
+    setEditingReturnSection(entry.entryType === "pedido" ? "pedidos" : "vendas");
+    setOccurredOn(nextType === entry.entryType
+      ? (entry.occurredOn ?? entryDate(entry)?.toLocaleDateString("en-CA") ?? currentDate())
+      : currentDate());
+    setEntryType(nextType);
+    setClientName(entry.clientName);
+    setCustomerType(entry.customerType);
+    setSellerName(entry.sellerName);
+    setDestinationState(entry.destinationState ?? "");
+    setFreightAmount(entry.freightAmount ?? 0);
+    setNotes(entry.notes ?? "");
+    setItems((orderDrafts[entry.id] ?? entry.items).map((item) => nextType === "venda"
+      ? { ...item, availableInStock: true, orderStatus: "disponivel" }
+      : { ...item }));
+    setError("");
+    setSection("nova");
+  }
+
+  function cancelEditing() {
+    const returnSection = editingReturnSection;
+    setEntryType("venda");
+    resetForm("venda");
+    setSection(returnSection);
   }
 
   async function submitEntry(event: FormEvent) {
@@ -195,9 +245,9 @@ export default function BalcaoPage() {
     setSaving(true);
     setError("");
     try {
-      await createPartsCounterEntry({
-        entry: {
+      const entry = {
           entryType,
+          occurredOn,
           clientName,
           customerType,
           sellerName,
@@ -205,10 +255,13 @@ export default function BalcaoPage() {
           freightAmount,
           notes,
           items,
-        },
-        actionBy: operator,
-      });
-      resetForm();
+        };
+      if (editingEntryId) {
+        await updatePartsCounterEntryDetails({ entryId: editingEntryId, entry, actionBy: operator });
+      } else {
+        await createPartsCounterEntry({ entry, actionBy: operator });
+      }
+      resetForm(entryType);
       setSection(entryType === "pedido" ? "pedidos" : "vendas");
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "NÃO FOI POSSÍVEL SALVAR O LANÇAMENTO.");
@@ -241,27 +294,6 @@ export default function BalcaoPage() {
     }
   }
 
-  async function convertEntry(entry: PartsCounterEntry, nextType: "venda" | "venda_perdida") {
-    setSavingOrderId(entry.id);
-    setError("");
-    try {
-      if (nextType === "venda") {
-        await updatePartsCounterEntry({
-          entryId: entry.id,
-          entryType: "venda",
-          items: orderItems(entry).map((item) => ({ ...item, availableInStock: true, orderStatus: "disponivel" })),
-          actionBy: operator,
-        });
-      } else {
-        await convertPartsCounterEntry({ entryId: entry.id, entryType: nextType, actionBy: operator });
-      }
-    } catch (currentError) {
-      setError(currentError instanceof Error ? currentError.message : "NÃO FOI POSSÍVEL CONVERTER O PEDIDO.");
-    } finally {
-      setSavingOrderId("");
-    }
-  }
-
   async function saveGoal(event: FormEvent) {
     event.preventDefault();
     setSavingGoal(true);
@@ -286,7 +318,7 @@ export default function BalcaoPage() {
             ["pedidos", "P", "Pedidos"],
             ["indicadores", "I", "Indicadores"],
           ] as Array<[Section, string, string]>).map(([id, icon, label]) => (
-            <button key={id} type="button" className={section === id ? styles.activeNav : ""} onClick={() => setSection(id)}>
+            <button key={id} type="button" className={section === id ? styles.activeNav : ""} onClick={() => id === "nova" ? startNewEntry("venda") : setSection(id)}>
               <span>{icon}</span>{label}
             </button>
           ))}
@@ -297,12 +329,13 @@ export default function BalcaoPage() {
 
           {section === "nova" && (
             <form className={styles.panel} onSubmit={submitEntry}>
-              <div className={styles.panelHead}><div><span className={styles.eyebrow}>NOVO REGISTRO</span><h2>Adicionar lançamento</h2></div><span className={styles.uppercaseNote}>PREENCHIMENTO EM CAIXA ALTA</span></div>
+              <div className={styles.panelHead}><div><span className={styles.eyebrow}>{editingEntryId ? "EDIÇÃO DO REGISTRO" : "NOVO REGISTRO"}</span><h2>{editingEntryId ? "Editar lançamento" : "Adicionar lançamento"}</h2></div><span className={styles.uppercaseNote}>{editingEntryId ? "TODOS OS CAMPOS PODEM SER ALTERADOS" : "PREENCHIMENTO EM CAIXA ALTA"}</span></div>
               <div className={styles.formGrid}>
                 <label><span>Cliente</span><input required value={clientName} onChange={(event) => setClientName(event.target.value.toUpperCase())} /></label>
                 <label><span>Pessoa</span><select value={customerType} onChange={(event) => setCustomerType(event.target.value as PartsCounterCustomerType)}><option>PF</option><option>PJ</option></select></label>
                 <label><span>Vendedor</span><select required value={sellerName} onChange={(event) => setSellerName(event.target.value)}>{sellerOptions.map((seller) => <option key={seller.value} value={seller.value}>{seller.label}</option>)}</select></label>
                 <label><span>Tipo de lançamento</span><select value={entryType} onChange={(event) => changeEntryType(event.target.value as PartsCounterEntryType)}><option value="venda">Venda</option><option value="pedido">Pedido</option><option value="venda_perdida">Venda perdida</option></select></label>
+                <label><span>{dateFieldLabel}</span><input required type="date" max={currentDate()} value={occurredOn} onChange={(event) => setOccurredOn(event.target.value)} /></label>
                 {(entryType === "venda" || entryType === "pedido") && <label><span>Destino</span><select required value={destinationState} onChange={(event) => setDestinationState(event.target.value)}><option value="">Selecione o estado</option>{states.map((state) => <option key={state}>{state}</option>)}</select></label>}
                 <label><span>Frete</span><input type="number" min="0" step="0.01" value={freightAmount} onChange={(event) => setFreightAmount(Number(event.target.value))} /></label>
               </div>
@@ -317,29 +350,30 @@ export default function BalcaoPage() {
                     </div>
                     <label><span>Quantidade</span><input type="number" min="1" value={item.quantity} onChange={(event) => updateItem(item.id, { quantity: Number(event.target.value) })} /></label>
                     <label><span>Valor de venda</span><input type="number" min="0" step="0.01" value={item.unitPrice} onChange={(event) => updateItem(item.id, { unitPrice: Number(event.target.value) })} /></label>
-                    {entryType === "pedido" && <div className={styles.orderChoice}><label className={styles.check}><input type="checkbox" checked={item.availableInStock} onChange={(event) => updateItem(item.id, { availableInStock: event.target.checked, orderStatus: event.target.checked ? "disponivel" : "necessario_pedido" })} /><span>Disponível no estoque</span></label>{!item.availableInStock && <label><span>Origem</span><select required value={item.orderSource ?? ""} onChange={(event) => updateItem(item.id, { orderSource: event.target.value as PartOrderSource })}><option value="">Selecione</option>{sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>}</div>}
+                    {entryType === "pedido" && <><div className={styles.orderChoice}><label className={styles.check}><input type="checkbox" checked={item.availableInStock} onChange={(event) => updateItem(item.id, { availableInStock: event.target.checked, orderStatus: event.target.checked ? "disponivel" : "necessario_pedido" })} /><span>Disponível no estoque</span></label>{!item.availableInStock && <label><span>Origem</span><select required value={item.orderSource ?? ""} onChange={(event) => updateItem(item.id, { orderSource: event.target.value as PartOrderSource })}><option value="">Selecione</option>{sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>}</div><div className={styles.orderDetails}><label><span>Status do pedido</span><select value={item.orderStatus ?? "necessario_pedido"} onChange={(event) => updateItem(item.id, { orderStatus: event.target.value as PartsCounterOrderStatus, availableInStock: event.target.value === "disponivel" })}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>NF</span><input value={item.invoiceNumber ?? ""} onChange={(event) => updateItem(item.id, { invoiceNumber: event.target.value.toUpperCase() })} /></label><label><span>Previsão de chegada</span><input type="date" value={item.expectedArrivalDate ?? ""} onChange={(event) => updateItem(item.id, { expectedArrivalDate: event.target.value })} /></label><label><span>Observações de NF e previsão</span><input value={item.orderNote ?? ""} onChange={(event) => updateItem(item.id, { orderNote: event.target.value.toUpperCase() })} /></label></div></>}
                     {items.length > 1 && <button type="button" className={styles.removeButton} aria-label={`Remover item ${index + 1}`} onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))}>×</button>}
                   </article>
                 ))}
               </div>
               <label className={styles.fullField}><span>Observações</span><textarea value={notes} onChange={(event) => setNotes(event.target.value.toUpperCase())} /></label>
-              <div className={styles.formActions}><button type="button" className={styles.secondaryButton} onClick={resetForm}>Limpar</button><button className={styles.primaryButton} disabled={saving}>{saving ? "Salvando..." : "Lançar registro"}</button></div>
+              <div className={styles.formActions}><button type="button" className={styles.secondaryButton} onClick={() => editingEntryId ? cancelEditing() : resetForm()}>{editingEntryId ? "Cancelar edição" : "Limpar"}</button><button className={styles.primaryButton} disabled={saving}>{saving ? "Salvando..." : editingEntryId ? "Salvar alterações" : "Lançar registro"}</button></div>
             </form>
           )}
 
           {section === "vendas" && (
             <div className={styles.stack}>
-              <div className={styles.hero}><div><span className={styles.eyebrow}>RESULTADO COMERCIAL</span><h2>Vendas do mês</h2><p>Acompanhe volume, destino e entrega por vendedor.</p></div><button className={styles.primaryButton} type="button" onClick={() => { changeEntryType("venda"); setSection("nova"); }}>+ Nova venda</button></div>
+              <div className={styles.hero}><div><span className={styles.eyebrow}>RESULTADO COMERCIAL</span><h2>Vendas do mês</h2><p>Acompanhe volume, destino e entrega por vendedor.</p></div><button className={styles.primaryButton} type="button" onClick={() => startNewEntry("venda")}>+ Nova venda</button></div>
               <div className={styles.filters}><label><span>Mês</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label><label><span>Vendedor</span><select value={sellerFilter} onChange={(event) => setSellerFilter(event.target.value)}><option>TODOS</option>{sellers.map((seller) => <option key={seller}>{seller}</option>)}</select></label><div className={styles.filterTotal}><span>Total filtrado</span><strong>{money(filteredSales.reduce((total, entry) => total + entryTotal(entry), 0))}</strong></div></div>
-              <div className={styles.tablePanel}><div className={styles.tableHeader}><span>Data</span><span>Cliente</span><span>PF/PJ</span><span>Vendedor</span><span>Destino</span><span>Itens</span><span>Total</span></div>{filteredSales.length ? filteredSales.map((entry) => <div className={styles.tableRow} key={entry.id}><span>{formatDate(entry.createdAt)}</span><strong>{entry.clientName}</strong><span><em>{entry.customerType}</em></span><span>{entry.sellerName}</span><span>{entry.destinationState ?? "-"}</span><span>{entry.items.reduce((total, item) => total + item.quantity, 0)}</span><strong>{money(entryTotal(entry))}</strong></div>) : <p className={styles.empty}>Nenhuma venda encontrada para os filtros selecionados.</p>}</div>
+              <div className={styles.tablePanel}><div className={styles.tableHeader}><span>Data da venda</span><span>Cliente</span><span>PF/PJ</span><span>Vendedor</span><span>Destino</span><span>Itens</span><span>Total</span><span>Ação</span></div>{filteredSales.length ? filteredSales.map((entry) => <div className={styles.tableRow} key={entry.id}><span>{formatDate(entryDate(entry))}</span><strong>{entry.clientName}</strong><span><em>{entry.customerType}</em></span><span>{entry.sellerName}</span><span>{entry.destinationState ?? "-"}</span><span>{entry.items.reduce((total, item) => total + item.quantity, 0)}</span><strong>{money(entryTotal(entry))}</strong><button type="button" className={styles.editButton} onClick={() => editEntry(entry)}>Editar</button></div>) : <p className={styles.empty}>Nenhuma venda encontrada para os filtros selecionados.</p>}</div>
+              {filteredLostSales.length > 0 && <><div className={styles.listTitle}><div><span className={styles.eyebrow}>HISTÓRICO EDITÁVEL</span><h3>Vendas perdidas do mês</h3></div><strong>{money(filteredLostSales.reduce((total, entry) => total + entryTotal(entry), 0))}</strong></div><div className={styles.tablePanel}><div className={styles.tableHeader}><span>Data da perda</span><span>Cliente</span><span>PF/PJ</span><span>Vendedor</span><span>Destino</span><span>Itens</span><span>Valor</span><span>Ação</span></div>{filteredLostSales.map((entry) => <div className={styles.tableRow} key={entry.id}><span>{formatDate(entryDate(entry))}</span><strong>{entry.clientName}</strong><span><em>{entry.customerType}</em></span><span>{entry.sellerName}</span><span>{entry.destinationState ?? "-"}</span><span>{entry.items.reduce((total, item) => total + item.quantity, 0)}</span><strong>{money(entryTotal(entry))}</strong><button type="button" className={styles.editButton} onClick={() => editEntry(entry)}>Editar</button></div>)}</div></>}
               <div className={styles.sellerGrid}>{sellers.map((seller) => { const sellerSales = sales.filter((entry) => entry.sellerName === seller); const total = sellerSales.reduce((sum, entry) => sum + entryTotal(entry), 0); return <article key={seller}><span>{sellerSales.length} vendas</span><h3>{seller}</h3><strong>{money(total)}</strong></article>; })}</div>
             </div>
           )}
 
           {section === "pedidos" && (
             <div className={styles.stack}>
-              <div className={styles.hero}><div><span className={styles.eyebrow}>ACOMPANHAMENTO</span><h2>Pedidos em andamento</h2><p>Atualize cada item até a chegada ou converta o negócio.</p></div><button className={styles.primaryButton} type="button" onClick={() => { changeEntryType("pedido"); setSection("nova"); }}>+ Novo pedido</button></div>
-              {orders.length ? orders.map((entry) => <article className={styles.orderCard} key={entry.id}><div className={styles.orderHeader}><div><span className={styles.eyebrow}>{formatDate(entry.createdAt)} · {entry.customerType} · DESTINO {entry.destinationState ?? "NÃO INFORMADO"}</span><h3>{entry.clientName}</h3><p>{entry.sellerName} · {money(entryTotal(entry))}</p></div><div className={styles.orderActions}><button type="button" className={styles.secondaryButton} disabled={savingOrderId === entry.id} onClick={() => convertEntry(entry, "venda_perdida")}>Venda perdida</button><button type="button" className={styles.primaryButton} disabled={savingOrderId === entry.id} onClick={() => convertEntry(entry, "venda")}>Transformar em venda</button></div></div><div className={styles.orderItems}>{orderItems(entry).map((item) => <div className={styles.orderLine} key={item.id}><div className={styles.orderPart}><strong>{item.partReference}</strong><span>{item.partDescription}</span><small>{item.quantity} × {money(item.unitPrice)}</small></div><label><span>Status</span><select value={item.orderStatus ?? "necessario_pedido"} onChange={(event) => updateOrderItem(entry, item.id, { orderStatus: event.target.value as PartsCounterOrderStatus, availableInStock: event.target.value === "disponivel" })}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>Origem</span><select value={item.orderSource ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { orderSource: event.target.value as PartOrderSource })}><option value="">Selecione</option>{sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>NF</span><input value={item.invoiceNumber ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { invoiceNumber: event.target.value.toUpperCase() })} /></label><label><span>Previsão de chegada</span><input type="date" value={item.expectedArrivalDate ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { expectedArrivalDate: event.target.value })} /></label><label className={styles.noteField}><span>Observações de NF e previsão</span><input value={item.orderNote ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { orderNote: event.target.value.toUpperCase() })} /></label></div>)}</div><div className={styles.saveRow}><button type="button" className={styles.secondaryButton} disabled={!orderDrafts[entry.id] || savingOrderId === entry.id} onClick={() => saveOrder(entry)}>{savingOrderId === entry.id ? "Salvando..." : "Salvar andamento"}</button></div></article>) : <div className={styles.panel}><p className={styles.empty}>Nenhum pedido em andamento.</p></div>}
+              <div className={styles.hero}><div><span className={styles.eyebrow}>ACOMPANHAMENTO</span><h2>Pedidos em andamento</h2><p>Atualize cada item até a chegada ou converta o negócio.</p></div><button className={styles.primaryButton} type="button" onClick={() => startNewEntry("pedido")}>+ Novo pedido</button></div>
+              {orders.length ? orders.map((entry) => <article className={styles.orderCard} key={entry.id}><div className={styles.orderHeader}><div><span className={styles.eyebrow}>{formatDate(entryDate(entry))} · {entry.customerType} · DESTINO {entry.destinationState ?? "NÃO INFORMADO"}</span><h3>{entry.clientName}</h3><p>{entry.sellerName} · {money(entryTotal(entry))}</p></div><div className={styles.orderActions}><button type="button" className={styles.secondaryButton} disabled={savingOrderId === entry.id} onClick={() => editEntry(entry)}>Editar tudo</button><button type="button" className={styles.secondaryButton} disabled={savingOrderId === entry.id} onClick={() => editEntry(entry, "venda_perdida")}>Venda perdida</button><button type="button" className={styles.primaryButton} disabled={savingOrderId === entry.id} onClick={() => editEntry(entry, "venda")}>Transformar em venda</button></div></div><div className={styles.orderItems}>{orderItems(entry).map((item) => <div className={styles.orderLine} key={item.id}><div className={styles.orderPart}><strong>{item.partReference}</strong><span>{item.partDescription}</span><small>{item.quantity} × {money(item.unitPrice)}</small></div><label><span>Status</span><select value={item.orderStatus ?? "necessario_pedido"} onChange={(event) => updateOrderItem(entry, item.id, { orderStatus: event.target.value as PartsCounterOrderStatus, availableInStock: event.target.value === "disponivel" })}>{statusOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>Origem</span><select value={item.orderSource ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { orderSource: event.target.value as PartOrderSource })}><option value="">Selecione</option>{sourceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label><span>NF</span><input value={item.invoiceNumber ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { invoiceNumber: event.target.value.toUpperCase() })} /></label><label><span>Previsão de chegada</span><input type="date" value={item.expectedArrivalDate ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { expectedArrivalDate: event.target.value })} /></label><label className={styles.noteField}><span>Observações de NF e previsão</span><input value={item.orderNote ?? ""} onChange={(event) => updateOrderItem(entry, item.id, { orderNote: event.target.value.toUpperCase() })} /></label></div>)}</div><div className={styles.saveRow}><button type="button" className={styles.secondaryButton} disabled={!orderDrafts[entry.id] || savingOrderId === entry.id} onClick={() => saveOrder(entry)}>{savingOrderId === entry.id ? "Salvando..." : "Salvar andamento"}</button></div></article>) : <div className={styles.panel}><p className={styles.empty}>Nenhum pedido em andamento.</p></div>}
             </div>
           )}
 
