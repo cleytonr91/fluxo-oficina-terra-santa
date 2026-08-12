@@ -3,6 +3,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   limit,
   onSnapshot,
@@ -1151,6 +1152,44 @@ export function subscribeVehicleFlowEvents(
   }, onError);
 }
 
+export function subscribeFlowEventsForVehicles(
+  vehicleFlowIds: string[],
+  onChange: (events: FlowEvent[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const uniqueIds = Array.from(new Set(vehicleFlowIds.filter(Boolean)));
+
+  if (!uniqueIds.length) {
+    onChange([]);
+    return () => undefined;
+  }
+
+  const chunks: string[][] = [];
+  for (let index = 0; index < uniqueIds.length; index += 30) {
+    chunks.push(uniqueIds.slice(index, index + 30));
+  }
+
+  const eventsByChunk = new Map<number, FlowEvent[]>();
+  const emit = () => {
+    const events = Array.from(eventsByChunk.values()).flat();
+    onChange(events.sort((a, b) => eventTimeValue(b.createdAt) - eventTimeValue(a.createdAt)));
+  };
+
+  const unsubscribes = chunks.map((ids, chunkIndex) => onSnapshot(query(
+    collection(db, collections.flowEvents),
+    where("vehicleFlowId", "in", ids),
+  ), (snapshot) => {
+    eventsByChunk.set(chunkIndex, snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as FlowEvent[]);
+    emit();
+  }, onError));
+
+  return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+}
+
 export async function savePartOrder({
   vehicle,
   customerId,
@@ -1164,6 +1203,8 @@ export async function savePartOrder({
   const orderRef = doc(collection(db, collections.partOrders), vehicle.id);
   const flowRef = doc(collection(db, collections.vehiclesFlow), vehicle.id);
   const flowEventRef = doc(collection(db, collections.flowEvents));
+  const existingOrder = await getDoc(orderRef);
+  const existingOrderStatus = existingOrder.data()?.orderStatus as PartOrderStatus | undefined;
   const normalizedParts = parts
     .map((part, index) => ({
       id: part.id || `peca-${index + 1}`,
@@ -1188,9 +1229,10 @@ export async function savePartOrder({
     partReference: normalizedReference,
     partDescription: normalizedDescription,
     orderStatus: "solicitado_oficina",
+    ...(!existingOrder.exists() || existingOrderStatus !== "solicitado_oficina" ? { orderStatusUpdatedAt: serverTimestamp() } : {}),
     requestedBy: actionBy,
     updatedBy: actionBy,
-    createdAt: serverTimestamp(),
+    ...(!existingOrder.exists() ? { createdAt: serverTimestamp() } : {}),
     updatedAt: serverTimestamp(),
   }), { merge: true });
 
@@ -1256,6 +1298,8 @@ export async function updatePartOrder({
 }: UpdatePartOrderInput) {
   const db = getFirebaseDb();
   const ref = doc(collection(db, collections.partOrders), orderId);
+  const existingOrder = await getDoc(ref);
+  const existingOrderStatus = existingOrder.data()?.orderStatus as PartOrderStatus | undefined;
   const normalizedParts = parts
     .map((part, index) => ({
       id: part.id || `peca-${index + 1}`,
@@ -1281,6 +1325,7 @@ export async function updatePartOrder({
     partReference: normalizedReference,
     partDescription: normalizedDescription,
     orderStatus,
+    ...(!existingOrder.exists() || existingOrderStatus !== orderStatus ? { orderStatusUpdatedAt: serverTimestamp() } : {}),
     orderSource,
     orderNumber: orderNumber?.trim(),
     orderVor: orderVor ?? false,
@@ -1355,6 +1400,7 @@ export async function createStandalonePartOrder({
     partDescription: firstPart?.partDescription,
     orderKind,
     orderStatus,
+    orderStatusUpdatedAt: serverTimestamp(),
     orderSource,
     orderNumber: orderNumber?.trim().toUpperCase(),
     orderVor: orderVor ?? false,

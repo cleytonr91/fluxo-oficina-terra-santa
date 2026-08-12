@@ -4,9 +4,9 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { invalidatePartsCatalogCache, PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
-import { createStandalonePartOrder, replaceHyundaiPartsCatalog, subscribeActiveVehicleFlows, subscribePartOrders, updatePartOrder } from "@/services/firestore";
+import { createStandalonePartOrder, replaceHyundaiPartsCatalog, subscribeActiveVehicleFlows, subscribeFlowEventsForVehicles, subscribePartOrders, updatePartOrder } from "@/services/firestore";
 import { parseHyundaiPartsCatalog } from "@/lib/hyundai-parts-catalog";
-import type { PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
+import type { FlowEvent, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
 type PartOrderFormFields = {
   customerId: string;
@@ -100,7 +100,7 @@ const emptyStandalonePartOrder: StandalonePartOrderFormFields = {
 };
 
 
-type PartsFilter = "pendentes" | "todos" | "vor" | PartOrderStatus;
+type PartsFilter = "pendentes" | "todos" | "vor" | "concluidos" | PartOrderStatus;
 type PartEditSection = "dados" | "pedido" | "pecas" | "cancelamento" | "info";
 
 type MobisReceiptItem = {
@@ -201,10 +201,9 @@ function isWorkshopRequestedStatus(order: PartOrder) {
     || status === "aguardando_pecas";
 }
 
-function hasArrivalForecastWithoutAvailability(order: PartOrder) {
-  return Boolean(order.expectedArrivalDate)
-    && effectiveOrderStatus(order) !== "disponivel"
-    && effectiveOrderStatus(order) !== "cancelado";
+function hasConfirmedReturnScheduling(order: PartOrder) {
+  return order.schedulingStatus === "agendamento_confirmado"
+    && Boolean(order.scheduledReturnDate);
 }
 
 function sourceLabel(value?: PartOrderSource) {
@@ -233,6 +232,45 @@ function normalizeCode(value?: string) {
 function orderTimeValue(order: PartOrder) {
   const date = toDate(order.createdAt) ?? toDate(order.updatedAt);
   return date?.getTime() ?? 0;
+}
+
+function statusTimeValue(order: PartOrder) {
+  const statusDate = toDate(order.orderStatusUpdatedAt);
+  if (statusDate) return statusDate.getTime();
+
+  if (effectiveOrderStatus(order) === "pedido_realizado" && order.orderDate) {
+    const orderDate = new Date(`${order.orderDate}T00:00:00`);
+    if (!Number.isNaN(orderDate.getTime())) return orderDate.getTime();
+  }
+
+  const fallback = isWorkshopRequestedStatus(order)
+    ? toDate(order.createdAt)
+    : toDate(order.updatedAt) ?? toDate(order.createdAt);
+  return fallback?.getTime() ?? Date.now();
+}
+
+function daysInCurrentStatus(order: PartOrder) {
+  return Math.max(0, Math.floor((Date.now() - statusTimeValue(order)) / 86400000));
+}
+
+function daysLabel(order: PartOrder) {
+  const days = daysInCurrentStatus(order);
+  return `${days} ${days === 1 ? "dia" : "dias"}`;
+}
+
+function needsStatusUpdate(order: PartOrder) {
+  const status = effectiveOrderStatus(order);
+  const days = daysInCurrentStatus(order);
+  return (status === "pedido_realizado" && days > 3)
+    || (status === "em_transito" && days > 9);
+}
+
+function eventTimeValue(event: FlowEvent) {
+  return toDate(event.createdAt)?.getTime() ?? 0;
+}
+
+function isFlowPassage(event: FlowEvent) {
+  return Boolean(event.fromLane && event.fromLane !== event.toLane);
 }
 
 function orderHasPart(order: PartOrder, partReference: string) {
@@ -275,6 +313,7 @@ export default function PecasPage() {
     : new URLSearchParams(window.location.search).get("pedido") ?? "";
   const [orders, setOrders] = useState<PartOrder[]>([]);
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
+  const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
   const [orderForms, setOrderForms] = useState<Record<string, Partial<PartOrderFormFields>>>({});
   const [openSections, setOpenSections] = useState<Record<string, PartEditSection | undefined>>({});
   const [savingId, setSavingId] = useState("");
@@ -358,6 +397,21 @@ export default function PecasPage() {
     return [...orders, ...syntheticOrders];
   }, [orders, vehicles]);
 
+  const trackedVehicleFlowIds = useMemo(() => (
+    Array.from(new Set(mergedOrders.map((order) => order.vehicleFlowId).filter(Boolean))).sort()
+  ), [mergedOrders]);
+  const trackedVehicleFlowKey = trackedVehicleFlowIds.join("|");
+
+  useEffect(() => {
+    const unsubscribe = subscribeFlowEventsForVehicles(trackedVehicleFlowIds, setFlowEvents, (currentError) => {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível consultar as passagens dos chips.");
+    });
+
+    return unsubscribe;
+  // A chave evita recriar a assinatura quando apenas outros dados do pedido mudam.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackedVehicleFlowKey]);
+
   const vehiclesById = useMemo(() => {
     const mapped = new Map<string, VehicleFlow>();
     vehicles.forEach((vehicle) => mapped.set(vehicle.id, vehicle));
@@ -377,48 +431,95 @@ export default function PecasPage() {
     );
   }
 
+  const completedOrderIds = useMemo(() => {
+    const passagesByVehicle = new Map<string, FlowEvent[]>();
+
+    flowEvents.forEach((event) => {
+      if (!isFlowPassage(event)) return;
+      const current = passagesByVehicle.get(event.vehicleFlowId) ?? [];
+      current.push(event);
+      passagesByVehicle.set(event.vehicleFlowId, current);
+    });
+
+    return new Set(mergedOrders
+      .filter((order) => {
+        if (!order.vehicleFlowId || effectiveOrderStatus(order) === "cancelado") return false;
+        const createdAt = orderTimeValue(order);
+        return createdAt > 0 && (passagesByVehicle.get(order.vehicleFlowId) ?? [])
+          .some((event) => eventTimeValue(event) > createdAt);
+      })
+      .map((order) => order.id));
+  }, [flowEvents, mergedOrders]);
+
+  const completedOrders = useMemo(() => (
+    mergedOrders.filter((order) => completedOrderIds.has(order.id))
+  ), [completedOrderIds, mergedOrders]);
+
+  const operationalOrders = useMemo(() => (
+    mergedOrders.filter((order) => !completedOrderIds.has(order.id))
+  ), [completedOrderIds, mergedOrders]);
+
   const availableOrders = useMemo(() => (
-    mergedOrders.filter((order) => effectiveOrderStatus(order) === "disponivel")
-  ), [mergedOrders]);
+    operationalOrders.filter((order) => (
+      effectiveOrderStatus(order) === "disponivel"
+      && !hasConfirmedReturnScheduling(order)
+    ))
+  ), [operationalOrders]);
 
   const canceledOrders = useMemo(() => (
     mergedOrders.filter((order) => effectiveOrderStatus(order) === "cancelado")
   ), [mergedOrders]);
 
+  const workshopActionOrders = useMemo(() => (
+    operationalOrders
+      .filter(isWorkshopRequestedStatus)
+      .sort((a, b) => daysInCurrentStatus(b) - daysInCurrentStatus(a))
+  ), [operationalOrders]);
+
+  const statusUpdateOrders = useMemo(() => (
+    operationalOrders
+      .filter(needsStatusUpdate)
+      .sort((a, b) => {
+        const aLimit = effectiveOrderStatus(a) === "pedido_realizado" ? 3 : 9;
+        const bLimit = effectiveOrderStatus(b) === "pedido_realizado" ? 3 : 9;
+        return (daysInCurrentStatus(b) - bLimit) - (daysInCurrentStatus(a) - aLimit);
+      })
+  ), [operationalOrders]);
+
   const pendingOrders = useMemo(() => (
-    mergedOrders.filter((order) => isWorkshopRequestedStatus(order) || hasArrivalForecastWithoutAvailability(order))
-  ), [mergedOrders]);
+    [...workshopActionOrders, ...statusUpdateOrders]
+  ), [statusUpdateOrders, workshopActionOrders]);
 
   const filteredOrders = useMemo(() => {
     if (focusedOrderId) return mergedOrders.filter((order) => order.vehicleFlowId === focusedOrderId || order.id === focusedOrderId);
     if (statusFilter === "todos") return mergedOrders;
     if (statusFilter === "pendentes") return pendingOrders;
-    if (statusFilter === "vor") return mergedOrders.filter((order) => order.orderVor);
+    if (statusFilter === "concluidos") return completedOrders;
+    if (statusFilter === "vor") return operationalOrders.filter((order) => order.orderVor);
+    if (statusFilter === "disponivel") return availableOrders;
     if (statusFilter === "solicitado_oficina") {
-      return mergedOrders.filter(isWorkshopRequestedStatus);
+      return operationalOrders.filter(isWorkshopRequestedStatus);
     }
-    return mergedOrders.filter((order) => effectiveOrderStatus(order) === statusFilter);
-  }, [focusedOrderId, mergedOrders, pendingOrders, statusFilter]);
+    return operationalOrders.filter((order) => effectiveOrderStatus(order) === statusFilter);
+  }, [availableOrders, completedOrders, focusedOrderId, mergedOrders, operationalOrders, pendingOrders, statusFilter]);
 
   const isOrderVehicleImmobilized = (order: PartOrder) => (
     vehiclesById.get(order.vehicleFlowId)?.vehicleImmobilized ?? false
   );
-  const availableImmobilized = availableOrders.filter(isOrderVehicleImmobilized);
-  const availableScheduling = availableOrders.filter((order) => !isOrderVehicleImmobilized(order));
-
   const metrics = [
     { label: "pendências", value: pendingOrders.length, filter: "pendentes" as PartsFilter, state: "active" },
-    { label: "solicitado oficina", value: mergedOrders.filter(isWorkshopRequestedStatus).length, filter: "solicitado_oficina" as PartsFilter, state: "" },
-    { label: "pedido realizado", value: mergedOrders.filter((order) => effectiveOrderStatus(order) === "pedido_realizado").length, filter: "pedido_realizado" as PartsFilter, state: "" },
-    { label: "B.O", value: mergedOrders.filter((order) => effectiveOrderStatus(order) === "back_order").length, filter: "back_order" as PartsFilter, state: "danger" },
-    { label: "VOR", value: mergedOrders.filter((order) => order.orderVor).length, filter: "vor" as PartsFilter, state: "danger" },
-    { label: "em trânsito", value: mergedOrders.filter((order) => effectiveOrderStatus(order) === "em_transito").length, filter: "em_transito" as PartsFilter, state: "" },
+    { label: "solicitado oficina", value: operationalOrders.filter(isWorkshopRequestedStatus).length, filter: "solicitado_oficina" as PartsFilter, state: "" },
+    { label: "pedido realizado", value: operationalOrders.filter((order) => effectiveOrderStatus(order) === "pedido_realizado").length, filter: "pedido_realizado" as PartsFilter, state: "" },
+    { label: "B.O", value: operationalOrders.filter((order) => effectiveOrderStatus(order) === "back_order").length, filter: "back_order" as PartsFilter, state: "danger" },
+    { label: "VOR", value: operationalOrders.filter((order) => order.orderVor).length, filter: "vor" as PartsFilter, state: "danger" },
+    { label: "em trânsito", value: operationalOrders.filter((order) => effectiveOrderStatus(order) === "em_transito").length, filter: "em_transito" as PartsFilter, state: "" },
     { label: "disponíveis", value: availableOrders.length, filter: "disponivel" as PartsFilter, state: "" },
+    { label: "concluídos", value: completedOrders.length, filter: "concluidos" as PartsFilter, state: "good" },
     { label: "cancelados", value: canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
   ];
 
   function classifyMobisReceiptByQuantity(fileName: string, invoiceNumber: string, items: MobisReceiptItem[]) {
-    const openOrders = mergedOrders.filter((order) => effectiveOrderStatus(order) !== "disponivel" && effectiveOrderStatus(order) !== "cancelado");
+    const openOrders = operationalOrders.filter((order) => effectiveOrderStatus(order) !== "disponivel" && effectiveOrderStatus(order) !== "cancelado");
     const safe: MobisReceiptMatch[] = [];
     const doubtful: MobisReceiptMatch[] = [];
     const notFound: MobisReceiptItem[] = [];
@@ -645,6 +746,7 @@ export default function PecasPage() {
         customerId: form.customerId,
         orderKind: form.orderKind || undefined,
         orderStatus: nextOrderStatus,
+        orderStatusUpdatedAt: effectiveOrderStatus(order) !== nextOrderStatus ? new Date().toISOString() : order.orderStatusUpdatedAt,
         orderSource: form.orderSource || undefined,
         orderNumber: form.orderNumber,
         orderVor: form.orderVor,
@@ -764,6 +866,7 @@ export default function PecasPage() {
           ? {
               ...item,
               orderStatus: "disponivel",
+              orderStatusUpdatedAt: effectiveOrderStatus(item) !== "disponivel" ? new Date().toISOString() : item.orderStatusUpdatedAt,
               orderSource: form.orderSource || "mobis",
               orderNumber: form.orderNumber || match.item.mobisOrder,
               invoiceNumber: mobisReceipt.invoiceNumber || form.invoiceNumber,
@@ -874,6 +977,7 @@ export default function PecasPage() {
               <option value="pendentes">Pendências</option>
               <option value="todos">Todos</option>
               <option value="vor">VOR</option>
+              <option value="concluidos">Concluídos</option>
               {statusOptions.map(({ value, label }) => (
                 <option key={value} value={value}>{label}</option>
               ))}
@@ -1159,7 +1263,7 @@ export default function PecasPage() {
         {focusedOrderId && (
           <div className="duplicate-alert parts-focus-alert">
             <strong>Pedido de peças selecionado</strong>
-            <span>Mostrando apenas o pedido vinculado ao chip imobilizado.</span>
+            <span>Mostrando apenas o pedido selecionado na fila de urgências.</span>
             <button
               type="button"
               className="ghost-btn"
@@ -1174,38 +1278,72 @@ export default function PecasPage() {
           </div>
         )}
 
-        {availableOrders.length > 0 && (
-          <section className="panel parts-available-panel">
-            <div className="panel-head">
-              <h2 className="panel-title">Peças disponíveis para ação</h2>
-              <span className="panel-subtitle">{availableOrders.length} pedido(s) disponível(is).</span>
+        <section className="panel parts-urgency-panel">
+          <div className="panel-head">
+            <div>
+              <h2 className="panel-title">Urgências do setor de Peças</h2>
+              <span className="panel-subtitle">Filas ordenadas pelo maior tempo sem movimentação de status.</span>
             </div>
+          </div>
 
-            <div className="available-split">
-              <div className="available-box urgent">
-                <h3>Veículos imobilizados</h3>
-                {availableImmobilized.length ? availableImmobilized.map((order) => (
-                  <div key={order.id} className="available-row">
-                    <strong>{order.plate ?? "Sem placa"}</strong>
-                    {customerNameContent(order)}
-                    <small>Chefe de oficina deve programar execução.</small>
-                  </div>
-                )) : <p className="empty">Nenhum imobilizado disponível.</p>}
+          <div className="parts-urgency-pockets">
+            <section className="parts-urgency-pocket office">
+              <div className="parts-urgency-pocket-head">
+                <div>
+                  <h3>Solicitações Oficina Aguardando Ação</h3>
+                  <p>Pedidos solicitados pela oficina que ainda não tiveram movimentação.</p>
+                </div>
+                <strong>{workshopActionOrders.length}</strong>
               </div>
 
-              <div className="available-box">
-                <h3>Agendamento / retorno</h3>
-                {availableScheduling.length ? availableScheduling.map((order) => (
-                  <div key={order.id} className="available-row">
-                    <strong>{order.plate ?? "Sem placa"}</strong>
-                    {customerNameContent(order)}
-                    <small>Agendamento deve dar sequência ao atendimento.</small>
-                  </div>
-                )) : <p className="empty">Nenhum retorno pendente.</p>}
+              <div className="parts-urgency-chip-list">
+                {workshopActionOrders.length ? workshopActionOrders.map((order) => (
+                  <button
+                    key={order.id}
+                    className="parts-urgency-chip office"
+                    type="button"
+                    onClick={() => { setFocusedOrderId(order.id); setStatusFilter("todos"); }}
+                  >
+                    <span className="parts-urgency-chip-head">
+                      <strong>{order.plate ?? "Sem placa"}</strong>
+                      <b>{daysLabel(order)}</b>
+                    </span>
+                    <span>{order.clientName ?? "Cliente sem nome"}</span>
+                    <small>{orderParts(order).map((part) => part.partReference || part.partDescription).filter(Boolean).join(" · ") || "Peça não informada"}</small>
+                  </button>
+                )) : <p className="empty">Nenhuma solicitação aguardando ação.</p>}
               </div>
-            </div>
-          </section>
-        )}
+            </section>
+
+            <section className="parts-urgency-pocket update">
+              <div className="parts-urgency-pocket-head">
+                <div>
+                  <h3>Chips que precisam de atualização de Status</h3>
+                  <p>Pedido realizado há mais de 3 dias ou em trânsito há mais de 9 dias.</p>
+                </div>
+                <strong>{statusUpdateOrders.length}</strong>
+              </div>
+
+              <div className="parts-urgency-chip-list">
+                {statusUpdateOrders.length ? statusUpdateOrders.map((order) => (
+                  <button
+                    key={order.id}
+                    className={`parts-urgency-chip update ${effectiveOrderStatus(order) === "em_transito" ? "critical" : ""}`}
+                    type="button"
+                    onClick={() => { setFocusedOrderId(order.id); setStatusFilter("todos"); }}
+                  >
+                    <span className="parts-urgency-chip-head">
+                      <strong>{order.plate ?? "Sem placa"}</strong>
+                      <b>{daysLabel(order)}</b>
+                    </span>
+                    <span>{order.clientName ?? "Cliente sem nome"}</span>
+                    <small>{statusLabels[effectiveOrderStatus(order)]} · Pedido {order.orderNumber || "sem número"}</small>
+                  </button>
+                )) : <p className="empty">Nenhum chip com atualização atrasada.</p>}
+              </div>
+            </section>
+          </div>
+        </section>
 
         <section className="panel">
           <div className="panel-head">
@@ -1239,7 +1377,11 @@ export default function PecasPage() {
                   </div>
                   <div className="parts-cell parts-duo-cell">
                     <div><span>Tipo</span><strong>{kindLabel(order.orderKind)}</strong></div>
-                    <div><span>Status</span><strong className={`tag ${statusTone(effectiveOrderStatus(order))}`}>{statusLabels[effectiveOrderStatus(order)]}</strong></div>
+                    <div>
+                      <span>Status</span>
+                      <strong className={`tag ${statusTone(effectiveOrderStatus(order))}`}>{statusLabels[effectiveOrderStatus(order)]}</strong>
+                      {completedOrderIds.has(order.id) && <small className="tag good">Concluído após passagem</small>}
+                    </div>
                   </div>
                   <div className="parts-cell parts-duo-cell">
                     <div><span>Origem</span><strong>{sourceLabel(order.orderSource)}</strong></div>

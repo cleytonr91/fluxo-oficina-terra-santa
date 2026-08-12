@@ -377,6 +377,7 @@ export interface PartOrder {
   partReference?: string;
   partDescription?: string;
   orderStatus: PartOrderStatus;
+  orderStatusUpdatedAt?: FirestoreTimestamp;
   orderSource?: PartOrderSource;
   orderNumber?: string;
   orderVor?: boolean;
