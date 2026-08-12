@@ -920,6 +920,61 @@ export function subscribeActiveVehicleFlows(
   }, onError);
 }
 
+export function subscribeVehicleFlowsForDate(
+  selectedDate: string,
+  onChange: (vehicles: VehicleFlow[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.vehiclesFlow);
+  const start = Timestamp.fromDate(new Date(`${selectedDate}T00:00:00`));
+  const endDate = new Date(`${selectedDate}T00:00:00`);
+  endDate.setDate(endDate.getDate() + 1);
+  const end = Timestamp.fromDate(endDate);
+  let activeVehicles = new Map<string, VehicleFlow>();
+  let deliveredVehicles = new Map<string, VehicleFlow>();
+
+  const emit = () => {
+    onChange([...new Map([
+      ...activeVehicles,
+      ...deliveredVehicles,
+    ]).values()]);
+  };
+
+  const unsubscribeActive = onSnapshot(
+    query(ref, where("status", "==", "ativo")),
+    (snapshot) => {
+      activeVehicles = new Map(snapshot.docs.map((item) => [
+        item.id,
+        { id: item.id, ...item.data() } as VehicleFlow,
+      ]));
+      emit();
+    },
+    onError,
+  );
+
+  const unsubscribeDelivered = onSnapshot(
+    query(
+      ref,
+      where("deliveredAt", ">=", start),
+      where("deliveredAt", "<", end),
+    ),
+    (snapshot) => {
+      deliveredVehicles = new Map(snapshot.docs.map((item) => [
+        item.id,
+        { id: item.id, ...item.data() } as VehicleFlow,
+      ]));
+      emit();
+    },
+    onError,
+  );
+
+  return () => {
+    unsubscribeActive();
+    unsubscribeDelivered();
+  };
+}
+
 export function subscribePartOrders(
   onChange: (orders: PartOrder[]) => void,
   onError?: (error: Error) => void,
@@ -1038,6 +1093,32 @@ export function subscribeRecentFlowEvents(
     })) as FlowEvent[];
 
     onChange(events.sort((a, b) => eventTimeValue(b.createdAt) - eventTimeValue(a.createdAt)));
+  }, onError);
+}
+
+export function subscribeFlowEventsForDate(
+  selectedDate: string,
+  onChange: (events: FlowEvent[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const start = Timestamp.fromDate(new Date(`${selectedDate}T00:00:00`));
+  const endDate = new Date(`${selectedDate}T00:00:00`);
+  endDate.setDate(endDate.getDate() + 1);
+  const end = Timestamp.fromDate(endDate);
+
+  return onSnapshot(query(
+    collection(db, collections.flowEvents),
+    where("createdAt", ">=", start),
+    where("createdAt", "<", end),
+    orderBy("createdAt", "desc"),
+  ), (snapshot) => {
+    const events = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as FlowEvent[];
+
+    onChange(events);
   }, onError);
 }
 

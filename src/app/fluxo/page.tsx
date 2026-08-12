@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, reuseVehicleAsWalkIn, savePartOrder, saveVehicleRoadTestForm, subscribeActiveVehicleFlows, subscribePartOrders, subscribeRecentFlowEvents, subscribeVehicleFlowEvents, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, reuseVehicleAsWalkIn, savePartOrder, saveVehicleRoadTestForm, subscribeFlowEventsForDate, subscribePartOrders, subscribeVehicleFlowEvents, subscribeVehicleFlowsForDate, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -774,7 +774,8 @@ export default function FluxoPage() {
       window.requestAnimationFrame(() => setFlowDate(savedDate));
     }
 
-    const unsubscribe = subscribeActiveVehicleFlows((data) => {
+    const selectedDate = flowDate || new Date().toISOString().slice(0, 10);
+    const unsubscribe = subscribeVehicleFlowsForDate(selectedDate, (data) => {
       setVehicles(data.sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`)));
       setError("");
       setLastSyncAt(new Date());
@@ -782,10 +783,10 @@ export default function FluxoPage() {
     }, (currentError) => {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível acompanhar o fluxo em tempo real.");
       setLoading(false);
-    }, { includeDelivered: true });
+    });
 
     return unsubscribe;
-  }, []);
+  }, [flowDate]);
 
   useEffect(() => {
     const unsubscribe = subscribePartOrders(setPartOrders, () => undefined);
@@ -793,9 +794,10 @@ export default function FluxoPage() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = subscribeRecentFlowEvents(setRecentFlowEvents, () => undefined);
+    const selectedDate = flowDate || new Date().toISOString().slice(0, 10);
+    const unsubscribe = subscribeFlowEventsForDate(selectedDate, setRecentFlowEvents, () => undefined);
     return unsubscribe;
-  }, []);
+  }, [flowDate]);
 
   useEffect(() => {
     if (!detailVehicle?.id) {
