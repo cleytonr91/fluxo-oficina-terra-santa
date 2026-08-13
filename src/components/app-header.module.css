@@ -1,0 +1,187 @@
+.titleGroup {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.titleGroup > div {
+  min-width: 0;
+}
+
+.menuButton,
+.closeButton {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5df;
+  border-radius: 7px;
+  background: #fff;
+  color: #002c5f;
+  cursor: pointer;
+}
+
+.menuButton {
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.menuButton:hover,
+.menuButton:focus-visible,
+.closeButton:hover,
+.closeButton:focus-visible {
+  border-color: #002c5f;
+  background: #eef5fb;
+  outline: none;
+}
+
+.pageActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.drawerLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border: 0;
+  background: rgba(17, 31, 45, 0.48);
+  cursor: default;
+}
+
+.drawer {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: min(320px, calc(100vw - 28px));
+  flex-direction: column;
+  overflow-y: auto;
+  border-right: 1px solid #cbd5df;
+  background: #fff;
+  box-shadow: 14px 0 34px rgba(17, 31, 45, 0.2);
+  animation: slideIn 160ms ease-out;
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 16px;
+  border-bottom: 1px solid #d8e0e7;
+  background: #002c5f;
+  color: #fff;
+}
+
+.drawerHeader > div {
+  display: grid;
+  gap: 3px;
+}
+
+.drawerHeader strong {
+  font-size: 20px;
+}
+
+.drawerHeader span {
+  color: #d7e7f5;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.closeButton {
+  width: 36px;
+  height: 36px;
+  border-color: rgba(255, 255, 255, 0.55);
+  background: transparent;
+  color: #fff;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.drawer nav.drawerNavigation,
+.managementLinks {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 12px;
+}
+
+.drawerLink,
+.activeDrawerLink {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  border-left: 4px solid transparent;
+  border-radius: 4px;
+  color: #22313f;
+  padding: 9px 12px;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.drawerLink:hover,
+.drawerLink:focus-visible {
+  background: #f1f5f8;
+  outline: none;
+}
+
+.activeDrawerLink {
+  border-left-color: #00aad2;
+  background: #eaf6fa;
+  color: #002c5f;
+}
+
+.managementLinks {
+  margin-top: auto;
+  border-top: 1px solid #d8e0e7;
+}
+
+.managementLinks > span {
+  padding: 2px 12px 5px;
+  color: #66717b;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .titleGroup {
+    align-items: flex-start;
+  }
+
+  .pageActions {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    animation: none;
+  }
+}
