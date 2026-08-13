@@ -48,6 +48,22 @@ const sellerOptions = [
   { value: "FELIPE", label: "Felipe" },
 ];
 
+const historicalSalesResults: Record<string, number> = {
+  "2025-07": 4592.04,
+  "2025-08": 12511.16,
+  "2025-09": 9876.95,
+  "2025-10": 21930.75,
+  "2025-11": 15368.26,
+  "2025-12": 23832.53,
+  "2026-01": 25556.21,
+  "2026-02": 45449.39,
+  "2026-03": 40205.45,
+  "2026-04": 38466.01,
+  "2026-05": 43642.88,
+  "2026-06": 32151.20,
+  "2026-07": 88471.88,
+};
+
 function newItem(index = 1, availableInStock = false): PartsCounterItem {
   return {
     id: `item-${Date.now()}-${index}`,
@@ -85,6 +101,11 @@ function entryMonth(entry: PartsCounterEntry) {
 function entryDate(entry: PartsCounterEntry) {
   if (entry.occurredOn) return new Date(`${entry.occurredOn}T12:00:00`);
   return asDate(entry.createdAt);
+}
+
+function entryDateKey(entry: PartsCounterEntry) {
+  if (entry.occurredOn) return entry.occurredOn;
+  return entryDate(entry)?.toLocaleDateString("en-CA") ?? "";
 }
 
 function formatDate(value: unknown) {
@@ -129,7 +150,7 @@ export default function BalcaoPage() {
   const [items, setItems] = useState<PartsCounterItem[]>([newItem(1, true)]);
   const [orderDrafts, setOrderDrafts] = useState<Record<string, PartsCounterItem[]>>({});
   const [savingOrderId, setSavingOrderId] = useState("");
-  const [goalDraft, setGoalDraft] = useState<{ month: string; value: number } | null>(null);
+  const [goalDraft, setGoalDraft] = useState<{ month: string; value: number; businessDays: number } | null>(null);
   const [savingGoal, setSavingGoal] = useState(false);
 
   useEffect(() => subscribePartsCounterEntries(setEntries, (currentError) => setError(currentError.message)), []);
@@ -144,31 +165,48 @@ export default function BalcaoPage() {
   const filteredLostSales = useMemo(() => lostSales.filter((entry) => sellerFilter === "TODOS" || entry.sellerName === sellerFilter), [lostSales, sellerFilter]);
 
   const indicators = useMemo(() => {
-    const sold = sales.reduce((total, entry) => total + entryTotal(entry), 0);
+    const detailedSold = sales.reduce((total, entry) => total + entryTotal(entry), 0);
+    const sold = historicalSalesResults[month] ?? detailedSold;
     const lost = lostSales.reduce((total, entry) => total + entryTotal(entry), 0);
     const pending = monthEntries.filter((entry) => entry.entryType === "pedido").reduce((total, entry) => total + entryTotal(entry), 0);
     const pf = sales.filter((entry) => entry.customerType === "PF").reduce((total, entry) => total + entryTotal(entry), 0);
-    const pj = sold - pf;
-    return { sold, lost, pending, pf, pj, expectation: sold + pending };
-  }, [sales, lostSales, monthEntries]);
+    const pj = sales.filter((entry) => entry.customerType === "PJ").reduce((total, entry) => total + entryTotal(entry), 0);
+    return { sold, detailedSold, lost, pending, pf, pj, expectation: sold + pending };
+  }, [sales, lostSales, monthEntries, month]);
 
   const monthlyComparison = useMemo(() => {
-    const result: Array<{ month: string; total: number }> = [];
-    const base = new Date(`${month}-01T12:00:00`);
-    for (let offset = 5; offset >= 0; offset -= 1) {
-      const date = new Date(base.getFullYear(), base.getMonth() - offset, 1);
-      const key = date.toLocaleDateString("en-CA").slice(0, 7);
-      const total = entries.filter((entry) => entry.entryType === "venda" && entryMonth(entry) === key).reduce((sum, entry) => sum + entryTotal(entry), 0);
-      result.push({ month: key, total });
-    }
-    return result;
+    const availableMonths = new Set([
+      ...Object.keys(historicalSalesResults),
+      ...entries.filter((entry) => entry.entryType === "venda").map(entryMonth),
+      month,
+    ]);
+    return [...availableMonths]
+      .filter((key) => key && key <= month)
+      .sort()
+      .slice(-14)
+      .map((key) => ({
+        month: key,
+        total: historicalSalesResults[key] ?? entries
+          .filter((entry) => entry.entryType === "venda" && entryMonth(entry) === key)
+          .reduce((sum, entry) => sum + entryTotal(entry), 0),
+        consolidated: historicalSalesResults[key] !== undefined,
+      }));
   }, [entries, month]);
 
   const maxComparison = Math.max(...monthlyComparison.map((item) => item.total), 1);
-  const pfPercent = indicators.sold ? Math.round((indicators.pf / indicators.sold) * 100) : 0;
-  const goal = goals.find((item) => item.month === month)?.targetAmount ?? 0;
+  const profiledSales = indicators.pf + indicators.pj;
+  const pfPercent = profiledSales ? Math.round((indicators.pf / profiledSales) * 100) : 0;
+  const selectedGoal = goals.find((item) => item.month === month);
+  const goal = selectedGoal?.targetAmount ?? 0;
   const goalValue = goalDraft?.month === month ? goalDraft.value : goal;
+  const businessDaysValue = goalDraft?.month === month ? goalDraft.businessDays : (selectedGoal?.businessDays ?? 0);
+  const dailyGoalPreview = businessDaysValue > 0 ? goalValue / businessDaysValue : 0;
   const goalPercent = goal ? Math.min(100, Math.round((indicators.sold / goal) * 100)) : 0;
+  const today = currentDate();
+  const todayGoal = goals.find((item) => item.month === today.slice(0, 7));
+  const dailyGoal = todayGoal?.businessDays ? todayGoal.targetAmount / todayGoal.businessDays : 0;
+  const todaySales = entries.filter((entry) => entry.entryType === "venda" && entryDateKey(entry) === today).reduce((total, entry) => total + entryTotal(entry), 0);
+  const dailyGoalPercent = dailyGoal ? Math.round((todaySales / dailyGoal) * 100) : 0;
   const dateFieldLabel = entryType === "venda" ? "Data da venda" : entryType === "pedido" ? "Data do pedido" : "Data da perda";
 
   function updateItem(itemId: string, patch: Partial<PartsCounterItem>) {
@@ -299,7 +337,11 @@ export default function BalcaoPage() {
     setSavingGoal(true);
     setError("");
     try {
-      await savePartsSalesGoal({ month, targetAmount: goalValue, updatedBy: operator });
+      if (businessDaysValue < 1) {
+        setError("INFORME A QUANTIDADE DE DIAS ÚTEIS DO MÊS.");
+        return;
+      }
+      await savePartsSalesGoal({ month, targetAmount: goalValue, businessDays: businessDaysValue, updatedBy: operator });
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "NÃO FOI POSSÍVEL SALVAR A META.");
     } finally {
@@ -380,9 +422,9 @@ export default function BalcaoPage() {
           {section === "indicadores" && (
             <div className={styles.stack}>
               <div className={styles.hero}><div><span className={styles.eyebrow}>GESTÃO COMERCIAL</span><h2>Indicadores do Balcão</h2><p>Vendas, perdas, expectativa e meta em uma única visão.</p></div><label className={styles.monthPicker}><span>Mês analisado</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label></div>
-              <div className={styles.kpiGrid}><article><span>Vendas realizadas</span><strong>{money(indicators.sold)}</strong><small>{sales.length} lançamentos</small></article><article><span>Vendas perdidas</span><strong className={styles.dangerText}>{money(indicators.lost)}</strong><small>{lostSales.length} oportunidades</small></article><article><span>Expectativa do mês</span><strong>{money(indicators.expectation)}</strong><small>Vendas + pedidos</small></article><article><span>Meta cadastrada</span><strong>{money(goal)}</strong><small>{goalPercent}% atingido</small></article></div>
-              <div className={styles.dashboardGrid}><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>PERFIL DE CLIENTE</span><h3>Representação PF e PJ</h3></div><strong>{money(indicators.sold)}</strong></div><div className={styles.donutWrap}><div className={styles.donut} style={{ background: `conic-gradient(#00a7a0 0 ${pfPercent}%, #003d7c ${pfPercent}% 100%)` }}><div><strong>{pfPercent}%</strong><span>PF</span></div></div><div className={styles.legend}><div><span className={styles.pfDot} />PF<strong>{money(indicators.pf)}</strong></div><div><span className={styles.pjDot} />PJ<strong>{money(indicators.pj)}</strong></div></div></div></article><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>EVOLUÇÃO</span><h3>Comparativo entre os meses</h3></div></div><div className={styles.barChart}>{monthlyComparison.map((item) => <div className={styles.barColumn} key={item.month}><span>{money(item.total)}</span><div><i style={{ height: `${Math.max(4, (item.total / maxComparison) * 100)}%` }} /></div><small>{monthLabel(item.month)}</small></div>)}</div></article></div>
-              <div className={styles.dashboardGrid}><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>META MENSAL</span><h3>Definir objetivo de vendas</h3></div></div><form className={styles.goalForm} onSubmit={saveGoal}><label><span>Mês</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label><label><span>Meta de venda</span><input type="number" min="0" step="0.01" value={goalValue} onChange={(event) => setGoalDraft({ month, value: Number(event.target.value) })} /></label><button className={styles.primaryButton} disabled={savingGoal}>{savingGoal ? "Salvando..." : "Salvar meta"}</button></form><div className={styles.progress}><span style={{ width: `${goalPercent}%` }} /></div><small>{goal ? `${goalPercent}% da meta alcançada` : "Cadastre a meta para acompanhar o progresso"}</small></article><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>DESTINOS</span><h3>Para onde estamos vendendo</h3></div></div><div className={styles.destinationList}>{states.map((state) => ({ state, total: sales.filter((entry) => entry.destinationState === state).reduce((sum, entry) => sum + entryTotal(entry), 0) })).filter((item) => item.total > 0).sort((a, b) => b.total - a.total).slice(0, 6).map((item) => <div key={item.state}><strong>{item.state}</strong><span><i style={{ width: `${indicators.sold ? (item.total / indicators.sold) * 100 : 0}%` }} /></span><em>{money(item.total)}</em></div>)}{!sales.some((entry) => entry.destinationState) && <p className={styles.empty}>Os destinos aparecerão após as primeiras vendas.</p>}</div></article></div>
+              <div className={styles.kpiGrid}><article><span>Vendas realizadas</span><strong>{money(indicators.sold)}</strong><small>{sales.length} lançamentos</small></article><article><span>Vendas perdidas</span><strong className={styles.dangerText}>{money(indicators.lost)}</strong><small>{lostSales.length} oportunidades</small></article><article><span>Expectativa do mês</span><strong>{money(indicators.expectation)}</strong><small>Vendas + pedidos</small></article><article><span>Meta cadastrada</span><strong>{money(goal)}</strong><small>{goalPercent}% atingido</small></article><article><span>Meta diária</span><strong>{money(dailyGoal)}</strong><small>{todayGoal?.businessDays ? `${todayGoal.businessDays} dias úteis no mês` : "Cadastre os dias úteis"}</small></article><article className={styles.dailyResult}><span>Venda do dia × meta diária</span><strong>{money(todaySales)}</strong><small>{dailyGoal ? `${dailyGoalPercent}% da meta de hoje` : "Meta diária ainda não definida"}</small></article></div>
+              <div className={styles.dashboardGrid}><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>PERFIL DE CLIENTE</span><h3>Representação PF e PJ</h3></div><strong>{money(profiledSales)}</strong></div>{profiledSales ? <div className={styles.donutWrap}><div className={styles.donut} style={{ background: `conic-gradient(#00a7a0 0 ${pfPercent}%, #003d7c ${pfPercent}% 100%)` }}><div><strong>{pfPercent}%</strong><span>PF</span></div></div><div className={styles.legend}><div><span className={styles.pfDot} />PF<strong>{money(indicators.pf)}</strong></div><div><span className={styles.pjDot} />PJ<strong>{money(indicators.pj)}</strong></div></div></div> : <p className={styles.empty}>O resultado consolidado deste mês não possui divisão entre PF e PJ.</p>}</article><article className={`${styles.chartPanel} ${styles.comparisonPanel}`}><div className={styles.panelHead}><div><span className={styles.eyebrow}>EVOLUÇÃO · TERRA SANTA — ARACAJU</span><h3>Comparativo entre os meses</h3></div><small className={styles.consolidatedLegend}>● Resultado consolidado</small></div><div className={styles.barChart}>{monthlyComparison.map((item) => <div className={styles.barColumn} key={item.month}><span>{money(item.total)}</span><div><i className={item.consolidated ? styles.consolidatedBar : ""} style={{ height: `${Math.max(4, (item.total / maxComparison) * 100)}%` }} /></div><small>{monthLabel(item.month)}</small></div>)}</div></article></div>
+              <div className={styles.dashboardGrid}><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>META MENSAL</span><h3>Definir objetivo de vendas</h3></div><div className={styles.dailyPreview}><span>Meta diária</span><strong>{money(dailyGoalPreview)}</strong></div></div><form className={styles.goalForm} onSubmit={saveGoal}><label><span>Mês</span><input type="month" value={month} onChange={(event) => setMonth(event.target.value)} /></label><label><span>Meta de venda</span><input type="number" min="0" step="0.01" value={goalValue} onChange={(event) => setGoalDraft({ month, value: Number(event.target.value), businessDays: businessDaysValue })} /></label><label><span>Dias úteis</span><input type="number" min="1" max="31" step="1" value={businessDaysValue || ""} onChange={(event) => setGoalDraft({ month, value: goalValue, businessDays: Number(event.target.value) })} /></label><button className={styles.primaryButton} disabled={savingGoal}>{savingGoal ? "Salvando..." : "Salvar meta"}</button></form><div className={styles.progress}><span style={{ width: `${goalPercent}%` }} /></div><small>{goal ? `${goalPercent}% da meta alcançada · ${money(dailyGoalPreview)} por dia útil` : "Cadastre a meta e os dias úteis para acompanhar o progresso"}</small></article><article className={styles.chartPanel}><div className={styles.panelHead}><div><span className={styles.eyebrow}>DESTINOS</span><h3>Para onde estamos vendendo</h3></div></div><div className={styles.destinationList}>{states.map((state) => ({ state, total: sales.filter((entry) => entry.destinationState === state).reduce((sum, entry) => sum + entryTotal(entry), 0) })).filter((item) => item.total > 0).sort((a, b) => b.total - a.total).slice(0, 6).map((item) => <div key={item.state}><strong>{item.state}</strong><span><i style={{ width: `${indicators.sold ? (item.total / indicators.sold) * 100 : 0}%` }} /></span><em>{money(item.total)}</em></div>)}{!sales.some((entry) => entry.destinationState) && <p className={styles.empty}>Os destinos aparecerão após as primeiras vendas.</p>}</div></article></div>
             </div>
           )}
         </section>

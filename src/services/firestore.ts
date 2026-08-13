@@ -315,16 +315,19 @@ export async function convertPartsCounterEntry({
 export async function savePartsSalesGoal({
   month,
   targetAmount,
+  businessDays,
   updatedBy,
 }: {
   month: string;
   targetAmount: number;
+  businessDays: number;
   updatedBy?: string;
 }) {
   const db = getFirebaseDb();
   await setDoc(doc(collection(db, collections.partsSalesGoals), month), withoutUndefined({
     month,
     targetAmount: Math.max(0, Number(targetAmount) || 0),
+    businessDays: Math.max(1, Math.round(Number(businessDays) || 1)),
     updatedBy,
     updatedAt: serverTimestamp(),
   }), { merge: true });

@@ -141,6 +141,7 @@ export interface PartsSalesGoal {
   id: string;
   month: string;
   targetAmount: number;
+  businessDays?: number;
   updatedBy?: string;
   updatedAt: FirestoreTimestamp;
 }

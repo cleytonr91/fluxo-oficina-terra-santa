@@ -708,6 +708,8 @@ O Balcão é um módulo comercial autenticado do Fluxo, separado do acompanhamen
 - Todos os textos digitados são armazenados em caixa alta.
 - Cada lançamento possui uma data comercial editável, usada nas listagens, filtros mensais e indicadores; registros antigos usam a data original do cadastro enquanto não forem editados.
 - Vendas, pedidos e vendas perdidas podem ser reabertos no formulário para alteração completa dos dados e dos itens.
+- A meta mensal registra a quantidade de dias úteis; a meta diária é calculada pela divisão da meta mensal pelos dias úteis e comparada com as vendas realizadas na data comercial do dia.
+- O comparativo mensal incorpora resultados oficiais consolidados de Terra Santa — Aracaju entre julho/2025 e julho/2026. Nesses meses, o consolidado prevalece sobre a soma de lançamentos para evitar dupla contagem; segmentações como PF/PJ e vendedor continuam dependendo dos lançamentos detalhados.
 
 ### 16.2 Catálogo Hyundai
 
