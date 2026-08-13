@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useAuth } from "@/context/auth-context";
 import { canAccessPath, roleLabel } from "@/lib/access-control";
 import styles from "./app-header.module.css";
@@ -85,7 +86,74 @@ export function AppHeader({
     window.dispatchEvent(new CustomEvent("flow-date-change", { detail: value }));
   }
 
+  const drawer = menuOpen && createPortal(
+    <div className={styles.drawerLayer}>
+      <button
+        className={styles.backdrop}
+        type="button"
+        aria-label="Fechar menu"
+        onClick={() => setMenuOpen(false)}
+      />
+      <aside
+        id="app-side-navigation"
+        className={styles.drawer}
+        aria-label="Páginas do sistema"
+      >
+        <div className={styles.drawerHeader}>
+          <div>
+            <strong>Fluxo Oficina</strong>
+            <span>{roleLabel(profile?.role)}</span>
+          </div>
+          <button
+            className={styles.closeButton}
+            type="button"
+            aria-label="Fechar menu"
+            title="Fechar"
+            onClick={() => setMenuOpen(false)}
+          >
+            ×
+          </button>
+        </div>
+
+        <nav className={styles.drawerNavigation} aria-label="Páginas do sistema">
+          {navigation.filter((item) => canAccessPath(profile?.role, item.href)).map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={active ? styles.activeDrawerLink : styles.drawerLink}
+                onClick={() => setMenuOpen(false)}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {(canAccessPath(profile?.role, "/admin") || canAccessPath(profile?.role, "/admin/auditoria")) && (
+          <div className={styles.managementLinks}>
+            <span>Gestão</span>
+            {canAccessPath(profile?.role, "/admin") && (
+              <Link href="/admin" className={pathname === "/admin" ? styles.activeDrawerLink : styles.drawerLink} onClick={() => setMenuOpen(false)}>
+                Usuários e acessos
+              </Link>
+            )}
+            {canAccessPath(profile?.role, "/admin/auditoria") && (
+              <Link href="/admin/auditoria" className={pathname === "/admin/auditoria" ? styles.activeDrawerLink : styles.drawerLink} onClick={() => setMenuOpen(false)}>
+                Auditoria
+              </Link>
+            )}
+          </div>
+        )}
+      </aside>
+    </div>,
+    document.body,
+  );
+
   return (
+    <>
     <header className={`app-header ${isFlow ? "flow-header" : ""}`}>
       <div className={styles.titleGroup}>
         <button
@@ -107,7 +175,7 @@ export function AppHeader({
 
       {isFlow && <strong className="flow-clock">{clock}</strong>}
 
-      <div className="header-actions">
+      <div className={`header-actions ${styles.headerActions}`}>
         <div className={styles.pageActions}>
           {isPreparation ? (
             <span className="save-status">Salva ao confirmar</span>
@@ -137,7 +205,7 @@ export function AppHeader({
           ) : null}
         </div>
 
-        <div className="user-pill">
+        <div className={`user-pill ${styles.profile}`}>
           <div>
             <strong>{profile?.name ?? user?.email}</strong>
             <span>{roleLabel(profile?.role)}</span>
@@ -148,71 +216,9 @@ export function AppHeader({
         </div>
       </div>
 
-      {menuOpen && (
-        <div className={styles.drawerLayer}>
-          <button
-            className={styles.backdrop}
-            type="button"
-            aria-label="Fechar menu"
-            onClick={() => setMenuOpen(false)}
-          />
-          <aside
-            id="app-side-navigation"
-            className={styles.drawer}
-            aria-label="Páginas do sistema"
-          >
-            <div className={styles.drawerHeader}>
-              <div>
-                <strong>Fluxo Oficina</strong>
-                <span>{roleLabel(profile?.role)}</span>
-              </div>
-              <button
-                className={styles.closeButton}
-                type="button"
-                aria-label="Fechar menu"
-                title="Fechar"
-                onClick={() => setMenuOpen(false)}
-              >
-                ×
-              </button>
-            </div>
-
-            <nav className={styles.drawerNavigation} aria-label="Páginas do sistema">
-              {navigation.filter((item) => canAccessPath(profile?.role, item.href)).map((item) => {
-                const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={active ? styles.activeDrawerLink : styles.drawerLink}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {(canAccessPath(profile?.role, "/admin") || canAccessPath(profile?.role, "/admin/auditoria")) && (
-              <div className={styles.managementLinks}>
-                <span>Gestão</span>
-                {canAccessPath(profile?.role, "/admin") && (
-                  <Link href="/admin" className={pathname === "/admin" ? styles.activeDrawerLink : styles.drawerLink} onClick={() => setMenuOpen(false)}>
-                    Usuários e acessos
-                  </Link>
-                )}
-                {canAccessPath(profile?.role, "/admin/auditoria") && (
-                  <Link href="/admin/auditoria" className={pathname === "/admin/auditoria" ? styles.activeDrawerLink : styles.drawerLink} onClick={() => setMenuOpen(false)}>
-                    Auditoria
-                  </Link>
-                )}
-              </div>
-            )}
-          </aside>
-        </div>
-      )}
     </header>
+    {drawer}
+    </>
   );
 }
 
