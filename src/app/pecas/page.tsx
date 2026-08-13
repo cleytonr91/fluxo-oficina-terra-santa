@@ -201,11 +201,6 @@ function isWorkshopRequestedStatus(order: PartOrder) {
     || status === "aguardando_pecas";
 }
 
-function hasConfirmedReturnScheduling(order: PartOrder) {
-  return order.schedulingStatus === "agendamento_confirmado"
-    && Boolean(order.scheduledReturnDate);
-}
-
 function sourceLabel(value?: PartOrderSource) {
   return sourceOptions.find((option) => option.value === value)?.label ?? "-";
 }
@@ -232,6 +227,40 @@ function normalizeCode(value?: string) {
 function orderTimeValue(order: PartOrder) {
   const date = toDate(order.createdAt) ?? toDate(order.updatedAt);
   return date?.getTime() ?? 0;
+}
+
+function completionReferenceTime(order: PartOrder) {
+  let referenceTime = orderTimeValue(order);
+
+  order.schedulingHistory
+    ?.filter((item) => item.action === "agendamento_confirmado")
+    .forEach((item) => {
+      referenceTime = Math.max(referenceTime, toDate(item.actionAt)?.getTime() ?? 0);
+    });
+
+  if (order.schedulingStatus === "agendamento_confirmado") {
+    referenceTime = Math.max(referenceTime, toDate(order.schedulingUpdatedAt)?.getTime() ?? 0);
+  }
+
+  return referenceTime;
+}
+
+function isNewReturnFlow(order: PartOrder, originalVehicle: VehicleFlow | undefined, candidate: VehicleFlow) {
+  if (candidate.id === order.vehicleFlowId || candidate.status === "cancelado") return false;
+
+  const referenceTime = completionReferenceTime(order);
+  const candidateCreatedAt = toDate(candidate.createdAt)?.getTime() ?? 0;
+  if (!referenceTime || candidateCreatedAt <= referenceTime) return false;
+
+  const originalPlate = normalizeCode(order.plate || originalVehicle?.plate);
+  const originalChassi = normalizeCode(originalVehicle?.chassi);
+  const candidatePlate = normalizeCode(candidate.plate);
+  const candidateChassi = normalizeCode(candidate.chassi);
+
+  return Boolean(
+    (originalPlate && candidatePlate && originalPlate === candidatePlate)
+    || (originalChassi && candidateChassi && originalChassi === candidateChassi),
+  );
 }
 
 function statusTimeValue(order: PartOrder) {
@@ -330,6 +359,12 @@ export default function PecasPage() {
   const [catalogImporting, setCatalogImporting] = useState(false);
   const [catalogMessage, setCatalogMessage] = useState("");
 
+  function applyStatusFilter(filter: PartsFilter) {
+    window.history.replaceState(null, "", "/pecas");
+    setFocusedOrderId("");
+    setStatusFilter(filter);
+  }
+
   async function importPartsCatalog(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -397,9 +432,20 @@ export default function PecasPage() {
     return [...orders, ...syntheticOrders];
   }, [orders, vehicles]);
 
+  const vehiclesById = useMemo(() => {
+    const mapped = new Map<string, VehicleFlow>();
+    vehicles.forEach((vehicle) => mapped.set(vehicle.id, vehicle));
+    return mapped;
+  }, [vehicles]);
+
   const trackedVehicleFlowIds = useMemo(() => (
-    Array.from(new Set(mergedOrders.map((order) => order.vehicleFlowId).filter(Boolean))).sort()
-  ), [mergedOrders]);
+    Array.from(new Set(mergedOrders.flatMap((order) => {
+      const originalVehicle = vehiclesById.get(order.vehicleFlowId);
+      return vehicles
+        .filter((vehicle) => isNewReturnFlow(order, originalVehicle, vehicle))
+        .map((vehicle) => vehicle.id);
+    }))).sort()
+  ), [mergedOrders, vehicles, vehiclesById]);
   const trackedVehicleFlowKey = trackedVehicleFlowIds.join("|");
 
   useEffect(() => {
@@ -411,12 +457,6 @@ export default function PecasPage() {
   // A chave evita recriar a assinatura quando apenas outros dados do pedido mudam.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackedVehicleFlowKey]);
-
-  const vehiclesById = useMemo(() => {
-    const mapped = new Map<string, VehicleFlow>();
-    vehicles.forEach((vehicle) => mapped.set(vehicle.id, vehicle));
-    return mapped;
-  }, [vehicles]);
 
   function customerNameContent(order: PartOrder) {
     const name = order.clientName ?? "Cliente sem nome";
@@ -444,12 +484,18 @@ export default function PecasPage() {
     return new Set(mergedOrders
       .filter((order) => {
         if (!order.vehicleFlowId || effectiveOrderStatus(order) === "cancelado") return false;
-        const createdAt = orderTimeValue(order);
-        return createdAt > 0 && (passagesByVehicle.get(order.vehicleFlowId) ?? [])
-          .some((event) => eventTimeValue(event) > createdAt);
+        const referenceTime = completionReferenceTime(order);
+        if (!referenceTime) return false;
+
+        const originalVehicle = vehiclesById.get(order.vehicleFlowId);
+        return vehicles.some((vehicle) => (
+          isNewReturnFlow(order, originalVehicle, vehicle)
+          && (passagesByVehicle.get(vehicle.id) ?? [])
+            .some((event) => eventTimeValue(event) > referenceTime)
+        ));
       })
       .map((order) => order.id));
-  }, [flowEvents, mergedOrders]);
+  }, [flowEvents, mergedOrders, vehicles, vehiclesById]);
 
   const completedOrders = useMemo(() => (
     mergedOrders.filter((order) => completedOrderIds.has(order.id))
@@ -462,7 +508,6 @@ export default function PecasPage() {
   const availableOrders = useMemo(() => (
     operationalOrders.filter((order) => (
       effectiveOrderStatus(order) === "disponivel"
-      && !hasConfirmedReturnScheduling(order)
     ))
   ), [operationalOrders]);
 
@@ -964,7 +1009,7 @@ export default function PecasPage() {
               key={metric.label}
               className={`flow-metric ${metric.state} ${statusFilter === metric.filter ? "selected" : ""}`}
               type="button"
-              onClick={() => setStatusFilter(metric.filter)}
+              onClick={() => applyStatusFilter(metric.filter)}
             >
               <strong>{metric.value}</strong>
               <span>{metric.label}</span>
@@ -973,7 +1018,7 @@ export default function PecasPage() {
 
           <label className="flow-filter">
             <span>Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+            <select value={statusFilter} onChange={(event) => applyStatusFilter(event.target.value as PartsFilter)}>
               <option value="pendentes">Pendências</option>
               <option value="todos">Todos</option>
               <option value="vor">VOR</option>
