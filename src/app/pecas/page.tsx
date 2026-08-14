@@ -227,6 +227,14 @@ function normalizeCode(value?: string) {
   return String(value ?? "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
 }
 
+function normalizeSearchText(value?: string) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]/gi, "")
+    .toUpperCase();
+}
+
 function orderTimeValue(order: PartOrder) {
   const date = toDate(order.createdAt) ?? toDate(order.updatedAt);
   return date?.getTime() ?? 0;
@@ -351,6 +359,7 @@ export default function PecasPage() {
   const [openSections, setOpenSections] = useState<Record<string, PartEditSection | undefined>>({});
   const [savingId, setSavingId] = useState("");
   const [statusFilter, setStatusFilter] = useState<PartsFilter>(initialFocusedOrderId ? "todos" : "pendentes");
+  const [searchQuery, setSearchQuery] = useState("");
   const [focusedOrderId, setFocusedOrderId] = useState(initialFocusedOrderId);
   const [error, setError] = useState("");
   const [mobisReceipt, setMobisReceipt] = useState<MobisReceiptState>(emptyMobisReceipt);
@@ -367,6 +376,13 @@ export default function PecasPage() {
     window.history.replaceState(null, "", "/pecas");
     setFocusedOrderId("");
     setStatusFilter(filter);
+  }
+
+  function applySearchQuery(value: string) {
+    window.history.replaceState(null, "", "/pecas");
+    setFocusedOrderId("");
+    if (value.trim()) setStatusFilter("todos");
+    setSearchQuery(value);
   }
 
   async function importPartsCatalog(event: ChangeEvent<HTMLInputElement>) {
@@ -541,16 +557,21 @@ export default function PecasPage() {
 
   const filteredOrders = useMemo(() => {
     if (focusedOrderId) return mergedOrders.filter((order) => order.vehicleFlowId === focusedOrderId || order.id === focusedOrderId);
-    if (statusFilter === "todos") return mergedOrders;
-    if (statusFilter === "pendentes") return pendingOrders;
-    if (statusFilter === "concluidos") return completedOrders;
-    if (statusFilter === "vor") return operationalOrders.filter((order) => order.orderVor);
-    if (statusFilter === "disponivel") return availableOrders;
-    if (statusFilter === "solicitado_oficina") {
-      return operationalOrders.filter(isWorkshopRequestedStatus);
-    }
-    return operationalOrders.filter((order) => effectiveOrderStatus(order) === statusFilter);
-  }, [availableOrders, completedOrders, focusedOrderId, mergedOrders, operationalOrders, pendingOrders, statusFilter]);
+    const statusOrders = statusFilter === "todos" ? mergedOrders
+      : statusFilter === "pendentes" ? pendingOrders
+        : statusFilter === "concluidos" ? completedOrders
+          : statusFilter === "vor" ? operationalOrders.filter((order) => order.orderVor)
+            : statusFilter === "disponivel" ? availableOrders
+              : statusFilter === "solicitado_oficina" ? operationalOrders.filter(isWorkshopRequestedStatus)
+                : operationalOrders.filter((order) => effectiveOrderStatus(order) === statusFilter);
+    const normalizedQuery = normalizeSearchText(searchQuery);
+    if (!normalizedQuery) return statusOrders;
+
+    return statusOrders.filter((order) => (
+      normalizeSearchText(order.plate).includes(normalizedQuery)
+      || normalizeSearchText(order.clientName).includes(normalizedQuery)
+    ));
+  }, [availableOrders, completedOrders, focusedOrderId, mergedOrders, operationalOrders, pendingOrders, searchQuery, statusFilter]);
 
   const isOrderVehicleImmobilized = (order: PartOrder) => (
     vehiclesById.get(order.vehicleFlowId)?.vehicleImmobilized ?? false
@@ -1061,6 +1082,17 @@ export default function PecasPage() {
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
+          </label>
+
+          <label className="flow-filter">
+            <span>Consultar chip</span>
+            <input
+              type="search"
+              value={searchQuery}
+              placeholder="Placa ou cliente"
+              autoComplete="off"
+              onChange={(event) => applySearchQuery(event.target.value)}
+            />
           </label>
         </section>
 
