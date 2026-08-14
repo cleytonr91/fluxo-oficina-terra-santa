@@ -1,8 +1,10 @@
 import {
   addDoc,
+  arrayRemove,
   arrayUnion,
   collection,
   doc,
+  deleteField,
   getDoc,
   getDocs,
   limit,
@@ -19,7 +21,7 @@ import {
 } from "firebase/firestore";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, HyundaiPartCatalogItem, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PartsCounterEntry, PartsCounterEntryType, PartsCounterItem, PartsSalesGoal, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { AgendaItem, Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, HyundaiPartCatalogItem, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PartsCounterEntry, PartsCounterEntryType, PartsCounterItem, PartsSalesGoal, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -40,6 +42,7 @@ type PreparedVehicleInput = {
   appointmentDate: string;
   appointmentTime: string;
   origin: "Agendado" | "Passante";
+  partsOrdered?: boolean;
 };
 
 type SavePreparedAgendaInput = {
@@ -92,6 +95,7 @@ type SaveHgsiRecordInput = {
 };
 
 type SaveHgsiAnswerInput = {
+  questionnaireId?: string;
   chassi: string;
   osNumber: string;
   responseStatus?: string;
@@ -117,6 +121,13 @@ type SaveHgsiAnswerInput = {
 
 type SavePostServiceTreatmentInput = {
   vehicleFlowId: string;
+  sourceMonth: string;
+  clientName?: string;
+  plate?: string;
+  chassi?: string;
+  osNumber?: string;
+  serviceLabel?: string;
+  consultantName?: string;
   caseType: PostCaseType;
   treatmentStatus: TreatmentStatus;
   treatmentBy?: string;
@@ -564,6 +575,38 @@ export async function listUserProfiles() {
   })) as UserProfile[];
 }
 
+export async function listAgendaItems(userId: string, canSeeTeam = false) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.agendaItems);
+  const snapshots = canSeeTeam
+    ? [await getDocs(query(ref, orderBy("date")))]
+    : await Promise.all([
+        getDocs(query(ref, where("ownerId", "==", userId))),
+        getDocs(query(ref, where("participantIds", "array-contains", userId))),
+      ]);
+  const unique = new Map<string, AgendaItem>();
+  snapshots.forEach((snapshot) => snapshot.docs.forEach((item) => unique.set(item.id, { id: item.id, ...item.data() } as AgendaItem)));
+  return [...unique.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+export async function saveAgendaItem(item: Omit<AgendaItem, "id" | "createdAt" | "updatedAt"> & { id?: string }) {
+  const db = getFirebaseDb();
+  const ref = item.id ? doc(collection(db, collections.agendaItems), item.id) : doc(collection(db, collections.agendaItems));
+  await setDoc(ref, withoutUndefined({ ...item, updatedAt: serverTimestamp(), ...(item.id ? {} : { createdAt: serverTimestamp() }) }), { merge: true });
+  return ref.id;
+}
+
+export async function toggleAgendaItem(itemId: string, completed: boolean) {
+  await updateDoc(doc(getFirebaseDb(), collections.agendaItems, itemId), { completed, updatedAt: serverTimestamp() });
+}
+
+export async function toggleAgendaItemOccurrence(itemId: string, date: string, completed: boolean) {
+  await updateDoc(doc(getFirebaseDb(), collections.agendaItems, itemId), {
+    completedDates: completed ? arrayUnion(date) : arrayRemove(date),
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function listHgsiRecords() {
   const db = getFirebaseDb();
   const snapshot = await getDocs(collection(db, collections.hgsiRecords));
@@ -596,6 +639,13 @@ export async function listPostServiceCases() {
 
 export async function savePostServiceTreatment({
   vehicleFlowId,
+  sourceMonth,
+  clientName,
+  plate,
+  chassi,
+  osNumber,
+  serviceLabel,
+  consultantName,
   caseType,
   treatmentStatus,
   treatmentBy,
@@ -606,10 +656,17 @@ export async function savePostServiceTreatment({
   hgsiRequestStatus = "nao_solicitada",
 }: SavePostServiceTreatmentInput) {
   const db = getFirebaseDb();
-  const ref = doc(collection(db, collections.postServiceCases), documentKey(vehicleFlowId));
+  const ref = doc(collection(db, collections.postServiceCases), documentKey(sourceMonth, vehicleFlowId));
 
   await setDoc(ref, withoutUndefined({
     vehicleFlowId,
+    sourceMonth,
+    clientName,
+    plate,
+    chassi,
+    osNumber,
+    serviceLabel,
+    consultantName,
     caseType,
     pendingDescription: customerObservation,
     treatmentBy,
@@ -666,6 +723,7 @@ export async function saveHgsiRecords({
   });
 
   await batch.commit();
+  return importBatchId;
 }
 
 export async function saveHgsiAnswers({
@@ -699,12 +757,13 @@ export async function saveHgsiAnswers({
       const index = start + offset;
       const ref = doc(collection(db, collections.hgsiAnswers), documentKey(
         answer.chassi || "sem-chassi",
-        answer.osNumber || `linha-${index}`,
+        answer.osNumber || answer.questionnaireId || `linha-${index}`,
         answer.sourceMonth || "sem-mes",
         answer.answerDate || `linha-${index}`,
       ));
       batch.set(ref, withoutUndefined({
         importBatchId,
+        questionnaireId: answer.questionnaireId,
         chassi: answer.chassi,
         osNumber: answer.osNumber,
         responseStatus: answer.responseStatus,
@@ -732,6 +791,8 @@ export async function saveHgsiAnswers({
 
     await batch.commit();
   }
+
+  return importBatchId;
 }
 
 export async function updateUserProfile({
@@ -848,6 +909,7 @@ export async function savePreparedAgenda({
       roadTestRequired: vehicle.roadTest,
       chiefPresenceRequired: vehicle.chief,
       customerWaits: false,
+      partsOrdered: vehicle.partsOrdered ?? false,
       washType: "nao",
       status: "ativo",
       createdAt: serverTimestamp(),
@@ -1471,14 +1533,40 @@ export async function registerPartSchedulingAction({
 
   await setDoc(ref, withoutUndefined({
     schedulingStatus: action,
-    scheduledReturnDate: action === "agendamento_confirmado" ? returnDate : undefined,
-    contactAttemptAt: contactAttemptAt || undefined,
-    nextContactAt: nextContactAt || undefined,
+    scheduledReturnDate: action === "agendamento_confirmado" ? returnDate : deleteField(),
+    contactAttemptAt: action === "contato_sem_sucesso" ? contactAttemptAt : deleteField(),
+    nextContactAt: nextContactAt || deleteField(),
     schedulingNote: cleanNote,
     schedulingUpdatedBy: actionBy,
     schedulingUpdatedAt: serverTimestamp(),
     schedulingHistory: arrayUnion(historyEntry),
     updatedBy: actionBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
+export async function markPartSchedulingCompleted({
+  orderId,
+  completedBy,
+  newVehicleFlowId,
+  newAppointmentDate,
+}: {
+  orderId: string;
+  completedBy?: string;
+  newVehicleFlowId: string;
+  newAppointmentDate?: string;
+}) {
+  const db = getFirebaseDb();
+  const ref = doc(collection(db, collections.partOrders), orderId);
+
+  await setDoc(ref, withoutUndefined({
+    schedulingCompletedAt: serverTimestamp(),
+    schedulingCompletionReason: "Processo concluído por nova passagem do veículo",
+    schedulingCompletionVehicleFlowId: newVehicleFlowId,
+    schedulingCompletionDate: newAppointmentDate,
+    schedulingUpdatedBy: completedBy,
+    schedulingUpdatedAt: serverTimestamp(),
+    updatedBy: completedBy,
     updatedAt: serverTimestamp(),
   }), { merge: true });
 }

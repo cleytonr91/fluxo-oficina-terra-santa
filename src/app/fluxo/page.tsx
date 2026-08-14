@@ -99,6 +99,13 @@ function hasActivePartOrder(vehicleId?: string, orders: PartOrder[] = []) {
   return orders.some((order) => order.vehicleFlowId === vehicleId && order.orderStatus !== "cancelado");
 }
 
+function daysBetween(start: unknown, end: unknown) {
+  const startDate = toDate(start);
+  const endDate = toDate(end);
+  if (!startDate || !endDate) return null;
+  return Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 86400000));
+}
+
 function partOrderItems(order: PartOrder) {
   if (order.parts?.length) return order.parts;
   return [{ id: `${order.id}-part`, partReference: order.partReference ?? "", partDescription: order.partDescription ?? "" }];
@@ -435,6 +442,19 @@ function normalizeName(name?: string) {
     .toLowerCase();
 }
 
+function matchesPeopleAndPlate(
+  vehicle: VehicleFlow,
+  consultantFilter: string,
+  technicianFilter: string,
+  plateFilter: string,
+) {
+  const normalizedPlateFilter = plateFilter.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
+  const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
+  const plateMatches = !normalizedPlateFilter || (vehicle.plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().includes(normalizedPlateFilter);
+  return consultantMatches && technicianMatches && plateMatches;
+}
+
 function consultantDisplayName(name?: string) {
   const normalized = normalizeName(name);
   if (normalized.includes("cleverton")) return "Cleverton";
@@ -600,6 +620,9 @@ function FlowChip({
   const progress = timeProgress(vehicle, now);
   const stay = immobilized ? immobilizedStay(vehicle, now) : null;
   const previousDay = isPreviousDayVehicle(vehicle, selectedDate);
+  const passageToOrderDays = daysBetween(vehicle.appointmentDate, partOrder?.orderDate ?? partOrder?.createdAt);
+  const orderToDeliveryDays = daysBetween(partOrder?.orderDate ?? partOrder?.createdAt, vehicle.deliveredAt);
+  const passageToDeliveryDays = daysBetween(vehicle.appointmentDate, vehicle.deliveredAt);
 
   return (
     <article className={`chip flow-chip ${chipClass}`} onDoubleClick={() => onDetails(vehicle)}>
@@ -655,12 +678,18 @@ function FlowChip({
           </button>
         )}
         {vehicle.currentLane === "entregue" && typeof vehicle.internalNps === "number" && <span className="tag">NPS {vehicle.internalNps}</span>}
+        {vehicle.currentLane === "entregue" && partOrder && <span className="tag good">Relatório de peças</span>}
       </div>
 
       <div className="chip-compact-details">
         <div><span>Consultor:</span> {consultantDisplayName(vehicle.consultantName)}</div>
         <div><span>Técnico:</span> {firstName(vehicle.technicianName)}</div>
         {vehicle.appointmentTime && <div><span>Agenda:</span> {vehicle.appointmentTime}</div>}
+        {vehicle.currentLane === "entregue" && partOrder && (
+          <div className="parts-report-details">
+            <span>Tempo peças:</span> passagem→pedido {passageToOrderDays ?? "-"}d · pedido→entrega {orderToDeliveryDays ?? "-"}d · total {passageToDeliveryDays ?? "-"}d
+          </div>
+        )}
       </div>
 
       {immobilized ? (
@@ -2126,54 +2155,36 @@ export default function FluxoPage() {
   const technicians = workshopTechnicians;
 
   const dateScopedVehicles = useMemo(() => {
-    const normalizedPlateFilter = plateFilter.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-
     return vehicles.filter((vehicle) => {
       if (vehicle.status === "cancelado") return false;
       const dateMatches = matchesSelectedFlowDate(vehicle, flowDate);
-      const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
-      const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
-      const plateMatches = !normalizedPlateFilter || (vehicle.plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().includes(normalizedPlateFilter);
-      return dateMatches && consultantMatches && technicianMatches && plateMatches;
+      return dateMatches && matchesPeopleAndPlate(vehicle, consultantFilter, technicianFilter, plateFilter);
     });
   }, [consultantFilter, flowDate, plateFilter, technicianFilter, vehicles]);
 
   const noShowVehicles = useMemo(() => {
-    const normalizedPlateFilter = plateFilter.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-
     return vehicles
       .filter((vehicle) => {
         if (vehicle.status === "cancelado") return false;
         const dateMatches = matchesNoShowDate(vehicle, flowDate);
-        const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
-        const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
-        const plateMatches = !normalizedPlateFilter || (vehicle.plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().includes(normalizedPlateFilter);
-        return isActiveNoShow(vehicle) && dateMatches && consultantMatches && technicianMatches && plateMatches;
+        return isActiveNoShow(vehicle) && dateMatches && matchesPeopleAndPlate(vehicle, consultantFilter, technicianFilter, plateFilter);
       })
       .sort((a, b) => `${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`.localeCompare(`${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`));
   }, [consultantFilter, flowDate, plateFilter, technicianFilter, vehicles]);
 
   const immobilizedVehicles = useMemo(() => {
-    const normalizedPlateFilter = plateFilter.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-
-    return vehicles
+    return dateScopedVehicles
       .filter((vehicle) => {
-        const consultantMatches = consultantFilter === "Todos" || consultantDisplayName(vehicle.consultantName) === consultantFilter;
-        const technicianMatches = technicianFilter === "Todos" || firstName(vehicle.technicianName) === technicianFilter;
-        const plateMatches = !normalizedPlateFilter || (vehicle.plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase().includes(normalizedPlateFilter);
         return (
           immobilizedVehicleIds.has(vehicle.id)
           && !isActiveNoShow(vehicle)
           && vehicle.currentLane !== "entregue"
           && vehicle.status !== "cancelado"
-          && consultantMatches
-          && technicianMatches
-          && plateMatches
         );
       })
       .map((vehicle) => ({ ...vehicle, currentLane: "aguardando_servico" as FlowLane }))
       .sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`));
-  }, [consultantFilter, immobilizedVehicleIds, plateFilter, technicianFilter, vehicles]);
+  }, [dateScopedVehicles, immobilizedVehicleIds]);
 
   const visibleDetailEvents = useMemo(() => (
     detailVehicle?.noShow

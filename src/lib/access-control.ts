@@ -13,16 +13,16 @@ export const roleOptions: Array<{ value: UserRole; label: string }> = [
 ];
 
 const rolePaths: Record<UserRole, string[]> = {
-  admin: ["/preparacao", "/fluxo", "/agendamento", "/pecas", "/balcao", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
-  gerente: ["/preparacao", "/fluxo", "/agendamento", "/pecas", "/balcao", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
-  chefe_oficina: ["/preparacao", "/pecas", "/fluxo", "/cardapio"],
-  consultor: ["/fluxo", "/balcao", "/pos-servico", "/cardapio"],
-  tecnico: ["/fluxo", "/cardapio"],
-  lider_lavagem: ["/fluxo", "/cardapio"],
-  consultor_funilaria: ["/pecas", "/balcao", "/funilaria", "/fluxo", "/cardapio"],
-  estoquista: ["/pecas", "/balcao", "/fluxo", "/funilaria", "/cardapio"],
-  qualidade: ["/pos-servico", "/cardapio"],
-  agendamento: ["/agendamento", "/cardapio"],
+  admin: ["/preparacao", "/fluxo", "/agendamento", "/agenda", "/pecas", "/estoque", "/balcao", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
+  gerente: ["/preparacao", "/fluxo", "/agendamento", "/agenda", "/pecas", "/estoque", "/balcao", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
+  chefe_oficina: ["/preparacao", "/pecas", "/fluxo", "/agenda", "/cardapio"],
+  consultor: ["/fluxo", "/balcao", "/pos-servico", "/agenda", "/cardapio"],
+  tecnico: ["/fluxo", "/agenda", "/cardapio"],
+  lider_lavagem: ["/fluxo", "/agenda", "/cardapio"],
+  consultor_funilaria: ["/pecas", "/balcao", "/funilaria", "/fluxo", "/agenda", "/cardapio"],
+  estoquista: ["/pecas", "/estoque", "/balcao", "/fluxo", "/funilaria", "/agenda", "/cardapio"],
+  qualidade: ["/pos-servico", "/agenda", "/cardapio"],
+  agendamento: ["/agendamento", "/agenda", "/cardapio"],
 };
 
 export function allowedPathsForRole(role?: UserRole) {

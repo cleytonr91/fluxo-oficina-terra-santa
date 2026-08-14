@@ -35,6 +35,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /agendaItems/{document} {
+      allow read: if operations() && (manager() || resource.data.ownerId == request.auth.uid || (resource.data.keys().hasAny(['participantIds']) && request.auth.uid in resource.data.participantIds));
+      allow create: if operations() && request.resource.data.ownerId == request.auth.uid;
+      allow update: if operations() && (resource.data.ownerId == request.auth.uid || manager());
+      allow delete: if operations() && (resource.data.ownerId == request.auth.uid || manager());
+    }
+
     match /importBatches/{document} {
       allow read: if operations();
       allow write: if hasRole(['admin', 'gerente', 'chefe_oficina']);

@@ -6059,6 +6059,44 @@ textarea {
   grid-template-columns: repeat(6, minmax(96px, 1fr)) minmax(260px, 1.6fr);
 }
 
+.scheduling-metrics {
+  display: none;
+}
+
+.scheduling-filter-bar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr)) minmax(260px, 1.6fr);
+  gap: 6px;
+  margin: -4px 0 0;
+}
+
+.scheduling-filter-bar .flow-metric {
+  width: 100%;
+  font: inherit;
+}
+
+.scheduling-filter-bar .scheduling-search {
+  text-align: left;
+}
+
+.parts-prep-alert {
+  display: grid;
+  gap: 3px;
+  margin: 8px 0;
+  border-color: #e7b1a7;
+  background: #fff6f3;
+}
+
+.parts-prep-alert strong {
+  color: #a53f31;
+}
+
+.parts-prep-alert small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .scheduling-search input {
   width: 100%;
   min-height: 28px;
@@ -6088,6 +6126,13 @@ textarea {
   background: #fff7f5;
 }
 
+.parts-report-details {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
 .scheduling-main {
   display: grid;
   grid-template-columns: minmax(180px, 1.3fr) repeat(4, minmax(120px, 1fr));
@@ -6100,6 +6145,25 @@ textarea {
   border-radius: 6px;
   background: #f4f7f4;
   padding: 7px 8px;
+}
+
+.scheduling-main .scheduling-age {
+  border: 1px solid #f0c4ba;
+  background: #fff4f1;
+}
+
+.scheduling-main .scheduled-return-highlight {
+  border: 1px solid #9ccfe0;
+  background: #eef9fc;
+}
+
+.scheduled-return-highlight strong {
+  color: #006d88;
+  font-size: 14px;
+}
+
+.scheduling-age strong {
+  color: #a53f31;
 }
 
 .scheduling-main strong,
@@ -6140,6 +6204,10 @@ textarea {
 
 .scheduling-modal {
   width: min(560px, calc(100vw - 24px));
+  max-height: calc(100vh - 36px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  align-content: start;
 }
 
 .parts-client-cell strong {

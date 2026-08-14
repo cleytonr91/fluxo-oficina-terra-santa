@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { registerPartSchedulingAction, subscribeActiveVehicleFlows, subscribePartOrders } from "@/services/firestore";
+import { markPartSchedulingCompleted, registerPartSchedulingAction, subscribeActiveVehicleFlows, subscribePartOrders } from "@/services/firestore";
 import type { PartOrder, PartOrderItem, PartOrderStatus, PartSchedulingActionType, PartSchedulingStatus, VehicleFlow } from "@/types/domain";
 
 type ScheduleForm = {
@@ -13,6 +13,8 @@ type ScheduleForm = {
   nextContactAt: string;
   note: string;
 };
+
+type SchedulingFilter = "available" | "overdue" | "completed" | PartSchedulingActionType;
 
 const actionLabels: Record<PartSchedulingActionType, string> = {
   agendamento_confirmado: "Agendamento confirmado",
@@ -85,6 +87,26 @@ function formatOperationalDateTime(value: unknown) {
   return formatDateTime(value);
 }
 
+function elapsedDaysSince(value: unknown) {
+  const startedAt = toDate(value);
+  if (!startedAt) return null;
+
+  const start = new Date(startedAt.getFullYear(), startedAt.getMonth(), startedAt.getDate()).getTime();
+  const today = new Date();
+  const current = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  return Math.max(0, Math.floor((current - start) / 86400000));
+}
+
+function elapsedDaysBetween(startValue: unknown, endValue: unknown) {
+  const startedAt = toDate(startValue);
+  const endedAt = toDate(endValue);
+  if (!startedAt || !endedAt) return null;
+
+  const start = new Date(startedAt.getFullYear(), startedAt.getMonth(), startedAt.getDate()).getTime();
+  const end = new Date(endedAt.getFullYear(), endedAt.getMonth(), endedAt.getDate()).getTime();
+  return Math.max(0, Math.floor((end - start) / 86400000));
+}
+
 function normalizeSearch(value?: string) {
   return (value ?? "")
     .normalize("NFD")
@@ -110,11 +132,37 @@ function isDue(value?: string) {
   return !Number.isNaN(date.getTime()) && date.getTime() <= Date.now();
 }
 
+function isAvailableSchedulingStatus(status?: PartSchedulingStatus) {
+  return !status || status === "disponivel_agendamento";
+}
+
+function isOverdueContact(order: PartOrder) {
+  const hasConfirmedAppointment =
+    order.schedulingStatus === "agendamento_confirmado" &&
+    Boolean(order.scheduledReturnDate);
+
+  return (
+    !order.schedulingCompletedAt &&
+    Boolean(order.nextContactAt) &&
+    isDue(order.nextContactAt) &&
+    !hasConfirmedAppointment
+  );
+}
+
+function normalizeIdentifier(value?: string) {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase();
+}
+
 export default function AgendamentoPage() {
   const { profile, user } = useAuth();
   const [orders, setOrders] = useState<PartOrder[]>([]);
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState<SchedulingFilter>("available");
   const [activeOrder, setActiveOrder] = useState<PartOrder | null>(null);
   const [form, setForm] = useState<ScheduleForm>({
     action: "agendamento_confirmado",
@@ -137,27 +185,107 @@ export default function AgendamentoPage() {
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = subscribeActiveVehicleFlows(setVehicles, () => undefined, { includeDelivered: true });
-    return unsubscribe;
-  }, []);
-
   const vehiclesById = useMemo(() => {
     const mapped = new Map<string, VehicleFlow>();
     vehicles.forEach((vehicle) => mapped.set(vehicle.id, vehicle));
     return mapped;
   }, [vehicles]);
 
-  const availableOrders = useMemo(() => (
+  const schedulableOrders = useMemo(() => (
     orders.filter((order) => (
       order.orderStatus === "disponivel"
+      && !order.cancellationReason?.trim()
       && !vehiclesById.get(order.vehicleFlowId)?.vehicleImmobilized
     ))
   ), [orders, vehiclesById]);
 
+  const newerPassageByOrder = useMemo(() => {
+    const result = new Map<string, VehicleFlow>();
+
+    orders.forEach((order) => {
+      if (order.schedulingCompletedAt) return;
+      const originalVehicle = vehiclesById.get(order.vehicleFlowId);
+      const originalPlate = normalizeIdentifier(order.plate || originalVehicle?.plate);
+      const originalChassi = normalizeIdentifier(originalVehicle?.chassi);
+      const orderCreatedAt = toDate(order.createdAt)?.getTime() ?? 0;
+      if (!orderCreatedAt || (!originalPlate && !originalChassi)) return;
+
+      const newer = vehicles
+        .filter((vehicle) => {
+          if (vehicle.id === order.vehicleFlowId || vehicle.status === "cancelado") return false;
+          const vehicleCreatedAt = toDate(vehicle.createdAt)?.getTime() ?? 0;
+          if (!vehicleCreatedAt || vehicleCreatedAt <= orderCreatedAt) return false;
+          const vehiclePlate = normalizeIdentifier(vehicle.plate);
+          const vehicleChassi = normalizeIdentifier(vehicle.chassi);
+          return Boolean(
+            (originalPlate && vehiclePlate && originalPlate === vehiclePlate)
+            || (originalChassi && vehicleChassi && originalChassi === vehicleChassi),
+          );
+        })
+        .sort((a, b) => (toDate(a.createdAt)?.getTime() ?? 0) - (toDate(b.createdAt)?.getTime() ?? 0))[0];
+
+      if (newer) result.set(order.id, newer);
+    });
+
+    return result;
+  }, [orders, vehicles, vehiclesById]);
+
+  const completedOrders = useMemo(() => (
+    schedulableOrders.filter((order) => Boolean(order.schedulingCompletedAt))
+  ), [schedulableOrders]);
+
+  useEffect(() => {
+    if (!newerPassageByOrder.size) return undefined;
+    let cancelled = false;
+    const completedBy = profile?.name ?? user?.email ?? user?.uid;
+
+    Promise.all(Array.from(newerPassageByOrder.entries()).map(([orderId, vehicle]) => (
+      markPartSchedulingCompleted({
+        orderId,
+        completedBy,
+        newVehicleFlowId: vehicle.id,
+        newAppointmentDate: vehicle.appointmentDate,
+      })
+    ))).catch((currentError) => {
+      if (!cancelled) setError(currentError instanceof Error ? currentError.message : "Não foi possível concluir os processos por nova passagem.");
+    });
+
+    return () => { cancelled = true; };
+  }, [newerPassageByOrder, profile?.name, user?.email, user?.uid]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeActiveVehicleFlows(setVehicles, () => undefined, { includeDelivered: true });
+    return unsubscribe;
+  }, []);
+
+  const availableOrders = useMemo(() => (
+    [...schedulableOrders]
+      .filter((order) => isAvailableSchedulingStatus(order.schedulingStatus) && !order.schedulingCompletedAt)
+      .sort((a, b) => {
+        const aCreatedAt = toDate(a.createdAt)?.getTime() ?? toDate(a.updatedAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        const bCreatedAt = toDate(b.createdAt)?.getTime() ?? toDate(b.updatedAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+        return aCreatedAt - bCreatedAt;
+      })
+  ), [schedulableOrders]);
+
+  const availablePartsCount = useMemo(() => (
+    schedulableOrders.filter((order) => !order.schedulingCompletedAt).length
+  ), [schedulableOrders]);
+
+  const pendingContact = useMemo(() => schedulableOrders.filter(isOverdueContact), [schedulableOrders]);
+  const confirmed = useMemo(() => schedulableOrders.filter((order) => !order.schedulingCompletedAt && order.schedulingStatus === "agendamento_confirmado"), [schedulableOrders]);
+  const unsuccessful = useMemo(() => schedulableOrders.filter((order) => !order.schedulingCompletedAt && order.schedulingStatus === "contato_sem_sucesso"), [schedulableOrders]);
+  const unavailable = useMemo(() => schedulableOrders.filter((order) => !order.schedulingCompletedAt && order.schedulingStatus === "cliente_sem_disponibilidade"), [schedulableOrders]);
+
   const filteredOrders = useMemo(() => {
     const query = normalizeSearch(search);
-    const sourceOrders = query ? orders : availableOrders;
+    const sourceOrders = activeFilter === "available"
+      ? availableOrders
+      : activeFilter === "overdue"
+        ? pendingContact
+        : activeFilter === "completed"
+          ? completedOrders
+          : schedulableOrders.filter((order) => order.schedulingStatus === activeFilter && !order.schedulingCompletedAt);
     if (!query) return sourceOrders;
 
     return sourceOrders.filter((order) => {
@@ -172,12 +300,16 @@ export default function AgendamentoPage() {
         order.parts?.map((part) => `${part.partReference ?? ""} ${part.partDescription ?? ""}`).join(" "),
       ].some((value) => normalizeSearch(value).includes(query));
     });
-  }, [availableOrders, orders, search, vehiclesById]);
+  }, [activeFilter, availableOrders, completedOrders, pendingContact, schedulableOrders, search, vehiclesById]);
 
-  const pendingContact = availableOrders.filter((order) => order.nextContactAt && isDue(order.nextContactAt));
-  const confirmed = availableOrders.filter((order) => order.schedulingStatus === "agendamento_confirmado");
-  const unsuccessful = availableOrders.filter((order) => order.schedulingStatus === "contato_sem_sucesso");
-  const unavailable = availableOrders.filter((order) => order.schedulingStatus === "cliente_sem_disponibilidade");
+  const filterCards: Array<{ id: SchedulingFilter; count: number; label: string; className?: string }> = [
+    { id: "available", count: availableOrders.length, label: "disponíveis para agendar", className: "active" },
+    { id: "overdue", count: pendingContact.length, label: "compromissos vencidos", className: "danger" },
+    { id: "agendamento_confirmado", count: confirmed.length, label: "agendados" },
+    { id: "contato_sem_sucesso", count: unsuccessful.length, label: "contato sem sucesso" },
+    { id: "cliente_sem_disponibilidade", count: unavailable.length, label: "sem disponibilidade" },
+    { id: "completed", count: completedOrders.length, label: "concluídos", className: "good" },
+  ];
 
   function openSchedule(order: PartOrder) {
     setActiveOrder(order);
@@ -237,9 +369,31 @@ export default function AgendamentoPage() {
       <main className="page-wrap scheduling-page">
         {error && <div className="duplicate-alert"><strong>Erro em agendamento</strong><span>{error}</span></div>}
 
+        <section className="scheduling-filter-bar" aria-label="Filtros de agendamento">
+          {filterCards.map((card) => (
+            <button
+              key={card.id}
+              type="button"
+              className={`flow-metric ${card.className ?? ""} ${activeFilter === card.id ? "selected" : ""}`}
+              aria-pressed={activeFilter === card.id}
+              onClick={() => setActiveFilter(card.id)}
+            >
+              <strong>{card.count}</strong><span>{card.label}</span>
+            </button>
+          ))}
+          <label className="flow-filter scheduling-search">
+            <span>Pesquisa</span>
+            <input
+              value={search}
+              placeholder="Cliente, placa, chassi ou telefone"
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+        </section>
+
         <section className="flow-metrics scheduling-metrics">
           <div className="flow-metric active"><strong>{availableOrders.length}</strong><span>disponíveis para agendar</span></div>
-          <div className="flow-metric"><strong>{orders.length}</strong><span>pedidos na base</span></div>
+          <div className="flow-metric"><strong>{availablePartsCount}</strong><span>espelho de disponíveis em Peças</span></div>
           <div className="flow-metric danger"><strong>{pendingContact.length}</strong><span>compromissos vencidos</span></div>
           <div className="flow-metric"><strong>{confirmed.length}</strong><span>agendados</span></div>
           <div className="flow-metric"><strong>{unsuccessful.length}</strong><span>contato sem sucesso</span></div>
@@ -257,7 +411,7 @@ export default function AgendamentoPage() {
         <section className="panel">
           <div className="panel-head">
             <div>
-              <h2 className="panel-title">Veículos disponíveis para agendamento</h2>
+              <h2 className="panel-title">{activeFilter === "available" ? "Veículos disponíveis para agendamento" : activeFilter === "overdue" ? "Compromissos vencidos" : activeFilter === "completed" ? "Concluídos por nova passagem" : actionLabels[activeFilter]}</h2>
               <span>{filteredOrders.length} cliente(s) no filtro atual. {search.trim() ? "Pesquisa em todos os pedidos." : "Fila de disponíveis para ação."}</span>
             </div>
           </div>
@@ -267,9 +421,13 @@ export default function AgendamentoPage() {
               const vehicle = vehiclesById.get(order.vehicleFlowId);
               const phoneUrl = whatsappUrl(vehicle?.phone);
               const parts = orderParts(order);
-              const dueContact = isDue(order.nextContactAt);
+              const processDays = order.schedulingCompletedAt
+                ? elapsedDaysBetween(order.createdAt, order.schedulingCompletedAt)
+                : elapsedDaysSince(order.createdAt);
+              const dueContact = isOverdueContact(order);
               const vehicleImmobilized = vehiclesById.get(order.vehicleFlowId)?.vehicleImmobilized ?? false;
-              const canSchedule = order.orderStatus === "disponivel" && !vehicleImmobilized;
+              const canSchedule = order.orderStatus === "disponivel" && !vehicleImmobilized && isAvailableSchedulingStatus(order.schedulingStatus) && !order.schedulingCompletedAt;
+              const canEdit = order.orderStatus === "disponivel" && !vehicleImmobilized && !order.schedulingCompletedAt;
 
               return (
                 <article key={order.id} className={`scheduling-card ${dueContact ? "attention" : ""}`}>
@@ -288,7 +446,15 @@ export default function AgendamentoPage() {
                     <div><span>Status atual</span><strong>{orderStatusLabels[order.orderStatus]}</strong></div>
                     <div><span>Tipo</span><strong>{order.orderKind === "garantia" ? "Garantia" : order.orderKind === "externo" ? "Externo" : "-"}</strong></div>
                     <div><span>Disponível desde</span><strong>{formatOperationalDateTime(order.updatedAt)}</strong></div>
-                    <div><span>Próximo contato</span><strong>{formatDateTime(order.nextContactAt)}</strong></div>
+                    <div className={order.schedulingStatus === "agendamento_confirmado" && order.scheduledReturnDate ? "scheduled-return-highlight" : ""}>
+                      <span>Veículo agendado para</span>
+                      <strong>{order.schedulingStatus === "agendamento_confirmado" && order.scheduledReturnDate ? formatDateTime(order.scheduledReturnDate) : "Ainda não agendado"}</strong>
+                    </div>
+                    <div>
+                      <span>{order.schedulingStatus === "agendamento_confirmado" ? "Último contato" : "Próximo contato"}</span>
+                      <strong>{order.schedulingStatus === "agendamento_confirmado" ? formatDateTime(order.schedulingUpdatedAt) : formatDateTime(order.nextContactAt)}</strong>
+                    </div>
+                    <div className="scheduling-age"><span>Tempo do processo</span><strong>{processDays === null ? "-" : `${processDays} ${processDays === 1 ? "dia" : "dias"}`}</strong></div>
                   </div>
 
                   <div className="scheduling-parts">
@@ -301,14 +467,16 @@ export default function AgendamentoPage() {
 
                   <div className="scheduling-foot">
                     <div>
+                      {order.schedulingCompletedAt && <span className="tag good">Concluído por nova passagem</span>}
                       <span className={`tag ${dueContact ? "bad" : ""}`}>
                         {order.schedulingStatus ? schedulingStatusLabels[order.schedulingStatus] : canSchedule ? "Disponível para agendar" : orderStatusLabels[order.orderStatus]}
                       </span>
+                      {order.schedulingCompletedAt && <small>Nova passagem registrada em {formatDateTime(order.schedulingCompletedAt)}{order.schedulingCompletionDate ? ` · data ${order.schedulingCompletionDate}` : ""}</small>}
                       {order.schedulingNote && <small>{order.schedulingNote}</small>}
                     </div>
-                    {canSchedule ? (
-                      <button type="button" className="primary-btn" onClick={() => openSchedule(order)}>
-                        Agendar
+                    {canEdit ? (
+                      <button type="button" className={canSchedule ? "primary-btn" : "ghost-btn"} onClick={() => openSchedule(order)}>
+                        {canSchedule ? "Agendar" : "Editar ação"}
                       </button>
                     ) : (
                       <span className="tag">{vehicleImmobilized ? "Imobilizado" : "Consulta"}</span>
@@ -327,7 +495,7 @@ export default function AgendamentoPage() {
             <form className="flow-modal scheduling-modal" onSubmit={submitSchedule}>
               <div className="modal-head">
                 <div>
-                  <strong>Agendar retorno</strong>
+                  <strong>{activeOrder.schedulingStatus ? "Editar ação de agendamento" : "Agendar retorno"}</strong>
                   <span>{activeOrder.clientName} · {activeOrder.plate}</span>
                 </div>
                 <button type="button" className="ghost-btn icon-btn" aria-label="Fechar" onClick={() => setActiveOrder(null)}>
@@ -355,7 +523,7 @@ export default function AgendamentoPage() {
 
               {form.action === "agendamento_confirmado" && (
                 <label className="field">
-                  <span>Data do retorno</span>
+                  <span>Data do agendamento</span>
                   <input
                     required
                     type="datetime-local"
@@ -400,22 +568,22 @@ export default function AgendamentoPage() {
 
               <section className="history-box">
                 <h3>Histórico de agendamento</h3>
-                {activeOrder.schedulingHistory?.length ? (
-                  <ul>
+                  {activeOrder.schedulingHistory?.length ? (
+                    <ul>
                     {[...activeOrder.schedulingHistory].reverse().map((item, index) => (
                       <li key={`${item.actionAt}-${index}`}>
                         <strong>{actionLabels[item.action]}</strong>
                         <span>{formatActionSignature(item.actionBy, item.actionAt)}</span>
-                        {item.returnDate && <p>Retorno: {formatDateTime(item.returnDate)}</p>}
+                        {item.returnDate && <p>Agendamento: {formatDateTime(item.returnDate)}</p>}
                         {item.contactAttemptAt && <p>Tentativa: {formatOperationalDateTime(item.contactAttemptAt)}</p>}
                         {item.nextContactAt && <p>Novo contato: {formatDateTime(item.nextContactAt)}</p>}
                         {item.note && <p>{item.note}</p>}
                       </li>
                     ))}
                   </ul>
-                ) : (
-                  <p>Nenhuma ação registrada.</p>
-                )}
+                  ) : (
+                    <p>Nenhuma ação registrada.</p>
+                  )}
               </section>
 
               <div className="modal-actions">

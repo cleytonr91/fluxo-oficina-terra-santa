@@ -1,5 +1,6 @@
 export const collections = {
   users: "users",
+  agendaItems: "agendaItems",
   importBatches: "importBatches",
   appointments: "appointments",
   preparations: "preparations",

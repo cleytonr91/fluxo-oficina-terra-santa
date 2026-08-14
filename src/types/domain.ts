@@ -210,6 +210,33 @@ export interface UserProfile {
   updatedAt: FirestoreTimestamp;
 }
 
+export type AgendaItemKind = "task" | "event" | "meeting";
+export type AgendaRecurrence = "none" | "daily" | "weekly" | "monthly";
+
+export interface AgendaItem {
+  id: string;
+  title: string;
+  kind: AgendaItemKind;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  recurrence: AgendaRecurrence;
+  recurrenceWeekdays?: number[];
+  recurrenceMonthDays?: number[];
+  ownerId: string;
+  ownerName: string;
+  participantIds?: string[];
+  participantNames?: string[];
+  team?: string;
+  location?: string;
+  description?: string;
+  color?: string;
+  completed?: boolean;
+  completedDates?: string[];
+  createdAt?: FirestoreTimestamp;
+  updatedAt?: FirestoreTimestamp;
+}
+
 export interface ImportBatch {
   id: string;
   sourceFileName: string;
@@ -396,6 +423,10 @@ export interface PartOrder {
   schedulingUpdatedBy?: string;
   schedulingUpdatedAt?: FirestoreTimestamp;
   schedulingHistory?: PartSchedulingHistory[];
+  schedulingCompletedAt?: FirestoreTimestamp;
+  schedulingCompletionReason?: string;
+  schedulingCompletionVehicleFlowId?: string;
+  schedulingCompletionDate?: string;
   requestedBy?: string;
   updatedBy?: string;
   createdAt: FirestoreTimestamp;
@@ -418,6 +449,13 @@ export interface Delivery {
 export interface PostServiceCase {
   id: string;
   vehicleFlowId: string;
+  sourceMonth?: string;
+  clientName?: string;
+  plate?: string;
+  chassi?: string;
+  osNumber?: string;
+  serviceLabel?: string;
+  consultantName?: string;
   caseType: PostCaseType;
   pendingDescription?: string;
   treatmentBy?: string;
@@ -446,6 +484,7 @@ export interface HgsiRecord {
 export interface HgsiAnswer {
   id: string;
   importBatchId?: string;
+  questionnaireId?: string;
   chassi?: string;
   osNumber?: string;
   responseStatus?: string;

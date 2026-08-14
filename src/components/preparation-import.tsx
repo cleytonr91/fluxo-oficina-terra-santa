@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
 import { findVehicleFlowConflict, savePreparedVehicle, subscribeActiveVehicleFlows, subscribePartOrders } from "@/services/firestore";
@@ -61,6 +61,14 @@ function tomorrowDate() {
 
 function normalize(value: unknown) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeIdentifier(value: unknown) {
+  return normalize(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .toUpperCase();
 }
 
 function valueAfterLabel(value: unknown, label: string) {
@@ -322,6 +330,28 @@ export function PreparationImport() {
     });
   }, [appointmentsForDate, availableImmobilizedOnly, missingOnly]);
 
+  const linkedPartOrders = useCallback((item: Appointment) => {
+    const appointmentPlate = normalizeIdentifier(item.plate);
+    const appointmentChassi = normalizeIdentifier(item.chassi);
+
+    return partOrders.filter((order) => {
+      if (order.orderStatus === "cancelado") return false;
+      if (order.vehicleFlowId === item.id) return true;
+      const orderPlate = normalizeIdentifier(order.plate);
+      const orderVehicle = flowVehicles.find((vehicle) => vehicle.id === order.vehicleFlowId);
+      const orderChassi = normalizeIdentifier(orderVehicle?.chassi);
+      return Boolean(
+        (appointmentPlate && orderPlate && appointmentPlate === orderPlate)
+        || (appointmentChassi && orderChassi && appointmentChassi === orderChassi),
+      );
+    });
+  }, [flowVehicles, partOrders]);
+
+  const appointmentsWithParts = useMemo(
+    () => appointmentsForDate.filter((item) => linkedPartOrders(item).length > 0),
+    [appointmentsForDate, linkedPartOrders],
+  );
+
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -416,6 +446,7 @@ export function PreparationImport() {
           appointmentDate: item.date,
           appointmentTime: item.time,
           origin: "Agendado",
+          partsOrdered: linkedPartOrders(item).length > 0,
         },
       });
 
@@ -511,6 +542,7 @@ export function PreparationImport() {
 
         <div className="prep-summary-row">
           <div className="metric"><strong>{appointmentsForDate.length}</strong><span>agendamentos</span></div>
+          <div className="metric danger"><strong>{appointmentsWithParts.length}</strong><span>com pedido de peça</span></div>
           <div className="metric danger"><strong>{pendingPreviousVehicles.length}</strong><span>pendentes anteriores</span></div>
           <button
             className={`metric warning ${availableImmobilizedOnly ? "selected" : ""}`}
@@ -638,6 +670,8 @@ export function PreparationImport() {
               <div className="prep-card-grid">
                 {filteredAppointments.map((item) => {
                   const duplicated = duplicatedInFile.has(item.chassi.trim().toUpperCase());
+                  const linkedOrders = linkedPartOrders(item);
+                  const linkedParts = linkedOrders.flatMap((order) => order.parts?.length ? order.parts : [{ id: order.id, partReference: order.partReference, partDescription: order.partDescription }]);
 
                   return (
                     <article key={item.id} className={`prep-card ${item.serviceClass} ${item.confirmed ? "confirmed" : ""} ${duplicated ? "duplicate" : ""}`}>
@@ -656,7 +690,18 @@ export function PreparationImport() {
                         <span className="tag">{item.service}</span>
                         {item.roadTest && <span className="tag warn">Teste rodagem</span>}
                         {duplicated && <span className="tag bad">Chassi duplicado</span>}
+                        {linkedOrders.length > 0 && <span className="tag bad">Pedido de peça vinculado</span>}
                       </div>
+
+                      {linkedOrders.length > 0 && (
+                        <div className="duplicate-alert parts-prep-alert">
+                          <strong>Checar peças antes de programar</strong>
+                          <span>
+                            {linkedParts.map((part) => [part.partReference, part.partDescription].filter(Boolean).join(" - ")).filter(Boolean).join(" | ") || "Pedido vinculado sem descrição"}
+                          </span>
+                          <small>{linkedOrders.map((order) => `${order.orderNumber || "Pedido sem número"} · ${order.orderStatus}`).join(" / ")}</small>
+                        </div>
+                      )}
 
                       <div className="prep-inline">
                         <label className="field">
