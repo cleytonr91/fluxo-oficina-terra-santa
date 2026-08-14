@@ -6233,6 +6233,39 @@ textarea {
   grid-template-columns: repeat(2, minmax(180px, 1fr));
 }
 
+.parts-field-invalid > span:first-child {
+  color: #b42318;
+  font-weight: 900;
+}
+
+.parts-field-invalid input,
+.parts-field-invalid select,
+.parts-field-invalid textarea {
+  border-color: #d92d20;
+  background: #fff6f5;
+  box-shadow: 0 0 0 3px rgb(217 45 32 / 14%);
+}
+
+.parts-field-invalid input:focus,
+.parts-field-invalid select:focus,
+.parts-field-invalid textarea:focus {
+  outline: 2px solid #d92d20;
+  outline-offset: 1px;
+}
+
+.parts-field-error-message {
+  display: block;
+  margin-top: 4px;
+  border-left: 3px solid #d92d20;
+  border-radius: 4px;
+  background: #fff0ee;
+  padding: 6px 8px;
+  color: #912018;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
 .parts-available-panel {
   border-color: #8bc5a4;
   background: #fbfffc;

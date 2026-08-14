@@ -27,6 +27,9 @@ type StandalonePartOrderFormFields = PartOrderFormFields & {
   plate: string;
 };
 
+type PartOrderValidationField = "orderKind" | "orderSource" | "orderNumber" | "invoiceNumber" | "expectedArrivalDate" | "cancellationReason";
+type PartOrderValidationErrors = Partial<Record<PartOrderValidationField, string>>;
+
 type TransportInfoModal = "tip" | "contacts" | null;
 
 const trackingLinks = {
@@ -344,6 +347,7 @@ export default function PecasPage() {
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
   const [orderForms, setOrderForms] = useState<Record<string, Partial<PartOrderFormFields>>>({});
+  const [orderValidationErrors, setOrderValidationErrors] = useState<Record<string, PartOrderValidationErrors>>({});
   const [openSections, setOpenSections] = useState<Record<string, PartEditSection | undefined>>({});
   const [savingId, setSavingId] = useState("");
   const [statusFilter, setStatusFilter] = useState<PartsFilter>(initialFocusedOrderId ? "todos" : "pendentes");
@@ -726,6 +730,18 @@ export default function PecasPage() {
         ...patch,
       },
     }));
+
+    setOrderValidationErrors((current) => {
+      if (!current[orderId]) return current;
+      const nextOrderErrors = { ...current[orderId] };
+      const fieldsToClear = patch.orderStatus ? Object.keys(nextOrderErrors) : Object.keys(patch);
+      fieldsToClear.forEach((field) => delete nextOrderErrors[field as PartOrderValidationField]);
+
+      const next = { ...current };
+      if (Object.keys(nextOrderErrors).length) next[orderId] = nextOrderErrors;
+      else delete next[orderId];
+      return next;
+    });
   }
 
   async function saveOrder(order: PartOrder) {
@@ -733,25 +749,43 @@ export default function PecasPage() {
     const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
     const nextOrderStatus: PartOrderStatus = form.cancellationReason.trim() ? "cancelado" : form.orderStatus;
 
-    if (!form.orderKind) {
-      setError("Selecione o tipo do pedido: Garantia, Campanha ou Externo.");
-      return;
-    }
+    const validationErrors: PartOrderValidationErrors = {};
 
-    if ((nextOrderStatus === "pedido_realizado" || nextOrderStatus === "back_order") && (!form.orderSource || !form.orderNumber.trim())) {
-      setError("Para marcar Pedido Realizado ou B.O, informe a origem e o número do pedido.");
-      return;
+    if (!form.orderKind) validationErrors.orderKind = "Obrigatório para identificar se o atendimento é Garantia, Campanha ou Externo.";
+    if (nextOrderStatus === "pedido_realizado" || nextOrderStatus === "back_order") {
+      if (!form.orderSource) validationErrors.orderSource = "Informe de onde a peça foi solicitada para usar este status.";
+      if (!form.orderNumber.trim()) validationErrors.orderNumber = "Informe o número do pedido para usar Pedido Realizado ou B.O.";
     }
-
-    if (nextOrderStatus === "em_transito" && (!form.invoiceNumber.trim() || !form.expectedArrivalDate)) {
-      setError("Para marcar Em trânsito, informe a nota fiscal e confirme a previsão de chegada.");
-      return;
+    if (nextOrderStatus === "em_transito") {
+      if (!form.invoiceNumber.trim()) validationErrors.invoiceNumber = "Informe a nota fiscal que acompanha a peça em trânsito.";
+      if (!form.expectedArrivalDate) validationErrors.expectedArrivalDate = "Informe a previsão de chegada da peça em trânsito.";
     }
-
     if (nextOrderStatus === "cancelado" && !form.cancellationReason.trim()) {
-      setError("Para cancelar um pedido, informe o motivo do cancelamento.");
+      validationErrors.cancellationReason = "Explique o motivo do cancelamento para manter a rastreabilidade.";
+    }
+
+    const firstInvalidField = Object.keys(validationErrors)[0] as PartOrderValidationField | undefined;
+    if (firstInvalidField) {
+      const section: PartEditSection = firstInvalidField === "orderKind"
+        ? "dados"
+        : firstInvalidField === "cancellationReason" ? "cancelamento" : "pedido";
+      setOrderValidationErrors((current) => ({ ...current, [order.id]: validationErrors }));
+      setOpenSections((current) => ({ ...current, [order.id]: section }));
+      setError("Não foi possível salvar. Revise os campos destacados no pedido.");
+      window.requestAnimationFrame(() => {
+        const field = document.getElementById(`part-order-${firstInvalidField}-${order.id}`);
+        field?.scrollIntoView({ behavior: "smooth", block: "center" });
+        field?.focus();
+      });
       return;
     }
+
+    setOrderValidationErrors((current) => {
+      if (!current[order.id]) return current;
+      const next = { ...current };
+      delete next[order.id];
+      return next;
+    });
 
     setSavingId(order.id);
     setError("");
@@ -1400,6 +1434,7 @@ export default function PecasPage() {
             {filteredOrders.length ? filteredOrders.map((order) => {
               const form = orderFormValues(order);
               const openSection = openSections[order.id];
+              const fieldErrors = orderValidationErrors[order.id] ?? {};
 
               return (
               <article key={order.id} className={`parts-card ${focusedOrderId && (order.vehicleFlowId === focusedOrderId || order.id === focusedOrderId) ? "focused" : ""}`}>
@@ -1483,10 +1518,13 @@ export default function PecasPage() {
                         onChange={(event) => updateOrderForm(order.id, { customerId: event.target.value.toUpperCase() })}
                       />
                     </label>
-                    <label className="field">
+                    <label className={`field ${fieldErrors.orderKind ? "parts-field-invalid" : ""}`}>
                       <span>Tipo</span>
                       <select
+                        id={`part-order-orderKind-${order.id}`}
                         required
+                        aria-invalid={Boolean(fieldErrors.orderKind)}
+                        aria-describedby={fieldErrors.orderKind ? `part-order-orderKind-error-${order.id}` : undefined}
                         value={form.orderKind}
                         onChange={(event) => updateOrderForm(order.id, { orderKind: event.target.value as PartOrderKind | "" })}
                       >
@@ -1495,6 +1533,7 @@ export default function PecasPage() {
                           <option key={value} value={value}>{label}</option>
                         ))}
                       </select>
+                      {fieldErrors.orderKind && <small id={`part-order-orderKind-error-${order.id}`} className="parts-field-error-message" role="alert">{fieldErrors.orderKind}</small>}
                     </label>
                   </div>
                 )}
@@ -1512,9 +1551,12 @@ export default function PecasPage() {
                         ))}
                       </select>
                     </label>
-                    <label className="field">
+                    <label className={`field ${fieldErrors.orderSource ? "parts-field-invalid" : ""}`}>
                       <span>Origem</span>
                       <select
+                        id={`part-order-orderSource-${order.id}`}
+                        aria-invalid={Boolean(fieldErrors.orderSource)}
+                        aria-describedby={fieldErrors.orderSource ? `part-order-orderSource-error-${order.id}` : undefined}
                         value={form.orderSource}
                         onChange={(event) => updateOrderForm(order.id, { orderSource: event.target.value as PartOrderSource | "" })}
                       >
@@ -1523,14 +1565,19 @@ export default function PecasPage() {
                           <option key={value} value={value}>{label}</option>
                         ))}
                       </select>
+                      {fieldErrors.orderSource && <small id={`part-order-orderSource-error-${order.id}`} className="parts-field-error-message" role="alert">{fieldErrors.orderSource}</small>}
                     </label>
-                    <div className="field">
+                    <div className={`field ${fieldErrors.orderNumber ? "parts-field-invalid" : ""}`}>
                       <span>Número do Pedido</span>
                       <input
+                        id={`part-order-orderNumber-${order.id}`}
+                        aria-invalid={Boolean(fieldErrors.orderNumber)}
+                        aria-describedby={fieldErrors.orderNumber ? `part-order-orderNumber-error-${order.id}` : undefined}
                         value={form.orderNumber}
                         placeholder="Mobis ou externo"
                         onChange={(event) => updateOrderForm(order.id, { orderNumber: event.target.value.toUpperCase() })}
                       />
+                      {fieldErrors.orderNumber && <small id={`part-order-orderNumber-error-${order.id}`} className="parts-field-error-message" role="alert">{fieldErrors.orderNumber}</small>}
                       <label className="inline-check parts-vor-check">
                         <input
                           type="checkbox"
@@ -1548,33 +1595,45 @@ export default function PecasPage() {
                         onChange={(event) => updateOrderForm(order.id, { orderDate: event.target.value })}
                       />
                     </label>
-                    <label className="field">
+                    <label className={`field ${fieldErrors.invoiceNumber ? "parts-field-invalid" : ""}`}>
                       <span>Nota Fiscal</span>
                       <input
+                        id={`part-order-invoiceNumber-${order.id}`}
+                        aria-invalid={Boolean(fieldErrors.invoiceNumber)}
+                        aria-describedby={fieldErrors.invoiceNumber ? `part-order-invoiceNumber-error-${order.id}` : undefined}
                         value={form.invoiceNumber}
                         onChange={(event) => updateOrderForm(order.id, { invoiceNumber: event.target.value.toUpperCase() })}
                       />
+                      {fieldErrors.invoiceNumber && <small id={`part-order-invoiceNumber-error-${order.id}`} className="parts-field-error-message" role="alert">{fieldErrors.invoiceNumber}</small>}
                     </label>
-                    <label className="field">
+                    <label className={`field ${fieldErrors.expectedArrivalDate ? "parts-field-invalid" : ""}`}>
                       <span>Previsão de chegada</span>
                       <input
+                        id={`part-order-expectedArrivalDate-${order.id}`}
+                        aria-invalid={Boolean(fieldErrors.expectedArrivalDate)}
+                        aria-describedby={fieldErrors.expectedArrivalDate ? `part-order-expectedArrivalDate-error-${order.id}` : undefined}
                         type="date"
                         value={form.expectedArrivalDate}
                         onChange={(event) => updateOrderForm(order.id, { expectedArrivalDate: event.target.value })}
                       />
+                      {fieldErrors.expectedArrivalDate && <small id={`part-order-expectedArrivalDate-error-${order.id}`} className="parts-field-error-message" role="alert">{fieldErrors.expectedArrivalDate}</small>}
                     </label>
                   </div>
                 )}
 
                 {(openSection === "cancelamento" || form.orderStatus === "cancelado") && (
-                  <label className="field">
+                  <label className={`field ${fieldErrors.cancellationReason ? "parts-field-invalid" : ""}`}>
                     <span>Motivo do cancelamento</span>
                     <textarea
+                      id={`part-order-cancellationReason-${order.id}`}
+                      aria-invalid={Boolean(fieldErrors.cancellationReason)}
+                      aria-describedby={fieldErrors.cancellationReason ? `part-order-cancellationReason-error-${order.id}` : undefined}
                       required={form.orderStatus === "cancelado"}
                       value={form.cancellationReason}
                       placeholder="Informe por que este pedido foi cancelado"
                       onChange={(event) => updateOrderForm(order.id, { cancellationReason: event.target.value })}
                     />
+                    {fieldErrors.cancellationReason && <small id={`part-order-cancellationReason-error-${order.id}`} className="parts-field-error-message" role="alert">{fieldErrors.cancellationReason}</small>}
                   </label>
                 )}
 
