@@ -6,7 +6,7 @@ import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
 import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, reuseVehicleAsWalkIn, savePartOrder, saveVehicleRoadTestForm, subscribeFlowEventsForDate, subscribePartOrders, subscribeVehicleFlowEvents, subscribeVehicleFlowsForDate, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
-import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
+import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
   { id: "preparacao_confirmada", label: "Agendamento do Dia" },
@@ -209,7 +209,7 @@ type WashForm = {
 };
 
 type PartOrderForm = {
-  customerId: string;
+  orderKind: PartOrderKind | "";
   parts: PartOrderItem[];
 };
 
@@ -749,7 +749,7 @@ export default function FluxoPage() {
   const [washForm, setWashForm] = useState<WashForm>({ washType: "nao" });
   const [customerWaitsForm, setCustomerWaitsForm] = useState(false);
   const [partOrderForm, setPartOrderForm] = useState<PartOrderForm>({
-    customerId: "",
+    orderKind: "",
     parts: [{ id: "peca-1", partReference: "", partDescription: "" }],
   });
   const [immobilizationForm, setImmobilizationForm] = useState<ImmobilizationForm>({
@@ -970,7 +970,7 @@ export default function FluxoPage() {
     setWashForm({ washType: vehicle.washType ?? "nao" });
     setCustomerWaitsForm(vehicle.customerWaits ?? false);
     setPartOrderForm({
-      customerId: existingPartOrder?.customerId ?? "",
+      orderKind: existingPartOrder?.orderKind ?? "",
       parts: existingPartOrder?.parts?.length
         ? existingPartOrder.parts
         : [{ id: "peca-1", partReference: existingPartOrder?.partReference ?? "", partDescription: existingPartOrder?.partDescription ?? "" }],
@@ -2067,6 +2067,11 @@ export default function FluxoPage() {
     if (!detailVehicle) return;
     const validParts = partOrderForm.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
 
+    if (!partOrderForm.orderKind) {
+      setError("Selecione o tipo do pedido: Garantia, Campanha ou Externo.");
+      return;
+    }
+
     if (!validParts.length) {
       setError("Informe ao menos a referência ou a descrição da peça.");
       return;
@@ -2078,7 +2083,7 @@ export default function FluxoPage() {
     try {
       await savePartOrder({
         vehicle: detailVehicle,
-        customerId: partOrderForm.customerId,
+        orderKind: partOrderForm.orderKind,
         parts: validParts,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
       });
@@ -2087,7 +2092,7 @@ export default function FluxoPage() {
         id: detailVehicle.id,
         vehicleFlowId: detailVehicle.id,
         plate: detailVehicle.plate,
-        customerId: partOrderForm.customerId,
+        orderKind: partOrderForm.orderKind,
         clientName: detailVehicle.clientName,
         consultantName: detailVehicle.consultantName,
         technicianName: detailVehicle.technicianName,
@@ -3046,12 +3051,16 @@ export default function FluxoPage() {
             <section className="history-box">
               <h3>Pedido de peças</h3>
               <label className="field">
-                <span>ID Cliente</span>
-                <input
-                  value={partOrderForm.customerId}
-                  placeholder="Preencher se necessário"
-                  onChange={(event) => setPartOrderForm((current) => ({ ...current, customerId: event.target.value.toUpperCase() }))}
-                />
+                <span>Tipo do pedido</span>
+                <select
+                  value={partOrderForm.orderKind}
+                  onChange={(event) => setPartOrderForm((current) => ({ ...current, orderKind: event.target.value as PartOrderKind | "" }))}
+                >
+                  <option value="">Selecionar</option>
+                  <option value="garantia">Garantia</option>
+                  <option value="campanha">Campanha</option>
+                  <option value="externo">Externo</option>
+                </select>
               </label>
               <div className="parts-items">
                 {partOrderForm.parts.map((part, index) => (

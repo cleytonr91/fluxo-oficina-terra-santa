@@ -130,6 +130,7 @@ type SavePostServiceTreatmentInput = {
 type SavePartOrderInput = {
   vehicle: VehicleFlow;
   customerId?: string;
+  orderKind?: PartOrderKind;
   parts: PartOrderItem[];
   partReference?: string;
   partDescription?: string;
@@ -1222,6 +1223,7 @@ export function subscribeFlowEventsForVehicles(
 export async function savePartOrder({
   vehicle,
   customerId,
+  orderKind,
   parts,
   partReference,
   partDescription,
@@ -1251,6 +1253,7 @@ export async function savePartOrder({
     vehicleFlowId: vehicle.id,
     plate: vehicle.plate,
     customerId: cleanCustomerId,
+    orderKind,
     clientName: vehicle.clientName,
     consultantName: vehicle.consultantName,
     technicianName: vehicle.technicianName,
