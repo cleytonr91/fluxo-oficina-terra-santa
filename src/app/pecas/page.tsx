@@ -131,6 +131,11 @@ type MobisReceiptState = {
   error: string;
 };
 
+type MobisActionFeedback = {
+  type: "success" | "error";
+  message: string;
+} | null;
+
 const emptyMobisReceipt: MobisReceiptState = {
   fileName: "",
   invoiceNumber: "",
@@ -364,6 +369,7 @@ export default function PecasPage() {
   const [error, setError] = useState("");
   const [mobisReceipt, setMobisReceipt] = useState<MobisReceiptState>(emptyMobisReceipt);
   const [applyingReceiptId, setApplyingReceiptId] = useState("");
+  const [mobisActionFeedback, setMobisActionFeedback] = useState<MobisActionFeedback>(null);
   const [syncingPortal, setSyncingPortal] = useState(false);
   const [standaloneOpen, setStandaloneOpen] = useState(false);
   const [transportInfoModal, setTransportInfoModal] = useState<TransportInfoModal>(null);
@@ -665,6 +671,7 @@ export default function PecasPage() {
   async function handleMobisReceiptFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setMobisActionFeedback(null);
 
     try {
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -938,6 +945,7 @@ export default function PecasPage() {
     const receiptKey = `${order.id}-${match.item.id}`;
     setApplyingReceiptId(receiptKey);
     setError("");
+    setMobisActionFeedback(null);
 
     try {
       await updatePartOrder({
@@ -975,8 +983,19 @@ export default function PecasPage() {
             }
           : item
       )));
+      setMobisReceipt((current) => ({
+        ...current,
+        safe: current.safe.filter((currentMatch) => currentMatch.item.id !== match.item.id),
+        doubtful: current.doubtful.filter((currentMatch) => currentMatch.item.id !== match.item.id),
+      }));
+      setMobisActionFeedback({
+        type: "success",
+        message: `${match.item.partReference} foi marcada como disponível para ${order.clientName || order.plate || "o pedido selecionado"}.`,
+      });
     } catch (currentError) {
-      setError(currentError instanceof Error ? currentError.message : "Não foi possível aplicar o recebimento Mobis.");
+      const message = currentError instanceof Error ? currentError.message : "Não foi possível aplicar o recebimento Mobis.";
+      setError(message);
+      setMobisActionFeedback({ type: "error", message });
     } finally {
       setApplyingReceiptId("");
     }
@@ -1290,9 +1309,19 @@ export default function PecasPage() {
                   disabled={!mobisReceipt.safe.length || Boolean(applyingReceiptId)}
                   onClick={applySafeMobisMatches}
                 >
-                  Aplicar encontrados com segurança
+                  {applyingReceiptId ? "Aplicando..." : "Aplicar encontrados com segurança"}
                 </button>
               </div>
+
+              {mobisActionFeedback?.type === "success" && (
+                <p className="catalog-import-success" role="status">✓ {mobisActionFeedback.message}</p>
+              )}
+              {mobisActionFeedback?.type === "error" && (
+                <div className="duplicate-alert" role="alert">
+                  <strong>Não foi possível marcar como disponível</strong>
+                  <span>{mobisActionFeedback.message}</span>
+                </div>
+              )}
 
               <div className="mobis-review-grid">
                 <div className="mobis-review-column good">
@@ -1308,7 +1337,7 @@ export default function PecasPage() {
                         disabled={applyingReceiptId === `${match.recommended?.id}-${match.item.id}`}
                         onClick={() => applyMobisReceiptMatch(match)}
                       >
-                        Marcar disponível
+                        {applyingReceiptId === `${match.recommended?.id}-${match.item.id}` ? "Marcando..." : "Marcar disponível"}
                       </button>
                     </div>
                   )) : <p>Nenhum item neste grupo.</p>}
@@ -1332,7 +1361,7 @@ export default function PecasPage() {
                             disabled={applyingReceiptId === `${match.recommended.id}-${match.item.id}`}
                             onClick={() => applyMobisReceiptMatch(match, match.recommended)}
                           >
-                            Aplicar neste cliente
+                            {applyingReceiptId === `${match.recommended.id}-${match.item.id}` ? "Aplicando..." : "Aplicar neste cliente"}
                           </button>
                         </div>
                       )}
