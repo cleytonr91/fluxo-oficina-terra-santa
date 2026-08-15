@@ -602,7 +602,7 @@ export default function PecasPage() {
     const groupedItems = new Map<string, MobisReceiptItem>();
 
     items.forEach((item) => {
-      const key = normalizeCode(item.partReference);
+      const key = `${normalizeCode(item.mobisOrder)}::${normalizeCode(item.partReference)}`;
       const current = groupedItems.get(key);
 
       if (!current) {
@@ -610,15 +610,9 @@ export default function PecasPage() {
         return;
       }
 
-      const mobisOrders = Array.from(new Set([
-        ...current.mobisOrder.split(",").map((value) => value.trim()).filter(Boolean),
-        item.mobisOrder,
-      ]));
-
       groupedItems.set(key, {
         ...current,
         id: `${current.id}-${item.line}`,
-        mobisOrder: mobisOrders.join(", "),
         quantity: current.quantity + item.quantity,
       });
     });
@@ -627,15 +621,38 @@ export default function PecasPage() {
       const partCandidates = openOrders
         .filter((order) => orderHasPart(order, item.partReference))
         .sort((a, b) => orderTimeValue(a) - orderTimeValue(b));
+      const normalizedMobisOrder = normalizeCode(item.mobisOrder);
+      const exactCandidates = partCandidates.filter((order) => (
+        normalizedMobisOrder
+        && normalizeCode(order.orderNumber) === normalizedMobisOrder
+      ));
 
       if (!partCandidates.length) {
         notFound.push(item);
         return;
       }
 
-      const allocated = partCandidates.slice(0, item.quantity);
+      if (!exactCandidates.length) {
+        doubtful.push({
+          item,
+          candidates: partCandidates,
+          recommended: partCandidates[0],
+          reason: `Código localizado, mas o pedido Mobis ${item.mobisOrder || "não informado"} não corresponde ao pedido cadastrado`,
+        });
+        return;
+      }
 
-      allocated.forEach((order, index) => {
+      if (exactCandidates.length > item.quantity) {
+        doubtful.push({
+          item,
+          candidates: exactCandidates,
+          recommended: exactCandidates[0],
+          reason: `Pedido e código aparecem em ${exactCandidates.length} solicitações, mas somente ${item.quantity} unidade(s) foi(ram) recebida(s)`,
+        });
+        return;
+      }
+
+      exactCandidates.forEach((order, index) => {
         safe.push({
           item: {
             ...item,
@@ -644,16 +661,16 @@ export default function PecasPage() {
           },
           candidates: [order],
           recommended: order,
-          reason: `Fila mais antiga por referência (${index + 1}/${Math.min(item.quantity, partCandidates.length)} de ${item.quantity} recebida(s))`,
+          reason: `Pedido ${item.mobisOrder} + código confirmados (${index + 1}/${exactCandidates.length})`,
         });
       });
 
-      if (item.quantity > partCandidates.length) {
+      if (item.quantity > exactCandidates.length) {
         notFound.push({
           ...item,
           id: `${item.id}-saldo`,
-          quantity: item.quantity - partCandidates.length,
-          partDescription: `${item.partDescription} - SALDO SEM PEDIDO ABERTO`,
+          quantity: item.quantity - exactCandidates.length,
+          partDescription: `${item.partDescription} - SALDO SEM COMBINAÇÃO PEDIDO + CÓDIGO`,
         });
       }
     });
