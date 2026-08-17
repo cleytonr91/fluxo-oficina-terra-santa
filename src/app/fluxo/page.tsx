@@ -1037,6 +1037,13 @@ export default function FluxoPage() {
   }
 
   function openDeliveryModal(vehicle: VehicleFlow) {
+    setError("");
+    if (!vehicle.technicianName?.trim()) {
+      setError("Adicione um mecânico ao chip antes de registrar a entrega.");
+      setDetailVehicle(vehicle);
+      setTechnicianForm({ technicianName: "" });
+      return;
+    }
     const hasPartsRequest = Boolean(vehicle.partsOrdered) || hasActivePartOrder(vehicle.id, partOrders);
     setDeliveryVehicle(vehicle);
     setDeliveryForm({
@@ -1402,6 +1409,11 @@ export default function FluxoPage() {
     if (!deliveryVehicle) return;
 
     setError("");
+
+    if (!deliveryVehicle.technicianName?.trim()) {
+      setError("Adicione um mecânico ao chip antes de registrar a entrega.");
+      return;
+    }
 
     if (deliveryForm.deliveredOnTime === null) {
       setError("Informe se o veículo saiu no prazo.");

@@ -26,7 +26,7 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user && profile) router.replace(defaultPathForRole(profile.role));
+    if (!loading && user && profile) router.replace(defaultPathForRole(profile.role, profile.allowedPaths));
   }, [loading, profile, router, user]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -79,7 +79,7 @@ export default function LoginPage() {
                     <input required value={name} onChange={(event) => setName(event.target.value)} placeholder="Nome do colaborador" />
                   </label>
                   <label className="field">
-                    <span>Função</span>
+                    <span>Perfil</span>
                     <select value={role} onChange={(event) => setRole(event.target.value as UserRole)}>
                       {roleOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                     </select>

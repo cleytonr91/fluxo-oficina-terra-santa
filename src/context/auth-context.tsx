@@ -5,9 +5,10 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
   type User,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import {
   createContext,
   useCallback,
@@ -33,6 +34,7 @@ type AuthContextValue = {
     role: UserRole;
   }) => Promise<void>;
   logout: () => Promise<void>;
+  changeOwnPassword: (password: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -116,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           active: false,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
+          mustChangePassword: false,
         });
 
         setProfile(await loadProfile(credentials.user.uid));
@@ -130,9 +133,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut(getFirebaseAuth());
   }, []);
 
+  const changeOwnPassword = useCallback(async (password: string) => {
+    const currentUser = getFirebaseAuth().currentUser;
+    if (!currentUser) throw new Error("Sua sessão expirou. Entre novamente.");
+    await updatePassword(currentUser, password);
+    await updateDoc(doc(getFirebaseDb(), collections.users, currentUser.uid), {
+      mustChangePassword: false,
+      updatedAt: serverTimestamp(),
+    });
+    setProfile((current) => current ? { ...current, mustChangePassword: false } : current);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, profile, loading, login, createFirstAccess, logout }),
-    [user, profile, loading, login, createFirstAccess, logout],
+    () => ({ user, profile, loading, login, createFirstAccess, logout, changeOwnPassword }),
+    [user, profile, loading, login, createFirstAccess, logout, changeOwnPassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

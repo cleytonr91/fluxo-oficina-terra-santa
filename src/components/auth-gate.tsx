@@ -1,21 +1,24 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { FormEvent, useEffect, useState, type ReactNode } from "react";
 import { useAuth } from "@/context/auth-context";
 import { canAccessPath, defaultPathForRole } from "@/lib/access-control";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, profile, loading, logout } = useAuth();
-  const hasPageAccess = Boolean(profile?.active && canAccessPath(profile.role, pathname));
+  const { user, profile, loading, logout, changeOwnPassword } = useAuth();
+  const [newPassword, setNewPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const hasPageAccess = Boolean(profile?.active && canAccessPath(profile.role, pathname, profile.allowedPaths));
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
-    } else if (!loading && user && profile?.active && !canAccessPath(profile.role, pathname)) {
-      router.replace(defaultPathForRole(profile.role));
+    } else if (!loading && user && profile?.active && !canAccessPath(profile.role, pathname, profile.allowedPaths)) {
+      router.replace(defaultPathForRole(profile.role, profile.allowedPaths));
     }
   }, [loading, pathname, profile, router, user]);
 
@@ -41,11 +44,41 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <strong>Acesso aguardando autorização</strong>
           <p>
             Seu cadastro foi recebido, mas ainda precisa ser aprovado pelo administrador do sistema.
-            Assim que sua função for validada, o acesso será liberado.
+            Assim que seu perfil for validado, o acesso será liberado.
           </p>
           <button type="button" className="primary-btn" onClick={logout}>
             Sair
           </button>
+        </section>
+      </main>
+    );
+  }
+
+  async function handlePasswordChange(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPasswordError("");
+    setChangingPassword(true);
+    try {
+      await changeOwnPassword(newPassword);
+    } catch (error) {
+      setPasswordError(error instanceof Error ? error.message : "Não foi possível trocar a senha.");
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
+  if (profile.mustChangePassword) {
+    return (
+      <main className="pending-access-page">
+        <section className="pending-access-card">
+          <strong>Crie uma nova senha</strong>
+          <p>O administrador redefiniu seu acesso. Escolha uma senha pessoal para continuar.</p>
+          <form onSubmit={handlePasswordChange} className="stack">
+            <label className="field"><span>Nova senha</span><input type="password" minLength={6} required value={newPassword} onChange={(event) => setNewPassword(event.target.value)} /></label>
+            {passwordError && <span className="tag bad">{passwordError}</span>}
+            <button type="submit" className="primary-btn" disabled={changingPassword}>{changingPassword ? "Salvando..." : "Salvar nova senha"}</button>
+          </form>
+          <button type="button" className="ghost-btn" onClick={logout}>Sair</button>
         </section>
       </main>
     );

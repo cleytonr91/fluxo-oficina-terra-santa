@@ -18,6 +18,8 @@ export const collections = {
   bodyShopProcesses: "bodyShopProcesses",
   partsCounterEntries: "partsCounterEntries",
   partsSalesGoals: "partsSalesGoals",
+  farolObservations: "farolObservations",
+  farolDailyResults: "farolDailyResults",
 } as const;
 
 export type CollectionName = (typeof collections)[keyof typeof collections];

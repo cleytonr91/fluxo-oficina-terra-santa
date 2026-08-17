@@ -118,7 +118,7 @@ export function AppHeader({
         </div>
 
         <nav className={styles.drawerNavigation} aria-label="Páginas do sistema">
-          {navigation.filter((item) => canAccessPath(profile?.role, item.href)).map((item) => {
+            {navigation.filter((item) => canAccessPath(profile?.role, item.href, profile?.allowedPaths)).map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
             return (
@@ -134,15 +134,15 @@ export function AppHeader({
           })}
         </nav>
 
-        {(canAccessPath(profile?.role, "/admin") || canAccessPath(profile?.role, "/admin/auditoria")) && (
+        {(canAccessPath(profile?.role, "/admin", profile?.allowedPaths) || canAccessPath(profile?.role, "/admin/auditoria", profile?.allowedPaths)) && (
           <div className={styles.managementLinks}>
             <span>Gestão</span>
-            {canAccessPath(profile?.role, "/admin") && (
+            {canAccessPath(profile?.role, "/admin", profile?.allowedPaths) && (
               <Link href="/admin" className={pathname === "/admin" ? styles.activeDrawerLink : styles.drawerLink} onClick={() => setMenuOpen(false)}>
                 Usuários e acessos
               </Link>
             )}
-            {canAccessPath(profile?.role, "/admin/auditoria") && (
+            {canAccessPath(profile?.role, "/admin/auditoria", profile?.allowedPaths) && (
               <Link href="/admin/auditoria" className={pathname === "/admin/auditoria" ? styles.activeDrawerLink : styles.drawerLink} onClick={() => setMenuOpen(false)}>
                 Auditoria
               </Link>

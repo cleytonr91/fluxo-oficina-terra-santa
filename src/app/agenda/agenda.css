@@ -53,6 +53,17 @@
 .recurrence-pills button { border: 1px solid #c9dce2; border-radius: 5px; background: #fff; color: #5b7280; cursor: pointer; font-size: .68rem; font-weight: 800; padding: 7px 8px; }
 .recurrence-pills button.selected { border-color: #1f6d81; background: #1f6d81; color: #fff; }
 .month-pills button { min-width: 31px; padding-left: 5px; padding-right: 5px; }
+.meeting-participants { display: grid; gap: 6px; padding: 11px; border: 1px solid #d4e4e8; border-radius: 7px; background: #f4fafb; }
+.meeting-participants > strong { color: #315c70; font-size: .78rem; }
+.meeting-participants > small { color: #748995; font-size: .68rem; font-weight: 500; }
+.meeting-participant-list { display: grid; gap: 5px; max-height: 190px; overflow-y: auto; }
+.meeting-participant-option { display: flex !important; grid-template-columns: none !important; align-items: center; gap: 8px; padding: 7px; border: 1px solid transparent; border-radius: 5px; background: #fff; cursor: pointer; }
+.meeting-participant-option:hover { border-color: #bfdce3; background: #edf8fa; }
+.meeting-participant-option input { width: 16px !important; height: 16px; accent-color: #1f6d81; }
+.meeting-participant-option > span:nth-of-type(2) { display: grid; gap: 2px; }
+.meeting-participant-option b { color: #31536a; font-size: .75rem; }
+.meeting-participant-option small { color: #80919b; font-size: .66rem; font-weight: 500; }
+.meeting-avatar { display: inline-grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; background: #d9edf0; color: #1f6d81; font-size: .72rem; font-weight: 900; }
 .agenda-form-grid { display: grid; grid-template-columns: 1.5fr 1.5fr 1fr 1fr; gap: 10px; }
 .agenda-modal .modal-head { display: flex; justify-content: space-between; align-items: start; padding-bottom: 10px; border-bottom: 1px solid #e3e9ed; }
 .agenda-modal .modal-head span { display: block; color: #7b8b95; font-size: .7rem; font-weight: 900; text-transform: uppercase; }

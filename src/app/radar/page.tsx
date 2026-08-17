@@ -2,8 +2,11 @@
 
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
-import { listActiveVehicleFlows } from "@/services/firestore";
-import type { VehicleFlow } from "@/types/domain";
+import { useAuth } from "@/context/auth-context";
+import { downloadFarolPdf } from "@/lib/farol-pdf";
+import { historicalSalesResults } from "@/lib/balcao-indicators";
+import { listActiveVehicleFlows, saveFarolDailyResult, saveFarolObservation, subscribeFarolDailyResults, subscribeFarolObservations, subscribePartsCounterEntries, subscribePartsSalesGoals, type FarolDailyResult, type FarolObservation } from "@/services/firestore";
+import type { PartsCounterEntry, PartsSalesGoal, VehicleFlow } from "@/types/domain";
 
 
 type DailyResult = {
@@ -11,15 +14,16 @@ type DailyResult = {
   weekDay: string;
   shopGoal: number;
   shopDone: number | null;
+  revisionCount?: number | null;
+  shopPreviousYear?: number | null;
   beautyGoal: number;
   beautyDone: number | null;
+  beautyPreviousYear?: number | null;
   special?: "today" | "holiday" | "future";
 };
 
 type ChannelRevenue = {
-  channel: "Oficina Produtiva" | "Funilaria" | "Acessórios" | "Embelezamento" | "Balcão" | "Total";
-  parts: number;
-  services: number;
+  channel: "Oficina Produtiva" | "Acessórios" | "Embelezamento" | "Funilaria" | "Balcão";
   total: number;
 };
 
@@ -39,77 +43,210 @@ type GrossProfitMonth = {
   margin: number;
 };
 
-const monthSummary = {
-  month: "Julho",
-  today: "20/07/2026",
-  businessDays: 22,
-  passedDays: 14,
-  remainingDays: 8,
+type ProductivityPerson = {
+  name: string;
+  beauty: number;
+  revision: number;
+  repair: number;
+  diagnosis: number;
+  total: number;
 };
 
-const financialRows: DailyResult[] = [
-  { weekDay: "SEG", day: "01/jul", shopGoal: 7273, shopDone: 9210, beautyGoal: 1591, beautyDone: 1224 },
-  { weekDay: "TER", day: "02/jul", shopGoal: 7273, shopDone: 6747, beautyGoal: 1591, beautyDone: 2100 },
-  { weekDay: "QUA", day: "03/jul", shopGoal: 7273, shopDone: 4929, beautyGoal: 1591, beautyDone: 887 },
-  { weekDay: "QUI", day: "04/jul", shopGoal: 0, shopDone: null, beautyGoal: 0, beautyDone: null, special: "holiday" },
-  { weekDay: "SEX", day: "05/jul", shopGoal: 7273, shopDone: 7458, beautyGoal: 1591, beautyDone: 1250 },
-  { weekDay: "SAB", day: "06/jul", shopGoal: 3636, shopDone: 1519, beautyGoal: 795, beautyDone: 520 },
-  { weekDay: "SEG", day: "08/jul", shopGoal: 7273, shopDone: 7033, beautyGoal: 1591, beautyDone: 750 },
-  { weekDay: "TER", day: "09/jul", shopGoal: 7273, shopDone: 6283, beautyGoal: 1591, beautyDone: 1749 },
-  { weekDay: "QUA", day: "10/jul", shopGoal: 7273, shopDone: 10012, beautyGoal: 1591, beautyDone: 1010 },
-  { weekDay: "QUI", day: "11/jul", shopGoal: 7273, shopDone: 8834, beautyGoal: 1591, beautyDone: 850 },
-  { weekDay: "SEX", day: "12/jul", shopGoal: 7273, shopDone: 4239, beautyGoal: 1591, beautyDone: 1660 },
-  { weekDay: "SAB", day: "13/jul", shopGoal: 3636, shopDone: 2615, beautyGoal: 795, beautyDone: 610 },
-  { weekDay: "SEG", day: "15/jul", shopGoal: 3636, shopDone: 9087, beautyGoal: 1591, beautyDone: 1820 },
-  { weekDay: "TER", day: "16/jul", shopGoal: 7273, shopDone: 6433, beautyGoal: 1591, beautyDone: 1660 },
-  { weekDay: "QUA", day: "17/jul", shopGoal: 7273, shopDone: 9248, beautyGoal: 1591, beautyDone: 2159 },
-  { weekDay: "QUI", day: "18/jul", shopGoal: 7273, shopDone: 7633, beautyGoal: 1591, beautyDone: 2400 },
-  { weekDay: "SEX", day: "19/jul", shopGoal: 7273, shopDone: 8793, beautyGoal: 1591, beautyDone: 1120 },
-  { weekDay: "SAB", day: "20/jul", shopGoal: 3636, shopDone: 7082, beautyGoal: 795, beautyDone: 960, special: "today" },
-  { weekDay: "SEG", day: "22/jul", shopGoal: 7273, shopDone: 9140, beautyGoal: 1591, beautyDone: 870 },
-  { weekDay: "TER", day: "23/jul", shopGoal: 7273, shopDone: 8123, beautyGoal: 1591, beautyDone: 600 },
-  { weekDay: "QUA", day: "24/jul", shopGoal: 0, shopDone: null, beautyGoal: 0, beautyDone: null, special: "holiday" },
-  { weekDay: "QUI", day: "25/jul", shopGoal: 7273, shopDone: null, beautyGoal: 1591, beautyDone: null, special: "future" },
-  { weekDay: "SEX", day: "26/jul", shopGoal: 7273, shopDone: null, beautyGoal: 1591, beautyDone: null, special: "future" },
-  { weekDay: "SAB", day: "27/jul", shopGoal: 3636, shopDone: null, beautyGoal: 795, beautyDone: null, special: "future" },
-  { weekDay: "SEG", day: "29/jul", shopGoal: 7273, shopDone: null, beautyGoal: 1591, beautyDone: null, special: "future" },
-  { weekDay: "TER", day: "30/jul", shopGoal: 7273, shopDone: null, beautyGoal: 1591, beautyDone: null, special: "future" },
+type BalcaoSummary = {
+  sold: number;
+  lost: number;
+  expectation: number;
+  projectedOrders: number;
+  salesDailyAverage: number;
+  goal: number;
+  dailyGoal: number;
+  todaySales: number;
+};
+
+const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+function monthLabel(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return `${monthNames[month - 1]} ${year}`;
+}
+
+function monthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function businessDayWeight(date: Date) {
+  const weekDay = date.getDay();
+  if (weekDay === 0) return 0;
+  return weekDay === 6 ? 0.5 : 1;
+}
+
+function buildMonthSummary(selectedMonth: string, today: Date) {
+  const [year, month] = selectedMonth.split("-").map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const selectedOrder = year * 12 + month;
+  const currentOrder = today.getFullYear() * 12 + today.getMonth() + 1;
+  let businessDays = 0;
+  let passedDays = 0;
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const weight = businessDayWeight(new Date(year, month - 1, day));
+    businessDays += weight;
+    if (selectedOrder < currentOrder || (selectedOrder === currentOrder && day <= today.getDate())) passedDays += weight;
+  }
+
+  return {
+    today: today.toLocaleDateString("pt-BR"),
+    businessDays,
+    passedDays,
+    remainingDays: Math.max(0, businessDays - passedDays),
+  };
+}
+
+function formatDayCount(value: number) {
+  return value.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+}
+
+function timestampDate(value: VehicleFlow["createdAt"] | VehicleFlow["deliveredAt"]) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "string") return new Date(value);
+  const candidate = value as unknown as { toDate?: () => Date };
+  if (typeof candidate.toDate === "function") return candidate.toDate();
+  return null;
+}
+
+function partsDate(value: PartsCounterEntry["createdAt"] | PartsCounterEntry["occurredOn"]) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "string") return new Date(value.includes("T") ? value : `${value}T12:00:00`);
+  const candidate = value as unknown as { toDate?: () => Date };
+  return typeof candidate.toDate === "function" ? candidate.toDate() : null;
+}
+
+function partsEntryMonth(entry: PartsCounterEntry) {
+  const date = partsDate(entry.occurredOn ?? entry.createdAt);
+  return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
+}
+
+function partsEntryDateKey(entry: PartsCounterEntry) {
+  const date = partsDate(entry.occurredOn ?? entry.createdAt);
+  return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}` : "";
+}
+
+function partsEntryTotal(entry: PartsCounterEntry) {
+  return entry.items.reduce((total, item) => total + item.quantity * item.unitPrice, 0) + (entry.freightAmount ?? 0);
+}
+
+function projectedOrderTotal(entry: PartsCounterEntry, selectedMonth: string) {
+  const monthEnd = `${selectedMonth}-31`;
+  const itemsTotal = entry.items.reduce((total, item) => total + item.quantity * item.unitPrice, 0);
+  const eligibleItemsTotal = entry.items.reduce((total, item) => {
+    if (!item.expectedArrivalDate || item.expectedArrivalDate > monthEnd) return total;
+    return total + item.quantity * item.unitPrice;
+  }, 0);
+  const freightShare = itemsTotal ? (eligibleItemsTotal / itemsTotal) * (entry.freightAmount ?? 0) : 0;
+  return eligibleItemsTotal + freightShare;
+}
+
+function belongsToMonth(vehicle: VehicleFlow, selectedMonth: string) {
+  const dates = [timestampDate(vehicle.createdAt), timestampDate(vehicle.deliveredAt)].filter(Boolean) as Date[];
+  const timestampMatches = dates.some((date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` === selectedMonth);
+  return timestampMatches || vehicle.appointmentDate?.slice(0, 7) === selectedMonth;
+}
+
+const july2026FinancialRows: DailyResult[] = [
+  { weekDay: "QUA", day: "01/jul", shopGoal: 6667, shopDone: 7933, revisionCount: 5, beautyGoal: 1458, beautyDone: 1500 },
+  { weekDay: "QUI", day: "02/jul", shopGoal: 6667, shopDone: 11532, revisionCount: 13, beautyGoal: 1458, beautyDone: 1780 },
+  { weekDay: "SEX", day: "03/jul", shopGoal: 6667, shopDone: 11480, revisionCount: 16, beautyGoal: 1458, beautyDone: 2506 },
+  { weekDay: "SAB", day: "04/jul", shopGoal: 3333, shopDone: 5608, revisionCount: 3, beautyGoal: 729, beautyDone: 770 },
+  { weekDay: "SEG", day: "06/jul", shopGoal: 6667, shopDone: 9160, revisionCount: 11, beautyGoal: 1458, beautyDone: 1320 },
+  { weekDay: "TER", day: "07/jul", shopGoal: 6667, shopDone: 8349, revisionCount: 14, beautyGoal: 1458, beautyDone: 1010 },
+  { weekDay: "QUA", day: "08/jul", shopGoal: 6667, shopDone: null, beautyGoal: 1458, beautyDone: null },
+  { weekDay: "QUI", day: "09/jul", shopGoal: 6667, shopDone: 17029, revisionCount: 14, beautyGoal: 1458, beautyDone: 1310 },
+  { weekDay: "SEX", day: "10/jul", shopGoal: 6667, shopDone: 9527, revisionCount: 14, beautyGoal: 1458, beautyDone: 1040 },
+  { weekDay: "SAB", day: "11/jul", shopGoal: 3333, shopDone: 5887, revisionCount: 7, beautyGoal: 729, beautyDone: 494 },
+  { weekDay: "SEG", day: "13/jul", shopGoal: 6667, shopDone: 4827, revisionCount: 9, beautyGoal: 1458, beautyDone: 774 },
+  { weekDay: "TER", day: "14/jul", shopGoal: 6667, shopDone: 11511, revisionCount: 14, beautyGoal: 1458, beautyDone: 2370 },
+  { weekDay: "QUA", day: "15/jul", shopGoal: 6667, shopDone: 4395, revisionCount: 6, beautyGoal: 1458, beautyDone: 340 },
+  { weekDay: "QUI", day: "16/jul", shopGoal: 6667, shopDone: 7826, revisionCount: 8, beautyGoal: 1458, beautyDone: 2927 },
+  { weekDay: "SEX", day: "17/jul", shopGoal: 6667, shopDone: 6289, revisionCount: 11, beautyGoal: 1458, beautyDone: 2240 },
+  { weekDay: "SAB", day: "18/jul", shopGoal: 3333, shopDone: 3521, revisionCount: 3, beautyGoal: 729, beautyDone: 1580 },
+  { weekDay: "SEG", day: "20/jul", shopGoal: 6667, shopDone: 11722, revisionCount: 13, beautyGoal: 1458, beautyDone: 820 },
+  { weekDay: "TER", day: "21/jul", shopGoal: 6667, shopDone: 11559, revisionCount: 13, beautyGoal: 1458, beautyDone: 3070 },
+  { weekDay: "QUA", day: "22/jul", shopGoal: 6667, shopDone: 9431, revisionCount: 9, beautyGoal: 1458, beautyDone: 920 },
+  { weekDay: "QUI", day: "23/jul", shopGoal: 6667, shopDone: 9338, revisionCount: 17, beautyGoal: 1458, beautyDone: 3070 },
+  { weekDay: "SEX", day: "24/jul", shopGoal: 6667, shopDone: 9285, revisionCount: 14, beautyGoal: 1458, beautyDone: 1305 },
+  { weekDay: "SAB", day: "25/jul", shopGoal: 3333, shopDone: 3781, revisionCount: 4, beautyGoal: 729, beautyDone: 360 },
+  { weekDay: "SEG", day: "27/jul", shopGoal: 6667, shopDone: 8253, revisionCount: 12, beautyGoal: 1458, beautyDone: 2820 },
+  { weekDay: "TER", day: "28/jul", shopGoal: 6667, shopDone: 11824, revisionCount: 15, beautyGoal: 1458, beautyDone: 1040 },
+  { weekDay: "QUA", day: "29/jul", shopGoal: 6667, shopDone: 9785, revisionCount: 15, beautyGoal: 1458, beautyDone: 1180 },
+  { weekDay: "QUI", day: "30/jul", shopGoal: 6667, shopDone: 10414, revisionCount: 14, beautyGoal: 1458, beautyDone: 1380 },
+  { weekDay: "SEX", day: "31/jul", shopGoal: 6667, shopDone: 6209, revisionCount: 10, beautyGoal: 1458, beautyDone: 1370 },
 ];
 
-const june2026: ChannelRevenue[] = [
-  { channel: "Oficina Produtiva", parts: 260324.95, services: 174513.33, total: 434838.28 },
-  { channel: "Funilaria", parts: 56504.55, services: 11265.24, total: 67769.79 },
-  { channel: "Acessórios", parts: 59829, services: 22800, total: 82629 },
-  { channel: "Embelezamento", parts: 0, services: 41050.4, total: 41050.4 },
-  { channel: "Balcão", parts: 32151.2, services: 0, total: 32151.2 },
-  { channel: "Total", parts: 408809.7, services: 249628.97, total: 658438.67 },
+const dailyPreviousYearResults: Record<string, Record<number, { shop: number; beauty: number }>> = {
+  "2025-08": {
+    1: { shop: 5522, beauty: 480 },
+    2: { shop: 1404, beauty: 0 },
+    4: { shop: 8189, beauty: 1385 },
+    5: { shop: 7475, beauty: 1120 },
+    6: { shop: 4261, beauty: 60 },
+    7: { shop: 6384, beauty: 1150 },
+    8: { shop: 7282, beauty: 830 },
+    9: { shop: 2760, beauty: 400 },
+    11: { shop: 5942, beauty: 2240 },
+    12: { shop: 11017, beauty: 2160 },
+    13: { shop: 4410, beauty: 2170 },
+    14: { shop: 3946, beauty: 879 },
+    15: { shop: 10891, beauty: 930 },
+    16: { shop: 1511, beauty: 530 },
+    18: { shop: 6333, beauty: 900 },
+    19: { shop: 6328, beauty: 1225 },
+    20: { shop: 6576, beauty: 1169 },
+    21: { shop: 4675, beauty: 1120 },
+    22: { shop: 4344, beauty: 2230 },
+    23: { shop: 3683, beauty: 330 },
+    25: { shop: 5993, beauty: 2070 },
+    26: { shop: 5806, beauty: 370 },
+    27: { shop: 8859, beauty: 2010 },
+    28: { shop: 5928, beauty: 1340 },
+    29: { shop: 6056, beauty: 2130 },
+    30: { shop: 3084, beauty: 3350 },
+  },
+};
+
+const august2026ChannelRevenue: ChannelRevenue[] = [
+  { channel: "Oficina Produtiva", total: 132012.77 },
+  { channel: "Acessórios", total: 0 },
+  { channel: "Embelezamento", total: 12592.67 },
+  { channel: "Funilaria", total: 15400 },
+  { channel: "Balcão", total: 22275.12 },
 ];
 
-const may2026: ChannelRevenue[] = [
-  { channel: "Oficina Produtiva", parts: 230577.29, services: 161491.16, total: 392068.45 },
-  { channel: "Funilaria", parts: 54298.61, services: 22297.69, total: 76596.3 },
-  { channel: "Acessórios", parts: 64811.71, services: 38370, total: 103181.71 },
-  { channel: "Embelezamento", parts: 0, services: 48145.48, total: 48145.48 },
-  { channel: "Balcão", parts: 43642.88, services: 0, total: 43642.88 },
-  { channel: "Total", parts: 393330.49, services: 270304.33, total: 663634.82 },
-];
-
-const june2025: ChannelRevenue[] = [
-  { channel: "Oficina Produtiva", parts: 199167.2, services: 119002.99, total: 318170.19 },
-  { channel: "Funilaria", parts: 66881.67, services: 23566, total: 90447.67 },
-  { channel: "Acessórios", parts: 14392.1, services: 18457.9, total: 32850 },
-  { channel: "Embelezamento", parts: 0, services: 48709.39, total: 48709.39 },
-  { channel: "Balcão", parts: 3632.84, services: 0, total: 3632.84 },
-  { channel: "Total", parts: 284073.81, services: 209736.28, total: 493810.09 },
-];
+const august2026ChannelTotal = 182280.56;
+const august2026RevenuePerBusinessDay = 15850.48;
 
 const monthlyTrend = [
-  { label: "Jan/26", total: 633691.08 },
-  { label: "Fev/26", total: 639068.4 },
-  { label: "Mar/26", total: 559610.54 },
-  { label: "Abr/26", total: 589008.96 },
-  { label: "Mai/26", total: 663634.82 },
-  { label: "Jun/26", total: 658438.67 },
+  { month: "2025-01", label: "Jan/25", parts: 241108.24, services: 246289.65, total: 487397.89 },
+  { month: "2025-02", label: "Fev/25", parts: 223302, services: 211887, total: 435189 },
+  { month: "2025-03", label: "Mar/25", parts: 247638.1, services: 198178.92, total: 445817.02 },
+  { month: "2025-04", label: "Abr/25", parts: 281201.09, services: 234402.04, total: 515603.13 },
+  { month: "2025-05", label: "Mai/25", parts: 372002.8, services: 266928.45, total: 638931.25 },
+  { month: "2025-06", label: "Jun/25", parts: 284073.81, services: 209736.28, total: 493810.09 },
+  { month: "2025-07", label: "Jul/25", parts: 380146.58, services: 274569.81, total: 654716.39 },
+  { month: "2025-08", label: "Ago/25", parts: 272387.63, services: 226228.86, total: 498616.49 },
+  { month: "2025-09", label: "Set/25", parts: 308081.85, services: 250528.65, total: 558610.5 },
+  { month: "2025-10", label: "Out/25", parts: 365392.23, services: 259119.86, total: 624512.09 },
+  { month: "2025-11", label: "Nov/25", parts: 331809.81, services: 236757.54, total: 568567.35 },
+  { month: "2025-12", label: "Dez/25", parts: 280929.29, services: 261207.24, total: 542136.53 },
+  { month: "2026-01", label: "Jan/26", parts: 323918.21, services: 277066.15, total: 600984.36 },
+  { month: "2026-02", label: "Fev/26", parts: 409043.72, services: 233893.49, total: 642937.21 },
+  { month: "2026-03", label: "Mar/26", parts: 341570.1, services: 214654.11, total: 556224.21 },
+  { month: "2026-04", label: "Abr/26", parts: 335258.4, services: 249645.91, total: 584904.31 },
+  { month: "2026-05", label: "Mai/26", parts: 393241.62, services: 270270.79, total: 663512.41 },
+  { month: "2026-06", label: "Jun/26", parts: 408626.59, services: 249430.37, total: 658056.96 },
+  { month: "2026-07", label: "Jul/26", parts: 414682.19, services: 321911, total: 736593.19 },
+  { month: "2026-08", label: "Ago/26", parts: 112413.6, services: 70138.61, total: 182552.21 },
 ];
 
 const grossProfitTrend: GrossProfitMonth[] = [
@@ -122,14 +259,53 @@ const grossProfitTrend: GrossProfitMonth[] = [
   { label: "Jul", planned: 288244.79, realized: 184033.77, previousYear: 288424.89, margin: 56.32 },
 ];
 
-const productivityMetrics: ProductivityMetric[] = [
-  { label: "Revisões", current: 138, lastYear: 263, type: "number", note: "Base usada para calcular TKM." },
-  { label: "TKM serviços", current: 869, lastYear: 682, type: "currency", note: "Serviços totais divididos por revisões." },
-  { label: "TKM serv. adicionais", current: 319, lastYear: 171, type: "currency", note: "Adicionais divididos por revisões." },
-  { label: "TKM estética", current: 143, lastYear: 178, type: "currency", note: "Embelezamento da oficina dividido por revisões." },
-  { label: "Oficina produtiva", current: 109600, lastYear: 169230, type: "currency", note: "Mão de obra e serviços da oficina." },
-  { label: "Fat. total serviços", current: 155204, lastYear: 274673, type: "currency", note: "Serviços totais do período." },
-];
+const serviceReportSnapshots: Record<string, { revisions: number; revisionSales: number; mechanicsSales: number; additionalSales: number; beautySales: number; productiveShop: number; totalServices: number; tkmServices?: number; tkmAdditional?: number; tkmBeauty?: number }> = {
+  "2025-07": {
+    revisions: 263,
+    revisionSales: 87968,
+    mechanicsSales: 36409,
+    additionalSales: 44853,
+    beautySales: 46800,
+    productiveShop: 169230,
+    totalServices: 274673,
+    tkmServices: 682,
+    tkmAdditional: 171,
+    tkmBeauty: 178,
+  },
+  "2026-07": {
+    revisions: 281,
+    revisionSales: 114710.32,
+    mechanicsSales: 27828.88,
+    additionalSales: 84660.52,
+    beautySales: 40332.37,
+    productiveShop: 227510,
+    totalServices: 321911,
+    tkmServices: 853,
+    tkmAdditional: 301,
+    tkmBeauty: 144,
+  },
+  "2025-08": {
+    revisions: 238,
+    revisionSales: 73866,
+    mechanicsSales: 31128,
+    additionalSales: 51851,
+    beautySales: 29289,
+    productiveShop: 156845,
+    totalServices: 226801,
+    tkmServices: 651,
+    tkmAdditional: 218,
+    tkmBeauty: 123,
+  },
+  "2026-08": {
+    revisions: 71,
+    revisionSales: 28239.26,
+    mechanicsSales: 17444.7,
+    additionalSales: 21100.65,
+    beautySales: 12202.09,
+    productiveShop: 66784.61,
+    totalServices: 70138.61,
+  },
+};
 
 function formatCurrency(value: number | null) {
   if (value === null) return "-";
@@ -149,21 +325,67 @@ function formatDeltaPercent(value: number) {
   return `${signal}${value.toFixed(1).replace(".", ",")}%`;
 }
 
-function sumRows(field: "shopGoal" | "shopDone" | "beautyGoal" | "beautyDone") {
-  return financialRows.reduce((sum, row) => sum + (row[field] ?? 0), 0);
+function buildFinancialRows(selectedMonth: string, shopMonthlyGoal: number, beautyMonthlyGoal: number, today: Date, enteredResults: FarolDailyResult[]) {
+  const resultByDay = new Map(enteredResults.filter((item) => item.month === selectedMonth).map((item) => [item.day, item]));
+  if (selectedMonth === "2026-07") return july2026FinancialRows.map((row) => {
+    const day = Number(row.day.slice(0, 2));
+    const entered = resultByDay.get(day);
+    return entered ? { ...row, shopDone: entered.revision + entered.generalMechanics + entered.alignmentBalancing, revisionCount: entered.revisionCount, beautyDone: entered.beauty } : row;
+  });
+
+  const [year, month] = selectedMonth.split("-").map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const businessDays = buildMonthSummary(selectedMonth, today).businessDays;
+  const previousYearKey = `${year - 1}-${String(month).padStart(2, "0")}`;
+  const previousYearResults = dailyPreviousYearResults[previousYearKey] ?? {};
+  const shopFullDayGoal = businessDays ? shopMonthlyGoal / businessDays : 0;
+  const beautyFullDayGoal = businessDays ? beautyMonthlyGoal / businessDays : 0;
+  const rows: DailyResult[] = [];
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = new Date(year, month - 1, day);
+    const weight = businessDayWeight(date);
+    if (!weight) continue;
+
+    const dateOrder = new Date(year, month - 1, day).getTime();
+    const todayOrder = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const special: DailyResult["special"] = dateOrder === todayOrder ? "today" : dateOrder > todayOrder ? "future" : undefined;
+    const previousYearResult = previousYearResults[day];
+    const entered = resultByDay.get(day);
+    rows.push({
+      weekDay: date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "").toUpperCase(),
+      day: `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}`,
+      shopGoal: shopFullDayGoal * weight,
+      shopDone: entered ? entered.revision + entered.generalMechanics + entered.alignmentBalancing : null,
+      revisionCount: entered?.revisionCount ?? null,
+      shopPreviousYear: previousYearResult?.shop ?? null,
+      beautyGoal: beautyFullDayGoal * weight,
+      beautyDone: entered ? entered.beauty : null,
+      beautyPreviousYear: previousYearResult?.beauty ?? null,
+      special,
+    });
+  }
+
+  return rows;
+}
+
+function formatCompactCurrency(value: number) {
+  if (value >= 1000000) return `R$ ${(value / 1000000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (value >= 1000) return `R$ ${(value / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
+  return `R$ ${Math.round(value).toLocaleString("pt-BR")}`;
+}
+
+function sumRows(rows: DailyResult[], field: "shopGoal" | "shopDone" | "beautyGoal" | "beautyDone") {
+  return rows.reduce((sum, row) => sum + (row[field] ?? 0), 0);
 }
 
 function areaSummary(goal: number, done: number, passedDays: number, businessDays: number) {
-  const missing = goal - done;
+  const balance = done - goal;
   const dailyAverage = passedDays ? done / passedDays : 0;
   const projection = dailyAverage * businessDays;
   const percent = goal ? (done / goal) * 100 : 0;
 
-  return { goal, done, missing, projection, percent };
-}
-
-function getChannel(rows: ChannelRevenue[], channel: ChannelRevenue["channel"]) {
-  return rows.find((item) => item.channel === channel);
+  return { goal, done, balance, projection, percent };
 }
 
 function variation(current: number, previous: number) {
@@ -171,12 +393,85 @@ function variation(current: number, previous: number) {
   return ((current - previous) / previous) * 100;
 }
 
-function isDeliveredToday(vehicle: VehicleFlow) {
-  return vehicle.currentLane === "entregue";
+function productivityType(vehicle: VehicleFlow): keyof Pick<ProductivityPerson, "beauty" | "revision" | "repair" | "diagnosis"> {
+  const label = (vehicle.serviceLabel ?? "").toLowerCase();
+  if (label.includes("embelez") || label.includes("lavagem")) return "beauty";
+  if (label.includes("diagnóstico") || label.includes("diagnostico")) return "diagnosis";
+  if (label.includes("reparo") || label.includes("mecân") || label.includes("mecan") || label.includes("funilar")) return "repair";
+  return "revision";
+}
+
+function serviceTypeForFlow(vehicle: VehicleFlow) {
+  const type = productivityType(vehicle);
+  if (type === "diagnosis") return "diagnosis";
+  if (type === "repair") return "repair";
+  return "revision";
+}
+
+function monthFromDate(value: VehicleFlow["appointmentDate"] | VehicleFlow["deliveredAt"]) {
+  if (!value) return "";
+  if (typeof value === "string") return value.slice(0, 7);
+  const date = timestampDate(value);
+  return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
+}
+
+const productivityPeople = {
+  consultantName: ["Rosangela", "Cleverton", "Eliane", "Luan"],
+  technicianName: ["Ayslan", "Gilvan", "Wesley", "Hernando", "Elimarcos", "Igo"],
+} satisfies Record<"consultantName" | "technicianName", string[]>;
+
+const productivityAliases: Record<string, string[]> = {
+  Ayslan: ["ayslan", "aylan"],
+};
+
+function normalizePersonName(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+function buildProductivity(vehicles: VehicleFlow[], selectedMonth: string, personKey: "consultantName" | "technicianName") {
+  const allowedPeople = productivityPeople[personKey];
+  const accountablePeople = [...allowedPeople, "Não identificado"];
+  const grouped = new Map<string, ProductivityPerson>(accountablePeople.map((name) => [name, { name, beauty: 0, revision: 0, repair: 0, diagnosis: 0, total: 0 }]));
+
+  vehicles
+    .filter((vehicle) => monthFromDate(vehicle.deliveredAt) === selectedMonth)
+    .forEach((vehicle) => {
+      const sourceName = vehicle[personKey]?.trim();
+      const sourceTokens = sourceName ? normalizePersonName(sourceName).split(/\s+/) : [];
+      const type = productivityType(vehicle);
+      const identifiedName = allowedPeople.find((candidate) => {
+        const aliases = productivityAliases[candidate] ?? [normalizePersonName(candidate)];
+        return aliases.some((alias) => sourceTokens.includes(alias));
+      });
+      const name = identifiedName ?? (personKey === "technicianName" && type === "beauty" ? "Igo" : "Não identificado");
+
+      const current = grouped.get(name)!;
+      current[type] += 1;
+      current.total += 1;
+      grouped.set(name, current);
+    });
+
+  return accountablePeople.map((name) => grouped.get(name)!);
 }
 
 export default function FarolGerencialPage() {
+  const { profile } = useAuth();
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
+  const [partsEntries, setPartsEntries] = useState<PartsCounterEntry[]>([]);
+  const [partsGoals, setPartsGoals] = useState<PartsSalesGoal[]>([]);
+  const [dailyResults, setDailyResults] = useState<FarolDailyResult[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
+  const [comparePreviousYear, setComparePreviousYear] = useState(true);
+  const [observations, setObservations] = useState<Record<string, string>>({});
+  const [observationValues, setObservationValues] = useState<Record<string, string>>({});
+  const [activeObservation, setActiveObservation] = useState<{ key: string; label: string } | null>(null);
+  const [observationValueDraft, setObservationValueDraft] = useState("");
+  const [observationCommentDraft, setObservationCommentDraft] = useState("");
+  const [savingObservation, setSavingObservation] = useState("");
+  const [activeDailyResult, setActiveDailyResult] = useState(false);
+  const [dailyResultDraft, setDailyResultDraft] = useState({ day: 1, revision: "", revisionCount: "", generalMechanics: "", alignmentBalancing: "", beauty: "" });
+  const [savingDailyResult, setSavingDailyResult] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -205,27 +500,204 @@ export default function FarolGerencialPage() {
     };
   }, []);
 
-  const shop = useMemo(() => areaSummary(160000, sumRows("shopDone"), monthSummary.passedDays, monthSummary.businessDays), []);
-  const beauty = useMemo(() => areaSummary(35000, sumRows("beautyDone"), monthSummary.passedDays, monthSummary.businessDays), []);
+  useEffect(() => subscribeFarolObservations((items: FarolObservation[]) => {
+    const monthItems = items.filter((item) => item.month === selectedMonth);
+    setObservations(Object.fromEntries(monthItems.map((item) => [item.indicatorKey, item.text])));
+    setObservationValues(Object.fromEntries(monthItems.map((item) => [item.indicatorKey, item.value ?? ""])));
+  }, (currentError) => setError(currentError.message)), [selectedMonth]);
+
+  useEffect(() => subscribePartsCounterEntries(setPartsEntries, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribePartsSalesGoals(setPartsGoals, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribeFarolDailyResults(setDailyResults, (currentError) => setError(currentError.message)), []);
+
+  const monthSummary = useMemo(() => buildMonthSummary(selectedMonth, new Date()), [selectedMonth]);
+  const financialRows = useMemo(() => buildFinancialRows(selectedMonth, 160000, 35000, new Date(), dailyResults), [dailyResults, selectedMonth]);
+  const dailyRowsByHalf = useMemo(() => [financialRows.slice(0, 13), financialRows.slice(13)], [financialRows]);
+  const shop = useMemo(() => areaSummary(160000, sumRows(financialRows, "shopDone"), monthSummary.passedDays, monthSummary.businessDays), [financialRows, monthSummary]);
+  const beauty = useMemo(() => areaSummary(35000, sumRows(financialRows, "beautyDone"), monthSummary.passedDays, monthSummary.businessDays), [financialRows, monthSummary]);
+  const productivityMetrics = useMemo<ProductivityMetric[]>(() => {
+    const entries = dailyResults.filter((item) => item.month === selectedMonth);
+    const snapshot = serviceReportSnapshots[selectedMonth];
+    const [selectedYear, selectedMonthNumber] = selectedMonth.split("-").map(Number);
+    const previousSnapshot = serviceReportSnapshots[`${selectedYear - 1}-${String(selectedMonthNumber).padStart(2, "0")}`];
+    if (!entries.length && !snapshot) return [
+      { label: "Vendas de revisão", current: 0, lastYear: previousSnapshot?.revisionSales ?? 0, type: "currency", note: "Valor da categoria Revisão." },
+      { label: "Revisões", current: 0, lastYear: previousSnapshot?.revisions ?? 0, type: "number", note: "Quantidade lida da categoria Revisão." },
+      { label: "Embelezamento", current: 0, lastYear: previousSnapshot?.beautySales ?? 0, type: "currency", note: "Vendas de embelezamento." },
+      { label: "TKM embelezamento", current: 0, lastYear: previousSnapshot?.tkmBeauty ?? 0, type: "currency", note: "Embelezamento dividido por revisões." },
+      { label: "Serviços adicionais", current: 0, lastYear: previousSnapshot?.additionalSales ?? 0, type: "currency", note: "Vendas de alinhamento e balanceamento." },
+      { label: "TKM serv. adicionais", current: 0, lastYear: previousSnapshot?.tkmAdditional ?? 0, type: "currency", note: "Alinhamento e balanceamento divididos por revisões." },
+      { label: "Oficina produtiva", current: 0, lastYear: previousSnapshot?.productiveShop ?? 0, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
+      { label: "Fat. total serviços", current: 0, lastYear: previousSnapshot?.totalServices ?? 0, type: "currency", note: "Faturamento total de serviços." },
+      { label: "TKM serviços", current: 0, lastYear: previousSnapshot?.tkmServices ?? 0, type: "currency", note: "TKM geral de serviços." },
+    ];
+
+    const revisions = entries.length ? entries.reduce((total, item) => total + item.revisionCount, 0) : snapshot!.revisions;
+    const revisionSales = entries.length ? entries.reduce((total, item) => total + item.revision, 0) : snapshot!.revisionSales;
+    const mechanicsSales = entries.length ? entries.reduce((total, item) => total + item.generalMechanics, 0) : snapshot!.mechanicsSales;
+    const additionalSales = entries.length ? entries.reduce((total, item) => total + item.alignmentBalancing, 0) : snapshot!.additionalSales;
+    const beautySales = entries.length ? entries.reduce((total, item) => total + item.beauty, 0) : snapshot!.beautySales;
+    const productiveShop = entries.length ? revisionSales + mechanicsSales + additionalSales : snapshot!.productiveShop;
+    const totalServices = entries.length ? productiveShop + beautySales : snapshot!.totalServices;
+    const perRevision = (value: number) => revisions ? value / revisions : 0;
+    const tkmServices = entries.length ? perRevision(totalServices) : snapshot!.tkmServices ?? perRevision(totalServices);
+    const tkmAdditional = entries.length ? perRevision(additionalSales) : snapshot?.tkmAdditional ?? perRevision(additionalSales);
+    const tkmBeauty = entries.length ? perRevision(beautySales) : snapshot?.tkmBeauty ?? perRevision(beautySales);
+    return [
+      { label: "Vendas de revisão", current: revisionSales, lastYear: previousSnapshot?.revisionSales ?? 0, type: "currency", note: "Valor da categoria Revisão." },
+      { label: "Revisões", current: revisions, lastYear: previousSnapshot?.revisions ?? 0, type: "number", note: "Quantidade lida da categoria Revisão." },
+      { label: "Serviços adicionais", current: additionalSales, lastYear: previousSnapshot?.additionalSales ?? 0, type: "currency", note: "Vendas de alinhamento e balanceamento." },
+      { label: "TKM serv. adicionais", current: tkmAdditional, lastYear: previousSnapshot?.tkmAdditional ?? 0, type: "currency", note: "Alinhamento e balanceamento divididos por revisões." },
+      { label: "Embelezamento", current: beautySales, lastYear: previousSnapshot?.beautySales ?? 0, type: "currency", note: "Vendas de embelezamento." },
+      { label: "TKM embelezamento", current: tkmBeauty, lastYear: previousSnapshot?.tkmBeauty ?? 0, type: "currency", note: "Embelezamento dividido por revisões." },
+      { label: "Oficina produtiva", current: productiveShop, lastYear: previousSnapshot?.productiveShop ?? 0, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
+      { label: "Fat. total serviços", current: totalServices, lastYear: previousSnapshot?.totalServices ?? 0, type: "currency", note: "Faturamento total de serviços." },
+      { label: "TKM serviços", current: tkmServices, lastYear: previousSnapshot?.tkmServices ?? 0, type: "currency", note: "TKM geral de serviços." },
+    ];
+  }, [dailyResults, selectedMonth]);
 
   const operation = useMemo(() => {
-    const delivered = vehicles.filter(isDeliveredToday);
+    const periodVehicles = vehicles.filter((vehicle) => belongsToMonth(vehicle, selectedMonth));
+    const appointments = periodVehicles.filter((vehicle) => vehicle.origin === "agendado" && monthFromDate(vehicle.appointmentDate) === selectedMonth);
+    const delivered = vehicles.filter((vehicle) => monthFromDate(vehicle.deliveredAt) === selectedMonth);
     const onTime = delivered.filter((vehicle) => vehicle.deliveredOnTime).length;
+    const typeCount = (type: "revision" | "repair" | "diagnosis") => appointments.filter((vehicle) => serviceTypeForFlow(vehicle) === type).length;
+    const budgetVehicles = periodVehicles.filter((vehicle) => vehicle.budgetStatus);
+    const approvedBudgets = budgetVehicles.filter((vehicle) => vehicle.budgetAuthorized).length;
+    const realNoShows = appointments.filter((vehicle) => !vehicle.attendanceStartedAt && !vehicle.deliveredAt && vehicle.status !== "cancelado").length;
+    const percentage = (value: number, base: number) => base ? formatPercent((value / base) * 100) : "0%";
 
     return [
-      { label: "Recebidos", value: vehicles.filter((vehicle) => vehicle.attendanceStartedAt).length },
-      { label: "Entregues", value: delivered.length },
-      { label: "No-show", value: vehicles.filter((vehicle) => vehicle.noShow).length },
-      { label: "Orçamentos", value: vehicles.filter((vehicle) => vehicle.budgetStatus).length },
-      { label: "Peças", value: vehicles.filter((vehicle) => vehicle.partsOrdered).length },
-      { label: "No prazo", value: delivered.length ? formatPercent((onTime / delivered.length) * 100) : "0%" },
+      { label: "Agendamentos", value: appointments.length },
+      { label: "% revisão", value: percentage(typeCount("revision"), appointments.length) },
+      { label: "% reparo", value: percentage(typeCount("repair"), appointments.length) },
+      { label: "% diagnósticos", value: percentage(typeCount("diagnosis"), appointments.length) },
+      { label: "Passagens", value: delivered.length },
+      { label: "% no prazo", value: percentage(onTime, delivered.length) },
+      { label: "No-show real", value: realNoShows },
+      { label: "Orçamento complementar", value: budgetVehicles.length },
+      { label: "Orçamentos aprovados", value: percentage(approvedBudgets, budgetVehicles.length) },
     ];
-  }, [vehicles]);
+  }, [selectedMonth, vehicles]);
 
-  const monthProgress = (monthSummary.passedDays / monthSummary.businessDays) * 100;
-  const currentTotal = getChannel(june2026, "Total");
-  const lastYearTotal = getChannel(june2025, "Total");
+  const consultantProductivity = useMemo(() => buildProductivity(vehicles, selectedMonth, "consultantName"), [selectedMonth, vehicles]);
+  const mechanicProductivity = useMemo(() => buildProductivity(vehicles, selectedMonth, "technicianName"), [selectedMonth, vehicles]);
+
+  const balcaoSummary = useMemo<BalcaoSummary>(() => {
+    const monthEntries = partsEntries.filter((entry) => partsEntryMonth(entry) === selectedMonth);
+    const sales = monthEntries.filter((entry) => entry.entryType === "venda");
+    const lost = monthEntries.filter((entry) => entry.entryType === "venda_perdida");
+    const orders = partsEntries.filter((entry) => entry.entryType === "pedido");
+    const detailedSold = sales.reduce((total, entry) => total + partsEntryTotal(entry), 0);
+    const sold = historicalSalesResults[selectedMonth] ?? detailedSold;
+    const goalRecord = partsGoals.find((item) => item.month === selectedMonth);
+    const goal = goalRecord?.targetAmount ?? 0;
+    const businessDays = goalRecord?.businessDays ?? monthSummary.businessDays;
+    const passedBusinessDays = Math.min(monthSummary.passedDays, businessDays);
+    const remainingBusinessDays = Math.max(0, businessDays - passedBusinessDays);
+    const dailyGoal = businessDays ? goal / businessDays : 0;
+    const salesDailyAverage = passedBusinessDays ? sold / passedBusinessDays : 0;
+    const projectedOrders = orders.reduce((total, entry) => total + projectedOrderTotal(entry, selectedMonth), 0);
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+    return {
+      sold,
+      lost: lost.reduce((total, entry) => total + partsEntryTotal(entry), 0),
+      expectation: sold + salesDailyAverage * remainingBusinessDays + projectedOrders,
+      projectedOrders,
+      salesDailyAverage,
+      goal,
+      dailyGoal,
+      todaySales: sales.filter((entry) => partsEntryDateKey(entry) === todayKey).reduce((total, entry) => total + partsEntryTotal(entry), 0),
+    };
+  }, [monthSummary.businessDays, monthSummary.passedDays, partsEntries, partsGoals, selectedMonth]);
+
+  const monthProgress = monthSummary.businessDays ? (monthSummary.passedDays / monthSummary.businessDays) * 100 : 0;
   const currentGrossProfit = grossProfitTrend.find((item) => item.label === "Jun");
+
+  const observationItems = [
+    { key: "shop", label: "Oficina Produtiva" },
+    { key: "beauty", label: "Embelezamento Oficina" },
+    ...operation.map((item) => ({ key: item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), label: item.label })),
+  ];
+
+  async function saveObservation(key: string, label: string) {
+    setSavingObservation(key);
+    try {
+      await saveFarolObservation({ month: selectedMonth, indicatorKey: key, indicatorLabel: label, text: observationCommentDraft, value: observationValueDraft, updatedBy: profile?.name });
+      setObservations((current) => ({ ...current, [key]: observationCommentDraft }));
+      setObservationValues((current) => ({ ...current, [key]: observationValueDraft }));
+      setActiveObservation(null);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar a observação.");
+    } finally {
+      setSavingObservation("");
+    }
+  }
+
+  function openObservation(key: string, label: string) {
+    setActiveObservation({ key, label });
+    setObservationValueDraft(observationValues[key] ?? "");
+    setObservationCommentDraft(observations[key] ?? "");
+  }
+
+  function openDailyResult() {
+    const today = new Date();
+    const selectedIsCurrent = selectedMonth === monthKey(today);
+    const firstBusinessDay = financialRows[0] ? Number(financialRows[0].day.slice(0, 2)) : 1;
+    const day = selectedIsCurrent ? Math.min(today.getDate(), new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()) : firstBusinessDay;
+    const existing = dailyResults.find((item) => item.month === selectedMonth && item.day === day);
+    setDailyResultDraft({ day, revision: existing ? String(existing.revision) : "", revisionCount: existing ? String(existing.revisionCount) : "", generalMechanics: existing ? String(existing.generalMechanics) : "", alignmentBalancing: existing ? String(existing.alignmentBalancing) : "", beauty: existing ? String(existing.beauty) : "" });
+    setActiveDailyResult(true);
+  }
+
+  async function saveDailyResult() {
+    setSavingDailyResult(true);
+    try {
+      await saveFarolDailyResult({
+        month: selectedMonth,
+        day: Number(dailyResultDraft.day),
+        revision: Number(dailyResultDraft.revision.replace(",", ".")),
+        revisionCount: Number(dailyResultDraft.revisionCount),
+        generalMechanics: Number(dailyResultDraft.generalMechanics.replace(",", ".")),
+        alignmentBalancing: Number(dailyResultDraft.alignmentBalancing.replace(",", ".")),
+        beauty: Number(dailyResultDraft.beauty.replace(",", ".")),
+        updatedBy: profile?.name,
+      });
+      setActiveDailyResult(false);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar o resultado diário.");
+    } finally {
+      setSavingDailyResult(false);
+    }
+  }
+
+  async function generatePdf() {
+    setPdfLoading(true);
+    try {
+      await downloadFarolPdf({
+        monthLabel: monthLabel(selectedMonth),
+        generatedAt: new Date().toLocaleString("pt-BR"),
+        summary: [
+          { label: "Dias úteis", value: formatDayCount(monthSummary.businessDays) },
+          { label: "Dias passados", value: formatDayCount(monthSummary.passedDays) },
+          { label: "Dias restantes", value: formatDayCount(monthSummary.remainingDays) },
+          { label: "Avanço do mês", value: formatPercent(monthProgress) },
+        ],
+        goals: [
+          { label: "Oficina - realizado", value: formatCurrency(shop.done) },
+          { label: "Oficina - atingimento", value: formatPercent(shop.percent) },
+          { label: "Embelezamento - realizado", value: formatCurrency(beauty.done) },
+          { label: "Embelezamento - atingimento", value: formatPercent(beauty.percent) },
+        ],
+        operation: operation.map((item) => ({ label: item.label, value: String(item.value) })),
+        observations: observationItems.map((item) => ({ label: item.label, text: observations[item.key] || "Sem observação registrada." })),
+      });
+    } finally {
+      setPdfLoading(false);
+    }
+  }
 
   return (
     <ProtectedPage
@@ -236,85 +708,110 @@ export default function FarolGerencialPage() {
         {error && <div className="duplicate-alert"><strong>Erro no farol gerencial</strong><span>{error}</span></div>}
 
         <section className="farol-period-bar">
-          <div><span>Mês</span><strong>{monthSummary.month}</strong></div>
+          <div className="farol-month-selector"><label htmlFor="farol-month">Mês de referência</label><input id="farol-month" type="month" value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)} /></div>
           <div><span>Hoje</span><strong>{monthSummary.today}</strong></div>
-          <div><span>Dias úteis</span><strong>{monthSummary.businessDays}</strong></div>
-          <div><span>Passados</span><strong>{monthSummary.passedDays}</strong></div>
-          <div><span>Restantes</span><strong>{monthSummary.remainingDays}</strong></div>
+          <div><span>Dias úteis</span><strong>{formatDayCount(monthSummary.businessDays)}</strong></div>
+          <div><span>Passados</span><strong>{formatDayCount(monthSummary.passedDays)}</strong></div>
+          <div><span>Restantes</span><strong>{formatDayCount(monthSummary.remainingDays)}</strong></div>
           <div><span>Avanço do mês</span><strong>{formatPercent(monthProgress)}</strong></div>
+          <button className="farol-pdf-button" type="button" onClick={() => void generatePdf()} disabled={pdfLoading} aria-label={pdfLoading ? "Gerando relatório PDF" : "Gerar relatório PDF"} title={pdfLoading ? "Gerando PDF..." : "Gerar relatório PDF"}>
+            <svg viewBox="0 0 32 36" aria-hidden="true"><path d="M6 2h13l7 7v25H6z" /><path d="M19 2v8h7" /><text x="16" y="27" textAnchor="middle">PDF</text></svg>
+          </button>
         </section>
 
         <section className="farol-main-grid">
-          <GoalCard title="Oficina Produtiva" tone="shop" summary={shop} dailyGoal={7273} />
-          <GoalCard title="Embelezamento Oficina" tone="beauty" summary={beauty} dailyGoal={1591} />
+          <GoalCard title="M.O Oficina Produtiva" tone="shop" summary={shop} dailyGoal={7273} onAddObservation={() => openObservation("shop", "M.O Oficina Produtiva")} />
+          <GoalCard title="Embelezamento Oficina" tone="beauty" summary={beauty} dailyGoal={1591} onAddObservation={() => openObservation("beauty", "Embelezamento Oficina")} />
           <aside className="farol-operation-panel">
-            <div className="panel-head">
-              <h2 className="panel-title">Operação do Dia</h2>
-              <span className="tag good">{loading ? "..." : "ao vivo"}</span>
+            <div className="panel-head farol-report-head tone-operation">
+              <div><div className="farol-report-title-row"><h2 className="panel-title">Operação do período</h2><ReportAddButton onClick={() => openObservation("operation", "Operação do período")} /></div><p className="comment">Dados do fluxo interno.</p></div>
+              <span className="tag good">{loading ? "..." : "fluxo interno"}</span>
             </div>
-            <div className="farol-operation-grid">
-              {operation.map((item) => (
-                <div key={item.label}><strong>{loading ? "..." : item.value}</strong><span>{item.label}</span></div>
-              ))}
+            <div className="farol-operation-groups">
+              <article className="farol-operation-group">
+                <span>Agendamentos / No-show</span>
+                <div className="farol-operation-pair">
+                  <div><strong>{loading ? "..." : operation.find((item) => item.label === "Agendamentos")?.value}</strong><small>Agendamentos</small></div>
+                  <div><strong>{loading ? "..." : operation.find((item) => item.label === "No-show real")?.value}</strong><small>No-show real</small></div>
+                </div>
+              </article>
+              <article className="farol-operation-group farol-operation-passages">
+                <span>Passagens</span>
+                <div className="farol-operation-pair"><div><strong>{loading ? "..." : operation.find((item) => item.label === "Passagens")?.value}</strong><small>Entregas do mês</small></div><div><strong>{loading ? "..." : operation.find((item) => item.label === "% no prazo")?.value}</strong><small>No prazo</small></div></div>
+                <div className="farol-operation-types">
+                  <small>Rev. <b>{operation.find((item) => item.label === "% revisão")?.value}</b></small>
+                  <small>Reparo <b>{operation.find((item) => item.label === "% reparo")?.value}</b></small>
+                  <small>Diag. <b>{operation.find((item) => item.label === "% diagnósticos")?.value}</b></small>
+                </div>
+              </article>
+              <article className="farol-operation-group">
+                <span>Orçamento Complementar</span>
+                <div className="farol-operation-pair">
+                  <div><strong>{loading ? "..." : operation.find((item) => item.label === "Orçamento complementar")?.value}</strong><small>Solicitados</small></div>
+                  <div><strong>{loading ? "..." : operation.find((item) => item.label === "Orçamentos aprovados")?.value}</strong><small>Aprovados</small></div>
+                </div>
+              </article>
             </div>
-            <p className="comment">Cruza o resultado financeiro com o andamento real dos chips no fluxo.</p>
           </aside>
         </section>
 
-        {currentTotal && lastYearTotal && (
-          <section className="panel farol-table-panel">
-            <div className="panel-head">
-              <h2 className="panel-title">Comparativo com a própria operação</h2>
-              <span className="tag">Junho 2026 x Junho 2025</span>
-            </div>
-            <div className="farol-history-grid">
-              <ComparisonCard label="Peças" current={currentTotal.parts} previous={lastYearTotal.parts} />
-              <ComparisonCard label="Serviços" current={currentTotal.services} previous={lastYearTotal.services} />
-              <ComparisonCard label="Faturamento total" current={currentTotal.total} previous={lastYearTotal.total} />
-            </div>
-            <MiniTrendChart />
-          </section>
-        )}
+        <section className="panel farol-table-panel">
+          <div className="panel-head farol-report-head tone-counter">
+            <div><div className="farol-report-title-row"><h2 className="panel-title">Balcão de Peças</h2><ReportAddButton onClick={() => openObservation("balcao", "Balcão de Peças")} /></div><p className="comment">Indicadores espelhados do módulo Balcão para {monthLabel(selectedMonth)}.</p></div>
+            <span className="tag">mesma base de vendas</span>
+          </div>
+          <div className="farol-balcao-grid">
+            <article><span>Vendas realizadas</span><strong>{formatCurrency(balcaoSummary.sold)}</strong></article>
+            <article><span>Vendas perdidas</span><strong className="bad-text">{formatCurrency(balcaoSummary.lost)}</strong></article>
+            <article><span>Projeção de vendas</span><strong>{formatCurrency(balcaoSummary.expectation)}</strong><small>Média de {formatCurrency(balcaoSummary.salesDailyAverage)}/dia + {formatCurrency(balcaoSummary.projectedOrders)} em pedidos previstos</small></article>
+            <article><span>Meta</span><strong>{formatCurrency(balcaoSummary.goal)}</strong><small>{balcaoSummary.goal ? formatPercent((balcaoSummary.sold / balcaoSummary.goal) * 100) + " atingido" : "Sem meta cadastrada"}</small></article>
+            <article><span>Meta diária</span><strong>{formatCurrency(balcaoSummary.dailyGoal)}</strong></article>
+            <article><span>Venda do dia</span><strong>{formatCurrency(balcaoSummary.todaySales)}</strong><small>Considera a data atual</small></article>
+          </div>
+        </section>
+
+        <section className="panel farol-table-panel">
+          <div className="panel-head farol-report-head tone-comparison">
+            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento</h2><ReportAddButton onClick={() => openObservation("comparison", "Faturamento")} /></div>
+            <label className="farol-compare-toggle"><input type="checkbox" checked={comparePreviousYear} onChange={(event) => setComparePreviousYear(event.target.checked)} /><span>Comparar ano anterior</span></label>
+          </div>
+          <MonthlyOperationChart selectedMonth={selectedMonth} comparePreviousYear={comparePreviousYear} />
+        </section>
 
         {currentGrossProfit && (
           <section className="panel farol-table-panel">
-            <div className="panel-head">
-              <h2 className="panel-title">Lucro Bruto PV4R</h2>
-              <span className="tag">Competência Junho</span>
+            <div className="panel-head farol-report-head tone-profit">
+              <div className="farol-report-title-row"><h2 className="panel-title">Lucro Bruto</h2><ReportAddButton onClick={() => openObservation("gross-profit", "Lucro Bruto")} /></div>
+              <span className="tag">{monthLabel(selectedMonth)}</span>
             </div>
             <div className="farol-lb-grid">
-              <ComparisonCard label="LB realizado" current={currentGrossProfit.realized} previous={currentGrossProfit.previousYear} />
-              <article className="farol-comparison-card">
-                <span>Meta LB</span>
-                <strong>{formatCurrency(currentGrossProfit.planned)}</strong>
-                <small>Atingimento</small>
-                <b className={currentGrossProfit.realized >= currentGrossProfit.planned ? "good-text" : "bad-text"}>
-                  {formatPercent((currentGrossProfit.realized / currentGrossProfit.planned) * 100)}
-                </b>
-              </article>
-              <article className="farol-comparison-card">
-                <span>Margem bruta</span>
-                <strong>{currentGrossProfit.margin.toFixed(1).replace(".", ",")}%</strong>
-                <small>LB sobre receita líquida total</small>
-                <b className="good-text">MB</b>
-              </article>
+              <div className="farol-lb-summary-list">
+                <article className="farol-lb-summary-row">
+                  <div><span>LB realizado</span><strong>{formatCurrency(currentGrossProfit.realized)}</strong><small>2025: {formatCurrency(currentGrossProfit.previousYear)}</small></div>
+                  <b className={variation(currentGrossProfit.realized, currentGrossProfit.previousYear) >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(variation(currentGrossProfit.realized, currentGrossProfit.previousYear))}</b>
+                </article>
+                <article className="farol-lb-summary-row">
+                  <div><span>Meta LB</span><strong>{formatCurrency(currentGrossProfit.planned)}</strong><small>Atingimento da meta</small></div>
+                  <b className={currentGrossProfit.realized >= currentGrossProfit.planned ? "good-text" : "bad-text"}>{formatPercent((currentGrossProfit.realized / currentGrossProfit.planned) * 100)}</b>
+                </article>
+                <article className="farol-lb-summary-row">
+                  <div><span>Margem bruta</span><strong>LB sobre receita líquida</strong><small>Margem realizada no período</small></div>
+                  <b className="good-text">{currentGrossProfit.margin.toFixed(1).replace(".", ",")}%</b>
+                </article>
+              </div>
               <GrossProfitChart />
             </div>
           </section>
         )}
 
         <section className="panel farol-table-panel">
-          <div className="panel-head">
-            <h2 className="panel-title">Faturamento por Canal</h2>
-            <span className="tag">Junho 2026</span>
+          <div className="panel-head farol-report-head tone-revenue">
+            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento por Canal</h2><ReportAddButton onClick={() => openObservation("channel-revenue", "Faturamento por Canal")} /></div>
+            <span className="tag">{monthLabel(selectedMonth)} • {formatDayCount(monthSummary.passedDays)} dias úteis</span>
           </div>
           <div className="farol-channel-grid">
-            {june2026.filter((item) => item.channel !== "Total").map((item) => {
-              const previousMonth = getChannel(may2026, item.channel);
-              const lastYear = getChannel(june2025, item.channel);
-              const share = currentTotal ? (item.total / currentTotal.total) * 100 : 0;
-              const monthDelta = previousMonth ? variation(item.total, previousMonth.total) : 0;
-              const yearDelta = lastYear ? variation(item.total, lastYear.total) : 0;
+            {august2026ChannelRevenue.map((item) => {
+              const share = august2026ChannelTotal ? (item.total / august2026ChannelTotal) * 100 : 0;
 
               return (
                 <article key={item.channel} className="farol-channel-card">
@@ -322,90 +819,186 @@ export default function FarolGerencialPage() {
                     <strong>{item.channel}</strong>
                     <span>{formatPercent(share)}</span>
                   </div>
-                  <div className="farol-channel-bar"><i style={{ width: `${Math.max(4, share)}%` }} /></div>
-                  <div className="farol-stack-bar" aria-label={`Composição de ${item.channel}`}>
-                    <i className="parts" style={{ width: `${item.total ? (item.parts / item.total) * 100 : 0}%` }} />
-                    <i className="services" style={{ width: `${item.total ? (item.services / item.total) * 100 : 0}%` }} />
-                  </div>
-                  <div className="farol-channel-values">
-                    <div><span>Peças</span><strong>{formatCurrency(item.parts)}</strong></div>
-                    <div><span>Serviços</span><strong>{formatCurrency(item.services)}</strong></div>
-                    <div><span>Total</span><strong>{formatCurrency(item.total)}</strong></div>
-                  </div>
-                  <div className="farol-channel-deltas">
-                    <span className={monthDelta >= 0 ? "good-text" : "bad-text"}>Mês: {formatDeltaPercent(monthDelta)}</span>
-                    <span className={yearDelta >= 0 ? "good-text" : "bad-text"}>Ano anterior: {formatDeltaPercent(yearDelta)}</span>
-                  </div>
-                  {previousMonth && lastYear && <MiniSparkline values={[lastYear.total, previousMonth.total, item.total]} />}
+                  <div className="farol-channel-bar"><i style={{ width: `${item.total ? Math.max(4, share) : 0}%` }} /></div>
+                  <div className="farol-channel-result"><span>Total do canal</span><strong>{formatCurrency(item.total)}</strong></div>
                 </article>
               );
             })}
+          </div>
+          <div className="farol-channel-footer"><span>Total da loja <strong>{formatCurrency(august2026ChannelTotal)}</strong></span><span>Faturamento por dia útil <strong>{formatCurrency(august2026RevenuePerBusinessDay)}</strong></span></div>
+        </section>
+
+        <section className="panel farol-table-panel">
+          <div className="panel-head farol-report-head tone-productivity">
+            <div><div className="farol-report-title-row"><h2 className="panel-title">Produtividade e TKM de Serviços</h2><ReportAddButton onClick={() => openObservation("productivity-tkm", "Produtividade e TKM de Serviços")} /></div><p className="comment">TKM usa revisões como base. Passagens são contabilizadas por O.S. distinta e permanecem separadas por função.</p></div>
+            <span className="tag">{monthLabel(selectedMonth)}</span>
+          </div>
+          <div className="farol-productivity-grid farol-productivity-focus">
+            {[
+              { title: "Revisões", value: productivityMetrics.find((item) => item.label === "Vendas de revisão")!, support: productivityMetrics.find((item) => item.label === "Revisões")!, supportLabel: "Quant. revisões" },
+              { title: "Embelezamento Oficina", value: productivityMetrics.find((item) => item.label === "Embelezamento")!, support: productivityMetrics.find((item) => item.label === "TKM embelezamento")!, supportLabel: "TKM" },
+              { title: "Serviços adicionais", value: productivityMetrics.find((item) => item.label === "Serviços adicionais")!, support: productivityMetrics.find((item) => item.label === "TKM serv. adicionais")!, supportLabel: "TKM" },
+              { title: "Oficina Produtiva", value: productivityMetrics.find((item) => item.label === "Oficina produtiva")!, support: null, supportLabel: "" },
+              { title: "Total de Serviços", value: productivityMetrics.find((item) => item.label === "Fat. total serviços")!, support: productivityMetrics.find((item) => item.label === "TKM serviços")!, supportLabel: "TKM serviços" },
+            ].map((item) => (
+              <article key={item.title} className="farol-productivity-card farol-productivity-focus-card" title={`${item.value.note}${item.support ? ` ${item.support.note}` : ""}`} aria-label={`${item.title}. ${item.value.note}${item.support ? ` ${item.support.note}` : ""}`}>
+                <span>{item.title}</span>
+                <div className="farol-productivity-result-row">
+                  <strong>{formatCurrency(item.value.current)}</strong>
+                  <small>{Number(selectedMonth.slice(0, 4)) - 1}: {formatCurrency(item.value.lastYear)}</small>
+                  <b className={variation(item.value.current, item.value.lastYear) >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(variation(item.value.current, item.value.lastYear))}</b>
+                </div>
+                {item.support && <div className="farol-productivity-support-row"><span>{item.supportLabel}</span><strong>{item.support.type === "currency" ? formatCurrency(item.support.current) : item.support.current.toLocaleString("pt-BR")}</strong><small>{Number(selectedMonth.slice(0, 4)) - 1}: {item.support.type === "currency" ? formatCurrency(item.support.lastYear) : item.support.lastYear.toLocaleString("pt-BR")}</small><b className={variation(item.support.current, item.support.lastYear) >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(variation(item.support.current, item.support.lastYear))}</b></div>}
+              </article>
+            ))}
+          </div>
+          <div className="farol-productivity-sections">
+            <ProductivityTable title="Passagens por consultor" rows={consultantProductivity} emptyText="Nenhuma passagem de consultor no período selecionado." />
+            <ProductivityTable title="Passagens por mecânico" rows={mechanicProductivity} emptyText="Nenhuma passagem de mecânico no período selecionado." />
           </div>
         </section>
 
         <section className="panel farol-table-panel">
-          <div className="panel-head">
-            <h2 className="panel-title">Produtividade e TKM</h2>
-            <span className="tag">Julho 2026 x Julho 2025</span>
+          <div className="panel-head farol-report-head tone-month">
+            <div className="farol-report-title-row"><h2 className="panel-title">Resultado Diário</h2><ReportAddButton onClick={openDailyResult} /></div>
+            <span className="tag">Resumo de Serviços</span>
           </div>
-          <div className="farol-productivity-grid">
-            {productivityMetrics.map((item) => {
-              const delta = variation(item.current, item.lastYear);
-              const currentText = item.type === "currency" ? formatCurrency(item.current) : item.current.toLocaleString("pt-BR");
-              const previousText = item.type === "currency" ? formatCurrency(item.lastYear) : item.lastYear.toLocaleString("pt-BR");
-
-              return (
-                <article key={item.label} className="farol-productivity-card">
-                  <span>{item.label}</span>
-                  <strong>{currentText}</strong>
-                  <small>2025: {previousText}</small>
-                  <b className={delta >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(delta)}</b>
-                  <p>{item.note}</p>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="panel farol-table-panel">
-          <div className="panel-head">
-            <h2 className="panel-title">Tabela do Mês</h2>
-            <span className="tag">dados demonstrativos</span>
-          </div>
-          <div className="farol-month-grid">
-            {financialRows.map((row) => {
-              const shopDiff = row.shopDone === null ? null : row.shopDone - row.shopGoal;
-              const beautyDiff = row.beautyDone === null ? null : row.beautyDone - row.beautyGoal;
-
-              return (
-                <article key={row.day} className={`farol-day-card ${row.special ? `row-${row.special}` : ""}`}>
-                  <div className="farol-day-head">
-                    <strong>{row.day}</strong>
-                    <span>{row.weekDay}</span>
-                  </div>
-                  <div className="farol-day-lines">
-                    <div>
-                      <span>Oficina</span>
-                      <strong className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-text" : row.shopDone === null ? "" : "bad-text"}>
-                        {formatCurrency(row.shopDone)}
-                      </strong>
-                      <small>{formatCurrency(shopDiff)}</small>
-                    </div>
-                    <div>
-                      <span>Embelez.</span>
-                      <strong className={row.beautyDone !== null && row.beautyDone >= row.beautyGoal ? "good-text" : row.beautyDone === null ? "" : "bad-text"}>
-                        {formatCurrency(row.beautyDone)}
-                      </strong>
-                      <small>{formatCurrency(beautyDiff)}</small>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+          <div className="farol-daily-result-layout">
+            <DailyResultLineChart rows={financialRows} />
+            <div className="farol-daily-two-rows">
+              {dailyRowsByHalf.map((dailyRow, rowIndex) => (
+                <div className="farol-daily-row" key={`${selectedMonth}-row-${rowIndex}`}>
+                  {dailyRow.map((row) => {
+                    return (
+                      <article key={row.day} className={`farol-day-card ${row.special ? `row-${row.special}` : ""}`}>
+                        <div className="farol-day-head"><strong>{row.day}</strong><span>{row.weekDay}</span></div>
+                        <div className="farol-day-lines">
+                          <div><span>OP</span><strong className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-text" : row.shopDone === null ? "" : "bad-text"}>{formatCurrency(row.shopDone)}</strong><em>M {formatCurrency(row.shopGoal)}</em><small>AA {formatCurrency(row.shopPreviousYear ?? null)}</small>{row.revisionCount !== null && row.revisionCount !== undefined && <b>REV {row.revisionCount}</b>}</div>
+                          <div><span>EMB</span><strong className={row.beautyDone !== null && row.beautyDone >= row.beautyGoal ? "good-text" : row.beautyDone === null ? "" : "bad-text"}>{formatCurrency(row.beautyDone)}</strong><em>M {formatCurrency(row.beautyGoal)}</em><small>AA {formatCurrency(row.beautyPreviousYear ?? null)}</small></div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
         </section>
+
+        {activeObservation && (
+          <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveObservation(null)}>
+            <section className="farol-report-modal" role="dialog" aria-modal="true" aria-labelledby="farol-report-modal-title" onClick={(event) => event.stopPropagation()}>
+              <div className="farol-report-modal-head"><div><span>Adicionar ao relatório</span><h2 id="farol-report-modal-title">{activeObservation.label}</h2></div><button type="button" onClick={() => setActiveObservation(null)} aria-label="Fechar">×</button></div>
+              <label><span>Número do relatório</span><input value={observationValueDraft} onChange={(event) => setObservationValueDraft(event.target.value)} placeholder="Ex.: 138 ou R$ 10.000" /></label>
+              <label><span>Comentário</span><textarea value={observationCommentDraft} onChange={(event) => setObservationCommentDraft(event.target.value)} placeholder="Registre o contexto desse resultado..." rows={4} /></label>
+              <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveObservation(null)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveObservation(activeObservation.key, activeObservation.label)} disabled={savingObservation === activeObservation.key}>{savingObservation === activeObservation.key ? "Salvando..." : "Salvar"}</button></div>
+            </section>
+          </div>
+        )}
+
+        {activeDailyResult && (
+          <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveDailyResult(false)}>
+            <section className="farol-report-modal farol-daily-input-modal" role="dialog" aria-modal="true" aria-labelledby="farol-daily-input-title" onClick={(event) => event.stopPropagation()}>
+              <div className="farol-report-modal-head"><div><span>Resumo de Serviços</span><h2 id="farol-daily-input-title">Lançar resultado diário</h2></div><button type="button" onClick={() => setActiveDailyResult(false)} aria-label="Fechar">×</button></div>
+              <p className="farol-daily-input-help">Leia também a coluna <strong>Qtde</strong> de Revisão do relatório. OP é calculada automaticamente: Revisão + Mecânica (incluindo as demais categorias) + Alinhamento/Balanceamento. Embelezamento é lançado separadamente.</p>
+              <label><span>Dia</span><input type="number" min="1" max={new Date(Number(selectedMonth.slice(0, 4)), Number(selectedMonth.slice(5)), 0).getDate()} value={dailyResultDraft.day} onChange={(event) => setDailyResultDraft((current) => ({ ...current, day: Number(event.target.value) }))} /></label>
+              <div className="farol-daily-input-grid">
+                <label><span>Revisão</span><input inputMode="decimal" value={dailyResultDraft.revision} onChange={(event) => setDailyResultDraft((current) => ({ ...current, revision: event.target.value }))} placeholder="R$ 0,00" /></label>
+                <label><span>Qtde. de revisões</span><input type="number" min="0" step="1" value={dailyResultDraft.revisionCount} onChange={(event) => setDailyResultDraft((current) => ({ ...current, revisionCount: event.target.value }))} placeholder="Ex.: 6" /></label>
+                <label><span>Mecânica e demais categorias</span><input inputMode="decimal" value={dailyResultDraft.generalMechanics} onChange={(event) => setDailyResultDraft((current) => ({ ...current, generalMechanics: event.target.value }))} placeholder="R$ 0,00" /></label>
+                <label><span>Alinhamento / balanceamento</span><input inputMode="decimal" value={dailyResultDraft.alignmentBalancing} onChange={(event) => setDailyResultDraft((current) => ({ ...current, alignmentBalancing: event.target.value }))} placeholder="R$ 0,00" /></label>
+                <label><span>Embelezamento</span><input inputMode="decimal" value={dailyResultDraft.beauty} onChange={(event) => setDailyResultDraft((current) => ({ ...current, beauty: event.target.value }))} placeholder="R$ 0,00" /></label>
+              </div>
+              <div className="farol-daily-input-total"><span>OP calculada</span><strong>{formatCurrency(Number(dailyResultDraft.revision.replace(",", ".")) + Number(dailyResultDraft.generalMechanics.replace(",", ".")) + Number(dailyResultDraft.alignmentBalancing.replace(",", ".")))}</strong><span>EMB</span><strong>{formatCurrency(Number(dailyResultDraft.beauty.replace(",", ".")))}</strong></div>
+              <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveDailyResult(false)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveDailyResult()} disabled={savingDailyResult}>{savingDailyResult ? "Salvando..." : "Salvar resultado"}</button></div>
+            </section>
+          </div>
+        )}
       </main>
     </ProtectedPage>
+  );
+}
+
+function ProductivityTable({ title, rows, emptyText }: { title: string; rows: ProductivityPerson[]; emptyText: string }) {
+  return (
+    <div className="farol-productivity-section">
+      <div className="farol-productivity-section-head"><h3>{title}</h3><span>{rows.reduce((sum, row) => sum + row.total, 0)} passagens</span></div>
+      {rows.length ? (
+        <div className="farol-productivity-table-wrap">
+          <table className="farol-productivity-table">
+            <thead><tr><th>Profissional</th><th>Embelezamento</th><th>Revisão</th><th>Reparo</th><th>Diagnóstico</th><th>Total</th></tr></thead>
+            <tbody>{rows.map((row) => <tr key={row.name}><th scope="row">{row.name}</th><td>{row.beauty}</td><td>{row.revision}</td><td>{row.repair}</td><td>{row.diagnosis}</td><td><strong>{row.total}</strong></td></tr>)}</tbody>
+          </table>
+        </div>
+      ) : <p className="farol-productivity-empty">{emptyText}</p>}
+    </div>
+  );
+}
+
+function DailyResultLineChart({ rows }: { rows: DailyResult[] }) {
+  const [mode, setMode] = useState<"shop" | "beauty">("shop");
+  const [showProjection, setShowProjection] = useState(false);
+  const goalField = mode === "shop" ? "shopGoal" : "beautyGoal";
+  const doneField = mode === "shop" ? "shopDone" : "beautyDone";
+  const previousField = mode === "shop" ? "shopPreviousYear" : "beautyPreviousYear";
+  let cumulativeGoal = 0;
+  let cumulativeDone = 0;
+  let cumulativePrevious = 0;
+  const goalSeries: Array<{ index: number; value: number }> = [];
+  const doneSeries: Array<{ index: number; value: number }> = [];
+  const previousSeries: Array<{ index: number; value: number }> = [];
+
+  rows.forEach((row, index) => {
+    cumulativeGoal += row[goalField] ?? 0;
+    goalSeries.push({ index, value: cumulativeGoal });
+    const done = row[doneField];
+    if (done !== null) {
+      cumulativeDone += done;
+      doneSeries.push({ index, value: cumulativeDone });
+    }
+    const previous = row[previousField];
+    if (previous !== null && previous !== undefined) {
+      cumulativePrevious += previous;
+      previousSeries.push({ index, value: cumulativePrevious });
+    }
+  });
+
+  const width = 720;
+  const height = 210;
+  const padding = { top: 14, right: 18, bottom: 30, left: 58 };
+  const plotWidth = width - padding.left - padding.right;
+  const plotHeight = height - padding.top - padding.bottom;
+  const x = (index: number) => padding.left + (rows.length <= 1 ? 0 : (index / (rows.length - 1)) * plotWidth);
+  const labelStep = Math.max(1, Math.ceil(rows.length / 6));
+  const lastDone = doneSeries.at(-1);
+  const completedGoal = doneSeries.reduce((total, point) => total + (rows[point.index]?.[goalField] ?? 0), 0);
+  const pace = completedGoal && lastDone ? lastDone.value / completedGoal : 0;
+  let projectedValue = lastDone?.value ?? 0;
+  const projectionSeries = lastDone ? rows.slice(lastDone.index).map((row, offset) => {
+    const index = lastDone.index + offset;
+    if (index > lastDone.index) projectedValue += row[goalField] * pace;
+    return { index, value: projectedValue };
+  }) : [];
+  const maxValue = Math.max(...goalSeries.map((point) => point.value), ...doneSeries.map((point) => point.value), ...previousSeries.map((point) => point.value), ...projectionSeries.map((point) => point.value), 1);
+  const y = (value: number) => padding.top + plotHeight - (value / maxValue) * plotHeight;
+  const points = (series: Array<{ index: number; value: number }>) => series.map((point) => `${x(point.index)},${y(point.value)}`).join(" ");
+
+  return (
+    <aside className="farol-daily-chart">
+      <div className="farol-daily-chart-head"><div><span>Evolução acumulada</span><strong>Realizado × Meta × Realizado AA</strong></div><div className="farol-daily-chart-toggle"><button type="button" className={mode === "shop" ? "active" : ""} onClick={() => setMode("shop")}>Oficina</button><button type="button" className={mode === "beauty" ? "active" : ""} onClick={() => setMode("beauty")}>Embelezamento</button><button type="button" className={showProjection ? "active projection-toggle" : "projection-toggle"} onClick={() => setShowProjection((current) => !current)}>Projeção</button></div></div>
+      <div className="farol-daily-chart-legend"><span><i className="done" />Realizado</span><span><i className="goal" />Meta</span><span className={!previousSeries.length ? "is-muted" : ""}><i className="previous" />Realizado AA</span>{showProjection && <span className={!projectionSeries.length ? "is-muted" : ""}><i className="projection" />Projeção</span>}</div>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Evolução diária acumulada de ${mode === "shop" ? "Oficina" : "Embelezamento"}`}>
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio) => <g key={ratio}><line className="grid-line" x1={padding.left} x2={width - padding.right} y1={y(maxValue * ratio)} y2={y(maxValue * ratio)} /><text className="axis-value" x={padding.left - 8} y={y(maxValue * ratio) + 4} textAnchor="end">{formatCompactCurrency(maxValue * ratio)}</text></g>)}
+        <polyline className="goal-line" points={points(goalSeries)} />
+        {doneSeries.length > 1 && <polyline className="done-line" points={points(doneSeries)} />}
+        {previousSeries.length > 1 && <polyline className="previous-line" points={points(previousSeries)} />}
+        {showProjection && projectionSeries.length > 1 && <polyline className="projection-line" points={points(projectionSeries)} />}
+        {rows.map((row, index) => (index % labelStep === 0 || index === rows.length - 1) && <text className="axis-day" key={row.day} x={x(index)} y={height - 10} textAnchor="middle">{row.day.split("/")[0]}</text>)}
+      </svg>
+      {!doneSeries.length && <p>Os resultados aparecerão conforme os valores diários forem preenchidos.</p>}
+      {!previousSeries.length && <p className="farol-aa-missing">Base diária do ano anterior ainda não informada.</p>}
+      {showProjection && !projectionSeries.length && <p className="farol-aa-missing">Informe ao menos um resultado diário para calcular a projeção.</p>}
+    </aside>
   );
 }
 
@@ -414,11 +1007,13 @@ function GoalCard({
   tone,
   summary,
   dailyGoal,
+  onAddObservation,
 }: {
   title: string;
   tone: "shop" | "beauty";
   summary: ReturnType<typeof areaSummary>;
   dailyGoal: number;
+  onAddObservation: () => void;
 }) {
   const color = tone === "shop" ? "#65ad42" : "#3472c7";
   const percent = Math.min(100, summary.percent);
@@ -426,7 +1021,7 @@ function GoalCard({
   return (
     <article className={`farol-goal-card ${tone}`}>
       <div className="farol-goal-head">
-        <div><span>Meta mensal</span><h2>{title}</h2></div>
+        <div><span>Meta mensal</span><div className="farol-report-title-row"><h2>{title}</h2><ReportAddButton onClick={onAddObservation} /></div></div>
         <strong>{formatPercent(summary.percent)}</strong>
       </div>
       <div className="farol-goal-body">
@@ -436,7 +1031,7 @@ function GoalCard({
         <div className="farol-money-grid">
           <div><span>Meta mês</span><strong>{formatCurrency(summary.goal)}</strong></div>
           <div><span>Realizado</span><strong>{formatCurrency(summary.done)}</strong></div>
-          <div><span>Falta p/ bater</span><strong className={summary.missing <= 0 ? "good-text" : "bad-text"}>{formatCurrency(summary.missing)}</strong></div>
+          <div><span>Saldo</span><strong className={summary.balance >= 0 ? "good-text" : "bad-text"}>{formatCurrency(summary.balance)}</strong></div>
           <div><span>Projeção</span><strong>{formatCurrency(summary.projection)}</strong></div>
           <div><span>Meta dia</span><strong>{formatCurrency(dailyGoal)}</strong></div>
           <div><span>Ritmo</span><strong>{summary.projection >= summary.goal ? "Acima" : "Abaixo"}</strong></div>
@@ -446,31 +1041,41 @@ function GoalCard({
   );
 }
 
-function ComparisonCard({ label, current, previous }: { label: string; current: number; previous: number }) {
-  const delta = variation(current, previous);
-
-  return (
-    <article className="farol-comparison-card">
-      <span>{label}</span>
-      <strong>{formatCurrency(current)}</strong>
-      <small>2025: {formatCurrency(previous)}</small>
-      <b className={delta >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(delta)}</b>
-    </article>
-  );
+function ReportAddButton({ onClick }: { onClick: () => void }) {
+  return <button type="button" className="farol-report-add" onClick={onClick} aria-label="Adicionar número e comentário">+</button>;
 }
 
-function MiniTrendChart() {
-  const max = Math.max(...monthlyTrend.map((item) => item.total));
+function MonthlyOperationChart({ selectedMonth, comparePreviousYear }: { selectedMonth: string; comparePreviousYear: boolean }) {
+  const selectedYear = selectedMonth.slice(0, 4);
+  const visibleTrend = monthlyTrend.filter((item) => item.month.startsWith(selectedYear) && item.month <= selectedMonth);
+  const previousByMonth = new Map(monthlyTrend.map((item) => [item.month, item]));
+  const previousTrend = visibleTrend.map((item) => previousByMonth.get(`${Number(selectedYear) - 1}-${item.month.slice(5)}`));
+  const max = Math.max(...visibleTrend.map((item) => item.total), ...previousTrend.map((item) => item?.total ?? 0), 1);
 
   return (
-    <div className="farol-mini-chart" aria-label="Evolução mensal do faturamento total em 2026">
-      {monthlyTrend.map((item) => (
-        <div key={item.label} className="farol-mini-bar">
-          <span style={{ height: `${Math.max(8, (item.total / max) * 100)}%` }} />
-          <small>{item.label}</small>
-          <b>{formatCurrency(item.total)}</b>
+    <div className="farol-monthly-operation-chart" aria-label="Peças, serviços e total por mês">
+      <div className="farol-monthly-operation-legend"><span><i className="parts" />Peças</span><span><i className="services" />Serviços (M.O.)</span><span><i className="total" />Total</span>{comparePreviousYear && <span><i className="previous-year" />Referência do ano anterior</span>}</div>
+      <div className="farol-monthly-operation-scroll">
+        <div className="farol-monthly-operation-months">
+          {visibleTrend.map((item, index) => {
+            const previous = previousTrend[index];
+            return (
+              <article key={item.month} className="farol-monthly-operation-month">
+                <div className="farol-monthly-operation-bars">
+                  <div className="farol-monthly-bar-set"><div>
+                    <span className="farol-monthly-bar-column"><i className="parts" style={{ height: `${Math.max(5, (item.parts / max) * 100)}%` }} title={`Peças: ${formatCurrency(item.parts)}`} />{comparePreviousYear && previous && <em className="farol-previous-marker" style={{ bottom: `${(previous.parts / max) * 100}%` }} title={`Peças no ano anterior: ${formatCurrency(previous.parts)}`} />}</span>
+                    <span className="farol-monthly-bar-column"><i className="services" style={{ height: `${Math.max(5, (item.services / max) * 100)}%` }} title={`Serviços: ${formatCurrency(item.services)}`} />{comparePreviousYear && previous && <em className="farol-previous-marker" style={{ bottom: `${(previous.services / max) * 100}%` }} title={`Serviços no ano anterior: ${formatCurrency(previous.services)}`} />}</span>
+                    <span className="farol-monthly-bar-column"><i className="total" style={{ height: `${Math.max(5, (item.total / max) * 100)}%` }} title={`Total: ${formatCurrency(item.total)}`} />{comparePreviousYear && previous && <em className="farol-previous-marker" style={{ bottom: `${(previous.total / max) * 100}%` }} title={`Total no ano anterior: ${formatCurrency(previous.total)}`} />}</span>
+                  </div></div>
+                </div>
+                <strong>{monthLabel(item.month)}</strong>
+                <div className="farol-monthly-operation-values"><span>Peças <b>{formatCurrency(item.parts)}</b></span><span>Serviços <b>{formatCurrency(item.services)}</b></span><span>Total <b>{formatCurrency(item.total)}</b></span></div>
+              </article>
+            );
+          })}
+          {!visibleTrend.length && <p className="farol-productivity-empty">Sem histórico mensal para o ano selecionado.</p>}
         </div>
-      ))}
+      </div>
     </div>
   );
 }
@@ -498,32 +1103,6 @@ function GrossProfitChart() {
           </div>
         ))}
       </div>
-    </div>
-  );
-}
-
-function MiniSparkline({ values }: { values: number[] }) {
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const range = max - min || 1;
-  const points = values
-    .map((value, index) => {
-      const x = 8 + index * 42;
-      const y = 34 - ((value - min) / range) * 24;
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  return (
-    <div className="farol-sparkline">
-      <svg viewBox="0 0 100 40" role="img" aria-label="Tendência: ano anterior, mês anterior e mês atual">
-        <polyline points={points} fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        {points.split(" ").map((point) => {
-          const [cx, cy] = point.split(",");
-          return <circle key={point} cx={cx} cy={cy} r="3.5" fill="currentColor" />;
-        })}
-      </svg>
-      <span>2025</span><span>Mai</span><span>Jun</span>
     </div>
   );
 }

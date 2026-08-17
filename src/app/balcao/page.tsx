@@ -22,6 +22,7 @@ import type {
   PartsSalesGoal,
 } from "@/types/domain";
 import styles from "./balcao.module.css";
+import { historicalSalesResults } from "@/lib/balcao-indicators";
 
 type Section = "nova" | "vendas" | "pedidos" | "indicadores";
 
@@ -47,22 +48,6 @@ const sellerOptions = [
   { value: "ALISSON", label: "Alisson" },
   { value: "FELIPE", label: "Felipe" },
 ];
-
-const historicalSalesResults: Record<string, number> = {
-  "2025-07": 4592.04,
-  "2025-08": 12511.16,
-  "2025-09": 9876.95,
-  "2025-10": 21930.75,
-  "2025-11": 15368.26,
-  "2025-12": 23832.53,
-  "2026-01": 25556.21,
-  "2026-02": 45449.39,
-  "2026-03": 40205.45,
-  "2026-04": 38466.01,
-  "2026-05": 43642.88,
-  "2026-06": 32151.20,
-  "2026-07": 88471.88,
-};
 
 function newItem(index = 1, availableInStock = false): PartsCounterItem {
   return {

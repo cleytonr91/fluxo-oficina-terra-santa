@@ -25,18 +25,33 @@ const rolePaths: Record<UserRole, string[]> = {
   agendamento: ["/agendamento", "/agenda", "/cardapio"],
 };
 
-export function allowedPathsForRole(role?: UserRole) {
-  return role ? rolePaths[role] ?? [] : [];
+export const pageOptions = [
+  { path: "/preparacao", label: "Preparação" },
+  { path: "/fluxo", label: "Fluxo da oficina" },
+  { path: "/agendamento", label: "Agendamento" },
+  { path: "/agenda", label: "Agenda" },
+  { path: "/pecas", label: "Peças" },
+  { path: "/estoque", label: "Estoque" },
+  { path: "/balcao", label: "Balcão de peças" },
+  { path: "/funilaria", label: "Funilaria" },
+  { path: "/pos-servico", label: "Pós-serviço" },
+  { path: "/radar", label: "Farol Gerencial" },
+  { path: "/cardapio", label: "Cardápio" },
+  { path: "/admin", label: "Administração" },
+] as const;
+
+export function allowedPathsForRole(role?: UserRole, customPaths?: string[]) {
+  return customPaths ?? (role ? rolePaths[role] ?? [] : []);
 }
 
-export function canAccessPath(role: UserRole | undefined, pathname: string) {
+export function canAccessPath(role: UserRole | undefined, pathname: string, customPaths?: string[]) {
   if (!role) return false;
   if (pathname === "/") return role === "admin" || role === "gerente";
-  return allowedPathsForRole(role).some((path) => pathname === path || pathname.startsWith(`${path}/`));
+  return allowedPathsForRole(role, customPaths).some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
-export function defaultPathForRole(role?: UserRole) {
-  return allowedPathsForRole(role)[0] ?? "/login";
+export function defaultPathForRole(role?: UserRole, customPaths?: string[]) {
+  return allowedPathsForRole(role, customPaths)[0] ?? "/login";
 }
 
 export function roleLabel(role?: UserRole) {

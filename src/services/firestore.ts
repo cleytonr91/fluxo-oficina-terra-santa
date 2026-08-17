@@ -223,6 +223,94 @@ export function subscribePartsSalesGoals(
   }, (error) => onError?.(error));
 }
 
+export type FarolObservation = {
+  id: string;
+  month: string;
+  indicatorKey: string;
+  indicatorLabel: string;
+  text: string;
+  value?: string;
+  updatedBy?: string;
+  updatedAt?: unknown;
+};
+
+export function subscribeFarolObservations(
+  onData: (items: FarolObservation[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(collection(db, collections.farolObservations), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolObservation[]);
+  }, (error) => onError?.(error));
+}
+
+export async function saveFarolObservation({
+  month,
+  indicatorKey,
+  indicatorLabel,
+  text,
+  value,
+  updatedBy,
+}: Omit<FarolObservation, "id" | "updatedAt">) {
+  const db = getFirebaseDb();
+  await setDoc(doc(db, collections.farolObservations, `${month}-${indicatorKey}`), withoutUndefined({
+    month,
+    indicatorKey,
+    indicatorLabel,
+    text: text.trim(),
+    value: value?.trim(),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
+export type FarolDailyResult = {
+  id: string;
+  month: string;
+  day: number;
+  revision: number;
+  revisionCount: number;
+  generalMechanics: number;
+  alignmentBalancing: number;
+  beauty: number;
+  updatedBy?: string;
+  updatedAt?: unknown;
+};
+
+export function subscribeFarolDailyResults(
+  onData: (items: FarolDailyResult[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(collection(db, collections.farolDailyResults), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolDailyResult[]);
+  }, (error) => onError?.(error));
+}
+
+export async function saveFarolDailyResult({
+  month,
+  day,
+  revision,
+  revisionCount,
+  generalMechanics,
+  alignmentBalancing,
+  beauty,
+  updatedBy,
+}: Omit<FarolDailyResult, "id" | "updatedAt">) {
+  const db = getFirebaseDb();
+  await setDoc(doc(db, collections.farolDailyResults, `${month}-${String(day).padStart(2, "0")}`), withoutUndefined({
+    month,
+    day,
+    revision: Math.max(0, Number(revision) || 0),
+    revisionCount: Math.max(0, Math.floor(Number(revisionCount) || 0)),
+    generalMechanics: Math.max(0, Number(generalMechanics) || 0),
+    alignmentBalancing: Math.max(0, Number(alignmentBalancing) || 0),
+    beauty: Math.max(0, Number(beauty) || 0),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
 function normalizeCounterItems(items: PartsCounterItem[], entryType: PartsCounterEntryType) {
   return items.map((item, index) => withoutUndefined({
     id: item.id || `item-${index + 1}`,
@@ -797,19 +885,25 @@ export async function saveHgsiAnswers({
 
 export async function updateUserProfile({
   userId,
+  name,
   role,
   active,
+  allowedPaths,
 }: {
   userId: string;
+  name: string;
   role: UserRole;
   active: boolean;
+  allowedPaths: string[];
 }) {
   const db = getFirebaseDb();
   const userRef = doc(collection(db, collections.users), userId);
 
   await updateDoc(userRef, {
+    name,
     role,
     active,
+    allowedPaths,
     updatedAt: serverTimestamp(),
   });
 }
@@ -2446,46 +2540,51 @@ export async function completeVehicleDelivery({
   futureNote?: string;
 }) {
   const db = getFirebaseDb();
-  const batch = writeBatch(db);
   const deliveredAt = serverTimestamp();
   const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
   const deliveryRef = doc(collection(db, collections.deliveries), vehicleFlowId);
   const flowEventRef = doc(collection(db, collections.flowEvents));
 
-  batch.set(flowRef, {
-    currentLane: "entregue",
-    status: "entregue",
-    deliveredAt,
-    deliveredOnTime,
-    partsOrdered,
-    internalNps,
-    hasPendingIssue,
-    futureNote,
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
+  await runTransaction(db, async (transaction) => {
+    const flowSnapshot = await transaction.get(flowRef);
+    if (!flowSnapshot.exists()) throw new Error("Chip não encontrado para registrar a entrega.");
+    const technicianName = String(flowSnapshot.data().technicianName ?? "").trim();
+    if (!technicianName) throw new Error("Adicione um mecânico ao chip antes de registrar a entrega.");
 
-  batch.set(deliveryRef, {
-    vehicleFlowId,
-    deliveredAt,
-    deliveredOnTime,
-    partsOrdered,
-    internalNps,
-    hasPendingIssue,
-    futureNote,
-    createdBy: deliveredBy,
-    createdAt: serverTimestamp(),
-  }, { merge: true });
+    transaction.set(flowRef, {
+      currentLane: "entregue",
+      status: "entregue",
+      deliveredAt,
+      deliveredOnTime,
+      partsOrdered,
+      internalNps,
+      hasPendingIssue,
+      futureNote,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
 
-  batch.set(flowEventRef, {
-    vehicleFlowId,
-    fromLane,
-    toLane: "entregue",
-    actionBy: deliveredBy,
-    actionNote: "Veículo entregue ao cliente",
-    createdAt: serverTimestamp(),
+    transaction.set(deliveryRef, {
+      vehicleFlowId,
+      technicianName,
+      deliveredAt,
+      deliveredOnTime,
+      partsOrdered,
+      internalNps,
+      hasPendingIssue,
+      futureNote,
+      createdBy: deliveredBy,
+      createdAt: serverTimestamp(),
+    }, { merge: true });
+
+    transaction.set(flowEventRef, {
+      vehicleFlowId,
+      fromLane,
+      toLane: "entregue",
+      actionBy: deliveredBy,
+      actionNote: "Veículo entregue ao cliente",
+      createdAt: serverTimestamp(),
+    });
   });
-
-  await batch.commit();
 }
 
 export async function confirmPreparation(preparation: Omit<Preparation, "createdAt" | "updatedAt">) {
