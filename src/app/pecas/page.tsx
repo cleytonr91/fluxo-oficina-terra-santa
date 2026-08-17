@@ -240,6 +240,16 @@ function normalizeSearchText(value?: string) {
     .toUpperCase();
 }
 
+function shouldShowWorkshopActionOrder(order: PartOrder) {
+  const hasInformedPart = orderParts(order).some((part) => (
+    Boolean(part.partReference?.trim()) || Boolean(part.partDescription?.trim())
+  ));
+  const isInternalCommission = normalizeSearchText(order.plate) === "LIN226"
+    || normalizeSearchText(order.clientName) === "COMISSAOCLIENTES";
+
+  return hasInformedPart && !isInternalCommission;
+}
+
 function orderTimeValue(order: PartOrder) {
   const date = toDate(order.createdAt) ?? toDate(order.updatedAt);
   return date?.getTime() ?? 0;
@@ -543,7 +553,7 @@ export default function PecasPage() {
 
   const workshopActionOrders = useMemo(() => (
     operationalOrders
-      .filter(isWorkshopRequestedStatus)
+      .filter((order) => isWorkshopRequestedStatus(order) && shouldShowWorkshopActionOrder(order))
       .sort((a, b) => daysInCurrentStatus(b) - daysInCurrentStatus(a))
   ), [operationalOrders]);
 
