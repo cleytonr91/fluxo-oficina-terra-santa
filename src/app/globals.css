@@ -479,6 +479,7 @@
 .tone-profit { --farol-report-color: #a56f19; }
 .tone-revenue { --farol-report-color: #0f6d63; }
 .tone-productivity { --farol-report-color: #6656a0; }
+.tone-consultant { --farol-report-color: #a36b18; }
 .tone-month { --farol-report-color: #356b8c; }
 
 .farol-table-wrap {
@@ -1021,6 +1022,164 @@
 .farol-productivity-support-row b {
   grid-column: 3;
   grid-row: 2;
+}
+
+.farol-consultant-report-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 12px;
+}
+
+.farol-consultant-report-card {
+  background: #fbfcfb;
+  border: 1px solid #dce4dd;
+  border-top: 4px solid #a36b18;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.farol-consultant-report-card > header {
+  align-items: flex-start;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 10px 11px;
+}
+
+.farol-consultant-report-card header span,
+.farol-consultant-summary span,
+.farol-consultant-services-head span {
+  color: #67736d;
+  display: block;
+  font-size: 0.61rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.farol-consultant-report-card header h3 {
+  color: #18362a;
+  font-size: 0.96rem;
+  font-weight: 900;
+  margin: 3px 0 0;
+}
+
+.farol-consultant-report-card > header > strong {
+  background: #f8edd9;
+  border-radius: 999px;
+  color: #865f12;
+  font-size: 0.65rem;
+  padding: 5px 7px;
+  white-space: nowrap;
+}
+
+.farol-consultant-summary {
+  border-bottom: 1px solid #dce4dd;
+  border-top: 1px solid #dce4dd;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.farol-consultant-summary > div {
+  min-width: 0;
+  padding: 8px;
+}
+
+.farol-consultant-summary > div + div {
+  border-left: 1px solid #dce4dd;
+}
+
+.farol-consultant-summary strong {
+  color: #15251f;
+  display: block;
+  font-size: 0.84rem;
+  margin-top: 4px;
+}
+
+.farol-consultant-summary small {
+  color: #5e6d65;
+  display: block;
+  font-size: 0.61rem;
+  margin-top: 3px;
+}
+
+.farol-consultant-services {
+  padding: 9px;
+}
+
+.farol-consultant-services-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.farol-consultant-services-head > div {
+  display: grid;
+  gap: 7px;
+  grid-template-columns: 34px 62px 52px;
+}
+
+.farol-consultant-services-head small {
+  color: #7a867f;
+  font-size: 0.58rem;
+}
+
+.farol-consultant-service-row {
+  align-items: center;
+  border-top: 1px solid #e4e9e5;
+  display: grid;
+  gap: 5px;
+  grid-template-columns: 58px minmax(115px, 1fr) 34px 62px 52px;
+  padding: 6px 0;
+}
+
+.farol-consultant-service-row > span {
+  border-radius: 999px;
+  font-size: 0.55rem;
+  font-weight: 900;
+  padding: 4px 4px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.farol-consultant-service-row > span.is-additional {
+  background: #e9effb;
+  color: #3563a0;
+}
+
+.farol-consultant-service-row > span.is-beauty {
+  background: #e5f6f0;
+  color: #167154;
+}
+
+.farol-consultant-service-row strong {
+  overflow: hidden;
+  color: #31433a;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farol-consultant-service-row b,
+.farol-consultant-service-row em,
+.farol-consultant-service-row i {
+  color: #51625a;
+  font-size: 0.64rem;
+  text-align: right;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.farol-consultant-service-row em {
+  color: #183d2d;
+  font-weight: 900;
+}
+
+.farol-consultant-service-row i {
+  color: #3563a0;
+  font-weight: 900;
 }
 
 .farol-comparison-card,
@@ -1927,6 +2086,10 @@
 }
 
 @media (max-width: 1100px) {
+  .farol-consultant-report-grid {
+    grid-template-columns: 1fr;
+  }
+
   .farol-daily-result-layout {
     grid-template-columns: 1fr;
   }

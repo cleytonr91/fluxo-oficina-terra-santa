@@ -52,6 +52,24 @@ type ProductivityPerson = {
   total: number;
 };
 
+type ConsultantServiceDetail = {
+  category: "Adicionais" | "Embelezamento";
+  tmo: string;
+  service: string;
+  quantity: number;
+  amount: number;
+};
+
+type ConsultantServicePerformance = {
+  id: string;
+  name: string;
+  revisions: number;
+  revisionSales: number;
+  additionalSales: number;
+  beautySales: number;
+  details: ConsultantServiceDetail[];
+};
+
 type BalcaoSummary = {
   sold: number;
   lost: number;
@@ -305,6 +323,61 @@ const serviceReportSnapshots: Record<string, { revisions: number; revisionSales:
     productiveShop: 66784.61,
     totalServices: 70138.61,
   },
+};
+
+const consultantServicePerformance: Record<string, ConsultantServicePerformance[]> = {
+  "2026-08": [
+    {
+      id: "295",
+      name: "Eliane Ribeiro",
+      revisions: 28,
+      revisionSales: 10472.35,
+      additionalSales: 7542.96,
+      beautySales: 2530,
+      details: [
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 12, amount: 2448 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 8, amount: 3160 },
+        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 4, amount: 392 },
+        { category: "Adicionais", tmo: "SPF-HMB", service: "Substituição das pastilhas de freio dianteiras", quantity: 2, amount: 484.96 },
+        { category: "Adicionais", tmo: "LIE-HMB", service: "Limpeza de injeção eletrônica", quantity: 1, amount: 350 },
+        { category: "Adicionais", tmo: "LL-HMB", service: "Limpeza e lubrificação das lonas de freio", quantity: 1, amount: 300 },
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 10, amount: 560 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 13, amount: 1970 },
+      ],
+    },
+    {
+      id: "1395",
+      name: "Rosangela Soares",
+      revisions: 42,
+      revisionSales: 17576.82,
+      additionalSales: 13557.69,
+      beautySales: 6380,
+      details: [
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 3, amount: 2786 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 18, amount: 3360 },
+        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 5, amount: 1920 },
+        { category: "Adicionais", tmo: "LIE-HMB", service: "Limpeza de injeção eletrônica", quantity: 6, amount: 1650 },
+        { category: "Adicionais", tmo: "SV-HMB", service: "Substituição das velas", quantity: 13, amount: 1800 },
+        { category: "Adicionais", tmo: "SPF-HMB", service: "Substituição das pastilhas de freio dianteiras", quantity: 8, amount: 700 },
+        { category: "Adicionais", tmo: "LL-HMB", service: "Limpeza e lubrificação das lonas de freio", quantity: 6, amount: 500 },
+        { category: "Adicionais", tmo: "SC-HMB", service: "Substituição das correias", quantity: 2, amount: 300 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 7, amount: 1980 },
+        { category: "Embelezamento", tmo: "EST05", service: "Lavagem dos bancos e hidratação", quantity: 2, amount: 800 },
+        { category: "Embelezamento", tmo: "EST06", service: "Vitrificação, polimento e proteção", quantity: 8, amount: 3600 },
+      ],
+    },
+    {
+      id: "1959",
+      name: "Cleverton Macedo",
+      revisions: 1,
+      revisionSales: 190.89,
+      additionalSales: 0,
+      beautySales: 70,
+      details: [
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 1, amount: 70 },
+      ],
+    },
+  ],
 };
 
 function formatCurrency(value: number | null) {
@@ -859,6 +932,14 @@ export default function FarolGerencialPage() {
         </section>
 
         <section className="panel farol-table-panel">
+          <div className="panel-head farol-report-head tone-consultant">
+            <div><div className="farol-report-title-row"><h2 className="panel-title">Resultados por Consultor</h2><ReportAddButton onClick={() => openObservation("consultant-results", "Resultados por Consultor")} /></div><p className="comment">Serviços iguais são consolidados por descrição, mesmo quando vierem de modelos diferentes.</p></div>
+            <span className="tag">{monthLabel(selectedMonth)}</span>
+          </div>
+          <ConsultantServiceReport selectedMonth={selectedMonth} />
+        </section>
+
+        <section className="panel farol-table-panel">
           <div className="panel-head farol-report-head tone-month">
             <div className="farol-report-title-row"><h2 className="panel-title">Resultado Diário</h2><ReportAddButton onClick={openDailyResult} /></div>
             <span className="tag">Resumo de Serviços</span>
@@ -931,6 +1012,32 @@ function ProductivityTable({ title, rows, emptyText }: { title: string; rows: Pr
           </table>
         </div>
       ) : <p className="farol-productivity-empty">{emptyText}</p>}
+    </div>
+  );
+}
+
+function ConsultantServiceReport({ selectedMonth }: { selectedMonth: string }) {
+  const reports = consultantServicePerformance[selectedMonth] ?? [];
+  const tkm = (value: number, revisions: number) => revisions ? value / revisions : 0;
+
+  if (!reports.length) return <p className="farol-productivity-empty">Ainda não há relatório de vendas por consultor para este mês.</p>;
+
+  return (
+    <div className="farol-consultant-report-grid">
+      {reports.map((consultant) => (
+        <article key={consultant.id} className="farol-consultant-report-card">
+          <header><div><span>{consultant.id}</span><h3>{consultant.name}</h3></div><strong>{consultant.revisions} revisões</strong></header>
+          <div className="farol-consultant-summary">
+            <div><span>Revisões</span><strong>{formatCurrency(consultant.revisionSales)}</strong><small>{consultant.revisions} recebidas</small></div>
+            <div><span>Serviços adicionais</span><strong>{formatCurrency(consultant.additionalSales)}</strong><small>TKM {formatCurrency(tkm(consultant.additionalSales, consultant.revisions))}</small></div>
+            <div><span>Embelezamento</span><strong>{formatCurrency(consultant.beautySales)}</strong><small>TKM {formatCurrency(tkm(consultant.beautySales, consultant.revisions))}</small></div>
+          </div>
+          <div className="farol-consultant-services">
+            <div className="farol-consultant-services-head"><span>Vendas por serviço</span><div><small>Quant.</small><small>Vendas</small><small>TKM</small></div></div>
+            {consultant.details.map((service) => <div key={`${service.tmo}-${service.service}`} className="farol-consultant-service-row"><span className={service.category === "Adicionais" ? "is-additional" : "is-beauty"}>{service.tmo}</span><strong>{service.service}</strong><b>{service.quantity}</b><em>{formatCurrency(service.amount)}</em><i>{formatCurrency(tkm(service.amount, consultant.revisions))}</i></div>)}
+          </div>
+        </article>
+      ))}
     </div>
   );
 }
