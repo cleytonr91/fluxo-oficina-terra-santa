@@ -121,6 +121,11 @@ service cloud.firestore {
       allow write: if manager();
     }
 
+    match /farolDailyResults/{document} {
+      allow read: if manager();
+      allow write: if manager();
+    }
+
     match /partsCatalog/{document} {
       allow read: if operations();
       allow write: if hasRole(['admin']);
