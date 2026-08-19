@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, reuseVehicleAsWalkIn, savePartOrder, saveVehicleRoadTestForm, subscribeFlowEventsForDate, subscribePartOrders, subscribeVehicleFlowEvents, subscribeVehicleFlowsForDate, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, reuseVehicleAsWalkIn, savePartOrder, saveVehicleRoadTestForm, subscribeFlowEventsForDate, subscribePartOrdersForVehicles, subscribeVehicleFlowEvents, subscribeVehicleFlowsForDate, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -411,6 +411,17 @@ function isEarlierThanCurrent(nextValue: string, currentValue: unknown) {
   const currentDate = toDate(currentValue);
   if (!currentDate) return false;
   return new Date(nextValue).getTime() < currentDate.getTime();
+}
+
+function flowErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("quota exceeded") || normalized.includes("resource-exhausted")) {
+    return "A cota diária de leituras do Firebase foi atingida. Os dados permanecem preservados, mas novas consultas e alterações ficam indisponíveis até a renovação da cota ou mudança do plano.";
+  }
+
+  return message || "Não foi possível acompanhar o fluxo em tempo real.";
 }
 
 function partAvailabilityIcon(value?: PartAvailability) {
@@ -823,6 +834,7 @@ export default function FluxoPage() {
     note: "",
   });
   const [movingId, setMovingId] = useState("");
+  const partOrderVehicleKey = vehicles.map((vehicle) => vehicle.id).sort().join("|");
 
   useEffect(() => {
     const savedDate = localStorage.getItem("selectedFlowDate");
@@ -837,7 +849,7 @@ export default function FluxoPage() {
       setLastSyncAt(new Date());
       setLoading(false);
     }, (currentError) => {
-      setError(currentError instanceof Error ? currentError.message : "Não foi possível acompanhar o fluxo em tempo real.");
+      setError(flowErrorMessage(currentError));
       setLoading(false);
     });
 
@@ -845,9 +857,10 @@ export default function FluxoPage() {
   }, [flowDate]);
 
   useEffect(() => {
-    const unsubscribe = subscribePartOrders(setPartOrders, () => undefined);
+    const vehicleIds = partOrderVehicleKey ? partOrderVehicleKey.split("|") : [];
+    const unsubscribe = subscribePartOrdersForVehicles(vehicleIds, setPartOrders, () => undefined);
     return unsubscribe;
-  }, []);
+  }, [partOrderVehicleKey]);
 
   useEffect(() => {
     const selectedDate = flowDate || new Date().toISOString().slice(0, 10);

@@ -1180,6 +1180,44 @@ export function subscribePartOrders(
   }, onError);
 }
 
+export function subscribePartOrdersForVehicles(
+  vehicleFlowIds: string[],
+  onChange: (orders: PartOrder[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const uniqueIds = Array.from(new Set(vehicleFlowIds.filter(Boolean)));
+
+  if (!uniqueIds.length) {
+    onChange([]);
+    return () => undefined;
+  }
+
+  const chunks: string[][] = [];
+  for (let index = 0; index < uniqueIds.length; index += 30) {
+    chunks.push(uniqueIds.slice(index, index + 30));
+  }
+
+  const ordersByChunk = new Map<number, PartOrder[]>();
+  const emit = () => {
+    const orders = Array.from(ordersByChunk.values()).flat();
+    onChange(orders.sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))));
+  };
+
+  const unsubscribes = chunks.map((ids, chunkIndex) => onSnapshot(query(
+    collection(db, collections.partOrders),
+    where("vehicleFlowId", "in", ids),
+  ), (snapshot) => {
+    ordersByChunk.set(chunkIndex, snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as PartOrder[]);
+    emit();
+  }, onError));
+
+  return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+}
+
 export function subscribeBodyShopProcesses(
   onChange: (processes: BodyShopProcess[]) => void,
   onError?: (error: Error) => void,
