@@ -1119,23 +1119,66 @@ export function subscribeVehicleFlowsForDate(
   const endDate = new Date(`${selectedDate}T00:00:00`);
   endDate.setDate(endDate.getDate() + 1);
   const end = Timestamp.fromDate(endDate);
-  let activeVehicles = new Map<string, VehicleFlow>();
+  let selectedDateVehicles = new Map<string, VehicleFlow>();
+  let carryoverVehicles = new Map<string, VehicleFlow>();
+  let immobilizedVehicles = new Map<string, VehicleFlow>();
   let deliveredVehicles = new Map<string, VehicleFlow>();
 
   const emit = () => {
     onChange([...new Map([
-      ...activeVehicles,
+      ...selectedDateVehicles,
+      ...carryoverVehicles,
+      ...immobilizedVehicles,
       ...deliveredVehicles,
     ]).values()]);
   };
 
-  const unsubscribeActive = onSnapshot(
-    query(ref, where("status", "==", "ativo")),
+  const operationalLanes: FlowLane[] = [
+    "aguardando_servico",
+    "em_servico",
+    "orcamento_complementar",
+    "aguardando_lavagem",
+    "lavagem",
+    "preparacao_entrega",
+  ];
+
+  const unsubscribeSelectedDate = onSnapshot(
+    query(ref, where("appointmentDate", "==", selectedDate)),
     (snapshot) => {
-      activeVehicles = new Map(snapshot.docs.map((item) => [
-        item.id,
-        { id: item.id, ...item.data() } as VehicleFlow,
-      ]));
+      selectedDateVehicles = new Map(snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }) as VehicleFlow)
+        .filter((vehicle) => vehicle.status !== "cancelado")
+        .map((vehicle) => [vehicle.id, vehicle]));
+      emit();
+    },
+    onError,
+  );
+
+  const unsubscribeCarryovers = onSnapshot(
+    query(ref, where("currentLane", "in", operationalLanes)),
+    (snapshot) => {
+      carryoverVehicles = new Map(snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }) as VehicleFlow)
+        .filter((vehicle) => (
+          vehicle.status === "ativo"
+          && Boolean(vehicle.appointmentDate && vehicle.appointmentDate < selectedDate)
+        ))
+        .map((vehicle) => [vehicle.id, vehicle]));
+      emit();
+    },
+    onError,
+  );
+
+  const unsubscribeImmobilized = onSnapshot(
+    query(ref, where("vehicleImmobilized", "==", true)),
+    (snapshot) => {
+      immobilizedVehicles = new Map(snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }) as VehicleFlow)
+        .filter((vehicle) => (
+          vehicle.status === "ativo"
+          && (!vehicle.appointmentDate || vehicle.appointmentDate <= selectedDate)
+        ))
+        .map((vehicle) => [vehicle.id, vehicle]));
       emit();
     },
     onError,
@@ -1158,7 +1201,9 @@ export function subscribeVehicleFlowsForDate(
   );
 
   return () => {
-    unsubscribeActive();
+    unsubscribeSelectedDate();
+    unsubscribeCarryovers();
+    unsubscribeImmobilized();
     unsubscribeDelivered();
   };
 }
