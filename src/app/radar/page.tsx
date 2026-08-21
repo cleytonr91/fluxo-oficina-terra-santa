@@ -637,16 +637,21 @@ export default function FarolGerencialPage() {
     const previousManualEntry = serviceProductivityEntries.find((item) => item.month === `${selectedYear - 1}-${String(selectedMonthNumber).padStart(2, "0")}`);
     const previousSnapshot = previousManualEntry ?? serviceReportSnapshots[`${selectedYear - 1}-${String(selectedMonthNumber).padStart(2, "0")}`];
     const useDailyResults = !manualEntry && entries.length > 0;
+    const previousProductiveShop = previousSnapshot ? ("productiveShop" in previousSnapshot ? previousSnapshot.productiveShop : previousSnapshot.revisionSales + previousSnapshot.mechanicsSales + previousSnapshot.additionalSales) : 0;
+    const previousTotalServices = previousSnapshot ? ("totalServices" in previousSnapshot ? previousSnapshot.totalServices : previousProductiveShop + previousSnapshot.beautySales) : 0;
+    const previousTkmBeauty = previousSnapshot ? ("tkmBeauty" in previousSnapshot ? previousSnapshot.tkmBeauty ?? (previousSnapshot.revisions ? previousSnapshot.beautySales / previousSnapshot.revisions : 0) : (previousSnapshot.revisions ? previousSnapshot.beautySales / previousSnapshot.revisions : 0)) : 0;
+    const previousTkmAdditional = previousSnapshot ? ("tkmAdditional" in previousSnapshot ? previousSnapshot.tkmAdditional ?? (previousSnapshot.revisions ? previousSnapshot.additionalSales / previousSnapshot.revisions : 0) : (previousSnapshot.revisions ? previousSnapshot.additionalSales / previousSnapshot.revisions : 0)) : 0;
+    const previousTkmServices = previousSnapshot ? ("tkmServices" in previousSnapshot ? previousSnapshot.tkmServices ?? (previousSnapshot.revisions ? previousTotalServices / previousSnapshot.revisions : 0) : (previousSnapshot.revisions ? previousTotalServices / previousSnapshot.revisions : 0)) : 0;
     if (!useDailyResults && !snapshot) return [
       { label: "Vendas de revisão", current: 0, lastYear: previousSnapshot?.revisionSales ?? 0, type: "currency", note: "Valor da categoria Revisão." },
       { label: "Revisões", current: 0, lastYear: previousSnapshot?.revisions ?? 0, type: "number", note: "Quantidade lida da categoria Revisão." },
       { label: "Embelezamento", current: 0, lastYear: previousSnapshot?.beautySales ?? 0, type: "currency", note: "Vendas de embelezamento." },
-      { label: "TKM embelezamento", current: 0, lastYear: previousSnapshot?.tkmBeauty ?? 0, type: "currency", note: "Embelezamento dividido por revisões." },
+      { label: "TKM embelezamento", current: 0, lastYear: previousTkmBeauty, type: "currency", note: "Embelezamento dividido por revisões." },
       { label: "Serviços adicionais", current: 0, lastYear: previousSnapshot?.additionalSales ?? 0, type: "currency", note: "Vendas de alinhamento e balanceamento." },
-      { label: "TKM serv. adicionais", current: 0, lastYear: previousSnapshot?.tkmAdditional ?? 0, type: "currency", note: "Alinhamento e balanceamento divididos por revisões." },
+      { label: "TKM serv. adicionais", current: 0, lastYear: previousTkmAdditional, type: "currency", note: "Alinhamento e balanceamento divididos por revisões." },
       { label: "Oficina produtiva", current: 0, lastYear: previousSnapshot?.productiveShop ?? 0, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
       { label: "Fat. total serviços", current: 0, lastYear: previousSnapshot?.totalServices ?? 0, type: "currency", note: "Faturamento total de serviços." },
-      { label: "TKM serviços", current: 0, lastYear: previousSnapshot?.tkmServices ?? 0, type: "currency", note: "TKM geral de serviços." },
+      { label: "TKM serviços", current: 0, lastYear: previousTkmServices, type: "currency", note: "TKM geral de serviços." },
     ];
 
     const revisions = useDailyResults ? entries.reduce((total, item) => total + item.revisionCount, 0) : snapshot!.revisions;
@@ -654,22 +659,23 @@ export default function FarolGerencialPage() {
     const mechanicsSales = useDailyResults ? entries.reduce((total, item) => total + item.generalMechanics, 0) : snapshot!.mechanicsSales;
     const additionalSales = useDailyResults ? entries.reduce((total, item) => total + item.alignmentBalancing, 0) : snapshot!.additionalSales;
     const beautySales = useDailyResults ? entries.reduce((total, item) => total + item.beauty, 0) : snapshot!.beautySales;
-    const productiveShop = manualEntry || useDailyResults ? revisionSales + mechanicsSales + additionalSales : snapshot!.productiveShop;
-    const totalServices = manualEntry || useDailyResults ? productiveShop + beautySales : snapshot!.totalServices;
+    const productiveShop = manualEntry || useDailyResults ? revisionSales + mechanicsSales + additionalSales : ("productiveShop" in snapshot! ? snapshot!.productiveShop : revisionSales + mechanicsSales + additionalSales);
+    const totalServices = manualEntry || useDailyResults ? productiveShop + beautySales : ("totalServices" in snapshot! ? snapshot!.totalServices : productiveShop + beautySales);
     const perRevision = (value: number) => revisions ? value / revisions : 0;
-    const tkmServices = manualEntry || useDailyResults ? perRevision(totalServices) : snapshot!.tkmServices ?? perRevision(totalServices);
-    const tkmAdditional = manualEntry || useDailyResults ? perRevision(additionalSales) : snapshot?.tkmAdditional ?? perRevision(additionalSales);
-    const tkmBeauty = manualEntry || useDailyResults ? perRevision(beautySales) : snapshot?.tkmBeauty ?? perRevision(beautySales);
+    const legacySnapshot = snapshot && "tkmServices" in snapshot ? snapshot : undefined;
+    const tkmServices = manualEntry || useDailyResults ? perRevision(totalServices) : legacySnapshot?.tkmServices ?? perRevision(totalServices);
+    const tkmAdditional = manualEntry || useDailyResults ? perRevision(additionalSales) : legacySnapshot?.tkmAdditional ?? perRevision(additionalSales);
+    const tkmBeauty = manualEntry || useDailyResults ? perRevision(beautySales) : legacySnapshot?.tkmBeauty ?? perRevision(beautySales);
     return [
       { label: "Vendas de revisão", current: revisionSales, lastYear: previousSnapshot?.revisionSales ?? 0, type: "currency", note: "Valor da categoria Revisão." },
       { label: "Revisões", current: revisions, lastYear: previousSnapshot?.revisions ?? 0, type: "number", note: "Quantidade lida da categoria Revisão." },
       { label: "Serviços adicionais", current: additionalSales, lastYear: previousSnapshot?.additionalSales ?? 0, type: "currency", note: "Vendas de alinhamento e balanceamento." },
-      { label: "TKM serv. adicionais", current: tkmAdditional, lastYear: previousSnapshot?.tkmAdditional ?? 0, type: "currency", note: "Alinhamento e balanceamento divididos por revisões." },
+      { label: "TKM serv. adicionais", current: tkmAdditional, lastYear: previousTkmAdditional, type: "currency", note: "Alinhamento e balanceamento divididos por revisões." },
       { label: "Embelezamento", current: beautySales, lastYear: previousSnapshot?.beautySales ?? 0, type: "currency", note: "Vendas de embelezamento." },
-      { label: "TKM embelezamento", current: tkmBeauty, lastYear: previousSnapshot?.tkmBeauty ?? 0, type: "currency", note: "Embelezamento dividido por revisões." },
+      { label: "TKM embelezamento", current: tkmBeauty, lastYear: previousTkmBeauty, type: "currency", note: "Embelezamento dividido por revisões." },
       { label: "Oficina produtiva", current: productiveShop, lastYear: previousSnapshot?.productiveShop ?? 0, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
       { label: "Fat. total serviços", current: totalServices, lastYear: previousSnapshot?.totalServices ?? 0, type: "currency", note: "Faturamento total de serviços." },
-      { label: "TKM serviços", current: tkmServices, lastYear: previousSnapshot?.tkmServices ?? 0, type: "currency", note: "TKM geral de serviços." },
+      { label: "TKM serviços", current: tkmServices, lastYear: previousTkmServices, type: "currency", note: "TKM geral de serviços." },
     ];
   }, [dailyResults, selectedMonth, serviceProductivityEntries]);
 
