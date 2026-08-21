@@ -551,6 +551,7 @@ function buildProductivity(vehicles: VehicleFlow[], selectedMonth: string, perso
 
 export default function FarolGerencialPage() {
   const { profile } = useAuth();
+  const canManageReports = profile?.role === "admin";
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [partsEntries, setPartsEntries] = useState<PartsCounterEntry[]>([]);
   const [partsGoals, setPartsGoals] = useState<PartsSalesGoal[]>([]);
@@ -582,6 +583,7 @@ export default function FarolGerencialPage() {
   const [activeServiceProductivityEntry, setActiveServiceProductivityEntry] = useState(false);
   const [serviceProductivityDraft, setServiceProductivityDraft] = useState({ month: "", revisions: "", revisionSales: "", mechanicsSales: "", additionalSales: "", beautySales: "" });
   const [savingServiceProductivityEntry, setSavingServiceProductivityEntry] = useState(false);
+  const [dailyResultCollapsed, setDailyResultCollapsed] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -770,7 +772,14 @@ export default function FarolGerencialPage() {
     ...operation.map((item) => ({ key: item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), label: item.label })),
   ];
 
+  function canEditReport() {
+    if (canManageReports) return true;
+    setError("Somente Administradores podem incluir ou alterar relatórios no Farol.");
+    return false;
+  }
+
   async function saveObservation(key: string, label: string) {
+    if (!canEditReport()) return;
     setSavingObservation(key);
     try {
       await saveFarolObservation({ month: selectedMonth, indicatorKey: key, indicatorLabel: label, text: observationCommentDraft, value: observationValueDraft, updatedBy: profile?.name });
@@ -785,12 +794,14 @@ export default function FarolGerencialPage() {
   }
 
   function openObservation(key: string, label: string) {
+    if (!canEditReport()) return;
     setActiveObservation({ key, label });
     setObservationValueDraft(observationValues[key] ?? "");
     setObservationCommentDraft(observations[key] ?? "");
   }
 
   function openDailyResult() {
+    if (!canEditReport()) return;
     const today = new Date();
     const selectedIsCurrent = selectedMonth === monthKey(today);
     const firstBusinessDay = financialRows[0] ? Number(financialRows[0].day.slice(0, 2)) : 1;
@@ -801,6 +812,7 @@ export default function FarolGerencialPage() {
   }
 
   async function saveDailyResult() {
+    if (!canEditReport()) return;
     setSavingDailyResult(true);
     try {
       await saveFarolDailyResult({
@@ -822,12 +834,14 @@ export default function FarolGerencialPage() {
   }
 
   function openRevenueEntry() {
+    if (!canEditReport()) return;
     const existing = revenueEntries.find((item) => item.month === selectedMonth) ?? monthlyTrend.find((item) => item.month === selectedMonth);
     setRevenueDraft({ month: selectedMonth, parts: existing ? String(existing.parts) : "", services: existing ? String(existing.services) : "" });
     setActiveRevenueEntry(true);
   }
 
   async function saveRevenueEntry() {
+    if (!canEditReport()) return;
     setSavingRevenueEntry(true);
     try {
       await saveFarolRevenue({
@@ -845,6 +859,7 @@ export default function FarolGerencialPage() {
   }
 
   function openGrossProfitEntry() {
+    if (!canEditReport()) return;
     const existing = grossProfitEntries.find((item) => item.month === selectedMonth) ?? grossProfitTrend.find((item) => item.month === selectedMonth);
     setGrossProfitDraft({
       month: selectedMonth,
@@ -857,6 +872,7 @@ export default function FarolGerencialPage() {
   }
 
   async function saveGrossProfitEntry() {
+    if (!canEditReport()) return;
     setSavingGrossProfitEntry(true);
     try {
       await saveFarolGrossProfit({
@@ -876,6 +892,7 @@ export default function FarolGerencialPage() {
   }
 
   function openChannelRevenueEntry() {
+    if (!canEditReport()) return;
     const existing = channelRevenueByMonth.get(selectedMonth);
     setChannelRevenueDraft({
       month: selectedMonth,
@@ -889,6 +906,7 @@ export default function FarolGerencialPage() {
   }
 
   async function saveChannelRevenueEntry() {
+    if (!canEditReport()) return;
     setSavingChannelRevenueEntry(true);
     try {
       await saveFarolChannelRevenue({
@@ -909,6 +927,7 @@ export default function FarolGerencialPage() {
   }
 
   function openServiceProductivityEntry() {
+    if (!canEditReport()) return;
     const existing = serviceProductivityEntries.find((item) => item.month === selectedMonth) ?? serviceReportSnapshots[selectedMonth];
     setServiceProductivityDraft({
       month: selectedMonth,
@@ -922,6 +941,7 @@ export default function FarolGerencialPage() {
   }
 
   async function saveServiceProductivityEntry() {
+    if (!canEditReport()) return;
     setSavingServiceProductivityEntry(true);
     try {
       await saveFarolServiceProductivity({
@@ -1021,6 +1041,31 @@ export default function FarolGerencialPage() {
               </article>
             </div>
           </aside>
+        </section>
+
+        <section className="panel farol-table-panel farol-daily-panel">
+          <div className="panel-head farol-report-head tone-month">
+            <div className="farol-report-title-row"><h2 className="panel-title">Resultado Diário</h2><ReportAddButton onClick={openDailyResult} /></div>
+            <div className="farol-daily-panel-actions"><span className="tag">Resumo de Serviços</span><button type="button" className="farol-collapse-button" onClick={() => setDailyResultCollapsed((current) => !current)} aria-expanded={!dailyResultCollapsed}>{dailyResultCollapsed ? "Expandir" : "Recolher"}</button></div>
+          </div>
+          {!dailyResultCollapsed && <div className="farol-daily-result-layout">
+            <DailyResultLineChart rows={financialRows} />
+            <div className="farol-daily-two-rows">
+              {dailyRowsByHalf.map((dailyRow, rowIndex) => (
+                <div className="farol-daily-row" key={`${selectedMonth}-row-${rowIndex}`}>
+                  {dailyRow.map((row) => (
+                    <article key={row.day} className={`farol-day-card ${row.special ? `row-${row.special}` : ""}`}>
+                      <div className="farol-day-head"><strong>{row.day}</strong><i aria-hidden="true">|</i><span>{row.weekDay}</span>{row.revisionCount !== null && row.revisionCount !== undefined && <><i aria-hidden="true">|</i><b>REV {row.revisionCount}</b></>}</div>
+                      <div className="farol-day-lines">
+                        <div><span>OP</span><strong className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-text" : row.shopDone === null ? "" : "bad-text"}>{formatCurrency(row.shopDone)}</strong><em>M {formatCurrency(row.shopGoal)}</em><small>AA {formatCurrency(row.shopPreviousYear ?? null)}</small></div>
+                        <div><span>EMB</span><strong className={row.beautyDone !== null && row.beautyDone >= row.beautyGoal ? "good-text" : row.beautyDone === null ? "" : "bad-text"}>{formatCurrency(row.beautyDone)}</strong><em>M {formatCurrency(row.beautyGoal)}</em><small>AA {formatCurrency(row.beautyPreviousYear ?? null)}</small></div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>}
         </section>
 
         <section className="panel farol-table-panel">
@@ -1135,33 +1180,6 @@ export default function FarolGerencialPage() {
             <span className="tag">{monthLabel(selectedMonth)}</span>
           </div>
           <ConsultantServiceReport selectedMonth={selectedMonth} />
-        </section>
-
-        <section className="panel farol-table-panel">
-          <div className="panel-head farol-report-head tone-month">
-            <div className="farol-report-title-row"><h2 className="panel-title">Resultado Diário</h2><ReportAddButton onClick={openDailyResult} /></div>
-            <span className="tag">Resumo de Serviços</span>
-          </div>
-          <div className="farol-daily-result-layout">
-            <DailyResultLineChart rows={financialRows} />
-            <div className="farol-daily-two-rows">
-              {dailyRowsByHalf.map((dailyRow, rowIndex) => (
-                <div className="farol-daily-row" key={`${selectedMonth}-row-${rowIndex}`}>
-                  {dailyRow.map((row) => {
-                    return (
-                      <article key={row.day} className={`farol-day-card ${row.special ? `row-${row.special}` : ""}`}>
-                        <div className="farol-day-head"><strong>{row.day}</strong><span>{row.weekDay}</span></div>
-                        <div className="farol-day-lines">
-                          <div><span>OP</span><strong className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-text" : row.shopDone === null ? "" : "bad-text"}>{formatCurrency(row.shopDone)}</strong><em>M {formatCurrency(row.shopGoal)}</em><small>AA {formatCurrency(row.shopPreviousYear ?? null)}</small>{row.revisionCount !== null && row.revisionCount !== undefined && <b>REV {row.revisionCount}</b>}</div>
-                          <div><span>EMB</span><strong className={row.beautyDone !== null && row.beautyDone >= row.beautyGoal ? "good-text" : row.beautyDone === null ? "" : "bad-text"}>{formatCurrency(row.beautyDone)}</strong><em>M {formatCurrency(row.beautyGoal)}</em><small>AA {formatCurrency(row.beautyPreviousYear ?? null)}</small></div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
         </section>
 
         {activeObservation && (
@@ -1338,7 +1356,6 @@ function DailyResultLineChart({ rows }: { rows: DailyResult[] }) {
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const x = (index: number) => padding.left + (rows.length <= 1 ? 0 : (index / (rows.length - 1)) * plotWidth);
-  const labelStep = Math.max(1, Math.ceil(rows.length / 6));
   const lastDone = doneSeries.at(-1);
   const completedGoal = doneSeries.reduce((total, point) => total + (rows[point.index]?.[goalField] ?? 0), 0);
   const pace = completedGoal && lastDone ? lastDone.value / completedGoal : 0;
@@ -1362,7 +1379,11 @@ function DailyResultLineChart({ rows }: { rows: DailyResult[] }) {
         {doneSeries.length > 1 && <polyline className="done-line" points={points(doneSeries)} />}
         {previousSeries.length > 1 && <polyline className="previous-line" points={points(previousSeries)} />}
         {showProjection && projectionSeries.length > 1 && <polyline className="projection-line" points={points(projectionSeries)} />}
-        {rows.map((row, index) => (index % labelStep === 0 || index === rows.length - 1) && <text className="axis-day" key={row.day} x={x(index)} y={height - 10} textAnchor="middle">{row.day.split("/")[0]}</text>)}
+        {goalSeries.filter((point) => point.index <= (lastDone?.index ?? -1)).map((point) => <circle key={`goal-${point.index}`} className="goal-point" cx={x(point.index)} cy={y(point.value)} r="1.8" />)}
+        {doneSeries.map((point) => <circle key={`done-${point.index}`} className="done-point" cx={x(point.index)} cy={y(point.value)} r="2.2" />)}
+        {previousSeries.map((point) => <circle key={`previous-${point.index}`} className="previous-point" cx={x(point.index)} cy={y(point.value)} r="1.8" />)}
+        {showProjection && projectionSeries.filter((point) => point.index > (lastDone?.index ?? -1)).map((point) => <circle key={`projection-${point.index}`} className="projection-point" cx={x(point.index)} cy={y(point.value)} r="1.5" />)}
+        {rows.map((row, index) => <text className="axis-day" key={row.day} x={x(index)} y={height - 10} textAnchor="middle">{row.day.split("/")[0]}</text>)}
       </svg>
       {!doneSeries.length && <p>Os resultados aparecerão conforme os valores diários forem preenchidos.</p>}
       {!previousSeries.length && <p className="farol-aa-missing">Base diária do ano anterior ainda não informada.</p>}
@@ -1411,6 +1432,8 @@ function GoalCard({
 }
 
 function ReportAddButton({ onClick }: { onClick: () => void }) {
+  const { profile } = useAuth();
+  if (profile?.role !== "admin") return null;
   return <button type="button" className="farol-report-add" onClick={onClick} aria-label="Adicionar número e comentário">+</button>;
 }
 

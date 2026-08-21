@@ -534,6 +534,27 @@
   padding: 12px;
 }
 
+.farol-daily-panel-actions {
+  align-items: center;
+  display: flex;
+  gap: 7px;
+}
+
+.farol-collapse-button {
+  border: 1px solid #b8c8bf;
+  border-radius: 5px;
+  background: #fff;
+  color: #315d49;
+  cursor: pointer;
+  font-size: 0.62rem;
+  font-weight: 900;
+  padding: 4px 7px;
+}
+
+.farol-collapse-button:hover {
+  background: #eef5ef;
+}
+
 .farol-daily-two-rows {
   display: grid;
   gap: 8px;
@@ -573,11 +594,14 @@
 
 .farol-daily-row .farol-day-card {
   border-left-width: 3px;
-  padding: 5px 4px;
+  min-height: 158px;
+  padding: 6px 5px;
 }
 
 .farol-daily-row .farol-day-head {
-  gap: 2px;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
+  gap: 3px;
   padding-bottom: 4px;
 }
 
@@ -585,61 +609,89 @@
   font-size: 0.67rem;
 }
 
+.farol-daily-row .farol-day-head i {
+  color: #aab4af;
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
 .farol-daily-row .farol-day-head span {
   font-size: 0.56rem;
 }
 
+.farol-daily-row .farol-day-head b {
+  color: #865f12;
+  font-size: 0.52rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .farol-daily-row .farol-day-lines {
-  gap: 3px;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 7px;
   margin-top: 4px;
 }
 
 .farol-daily-row .farol-day-lines div {
-  display: block;
+  display: grid;
+  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-items: start;
+  min-width: 0;
+}
+
+.farol-daily-row .farol-day-lines div + div {
+  border-left: 0;
+  border-top: 0.5px solid rgb(82 97 91 / 16%);
+  padding-left: 0;
+  padding-top: 5px;
 }
 
 .farol-daily-row .farol-day-lines span {
   color: #52615b;
   display: block;
   font-size: 0.54rem;
-  text-align: center;
+  margin-right: 4px;
+  text-align: left;
 }
 
 .farol-daily-row .farol-day-lines strong {
   display: block;
-  font-size: 0.66rem;
-  font-weight: 600;
-  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .farol-daily-row .farol-day-lines em {
+  border-top: 0.5px solid rgb(199 55 55 / 14%);
   color: #c73737;
   display: block;
-  font-size: 0.52rem;
+  font-size: 0.5rem;
   font-style: normal;
   font-weight: 600;
-  margin-top: 1px;
-  text-align: center;
+  grid-column: 2;
+  line-height: 1.45;
+  margin-top: 3px;
+  padding-top: 2px;
+  text-align: left;
   white-space: nowrap;
 }
 
 .farol-daily-row .farol-day-lines small {
+  border-top: 0.5px solid rgb(44 111 187 / 14%);
   color: #2c6fbb;
   display: block;
-  font-size: 0.55rem;
+  font-size: 0.5rem;
   font-weight: 600;
-  margin-top: 1px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.farol-daily-row .farol-day-lines b {
-  color: #865f12;
-  display: block;
-  font-size: 0.52rem;
-  font-weight: 800;
-  margin-top: 1px;
-  text-align: center;
+  grid-column: 2;
+  line-height: 1.45;
+  margin-top: 2px;
+  padding-top: 2px;
+  text-align: left;
   white-space: nowrap;
 }
 
@@ -765,7 +817,7 @@
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 4;
+  stroke-width: 1.8;
 }
 
 .farol-daily-chart .previous-line {
@@ -778,13 +830,18 @@
 
 .farol-daily-chart .grid-line {
   stroke: #dfe6e1;
-  stroke-width: 1;
+  stroke-width: 0.65;
 }
+
+.farol-daily-chart .done-point { fill: #2f7d55; stroke: #fff; stroke-width: 0.8; }
+.farol-daily-chart .goal-point { fill: #c73737; stroke: #fff; stroke-width: 0.7; }
+.farol-daily-chart .previous-point { fill: #2c6fbb; stroke: #fff; stroke-width: 0.7; }
+.farol-daily-chart .projection-point { fill: #7356a6; stroke: #fff; stroke-width: 0.6; }
 
 .farol-daily-chart .axis-value,
 .farol-daily-chart .axis-day {
   fill: #6d7974;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 700;
 }
 

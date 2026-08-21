@@ -117,33 +117,33 @@ service cloud.firestore {
     }
 
     match /farolObservations/{document} {
-      allow read: if manager();
-      allow write: if manager();
+      allow read: if activeUser();
+      allow write: if hasRole(['admin']);
     }
 
     match /farolDailyResults/{document} {
-      allow read: if manager();
-      allow write: if manager();
+      allow read: if activeUser();
+      allow write: if hasRole(['admin']);
     }
 
     match /farolRevenue/{document} {
-      allow read: if manager();
-      allow write: if manager();
+      allow read: if activeUser();
+      allow write: if hasRole(['admin']);
     }
 
     match /farolGrossProfit/{document} {
-      allow read: if manager();
-      allow write: if manager();
+      allow read: if activeUser();
+      allow write: if hasRole(['admin']);
     }
 
     match /farolChannelRevenue/{document} {
-      allow read: if manager();
-      allow write: if manager();
+      allow read: if activeUser();
+      allow write: if hasRole(['admin']);
     }
 
     match /farolServiceProductivity/{document} {
-      allow read: if manager();
-      allow write: if manager();
+      allow read: if activeUser();
+      allow write: if hasRole(['admin']);
     }
 
     match /partsCatalog/{document} {
