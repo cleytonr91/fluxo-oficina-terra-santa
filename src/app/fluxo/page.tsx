@@ -722,7 +722,7 @@ export default function FluxoPage() {
   const { profile, user } = useAuth();
   const canDeleteChip = profile?.role === "admin" || profile?.role === "gerente";
   const canEditConsultant = profile?.role === "admin" || profile?.role === "gerente";
-  const canEditCustomerWaits = profile?.role === "admin";
+  const canEditCustomerWaits = profile?.role === "admin" || profile?.role === "consultor";
   const canManageImmobilization = profile?.role === "admin" || profile?.role === "gerente" || profile?.role === "chefe_oficina";
   const canReducePromisedDelivery = profile?.role === "admin" || profile?.role === "gerente" || user?.email === "cleyton91@gmail.com";
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);

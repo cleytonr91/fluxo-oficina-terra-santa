@@ -75,7 +75,7 @@ service cloud.firestore {
             'immobilizationUpdatedBy',
             'immobilizationUpdatedAt'
           ]))
-        && (hasRole(['admin'])
+        && (hasRole(['admin', 'consultor'])
           || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
             'customerWaits',
             'customerWaitsUpdatedBy',
