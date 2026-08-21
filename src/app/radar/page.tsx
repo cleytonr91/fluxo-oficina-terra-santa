@@ -649,8 +649,8 @@ export default function FarolGerencialPage() {
       { label: "TKM embelezamento", current: 0, lastYear: previousTkmBeauty, type: "currency", note: "Embelezamento dividido por revisões." },
       { label: "Serviços adicionais", current: 0, lastYear: previousSnapshot?.additionalSales ?? 0, type: "currency", note: "Vendas de alinhamento e balanceamento." },
       { label: "TKM serv. adicionais", current: 0, lastYear: previousTkmAdditional, type: "currency", note: "Alinhamento e balanceamento divididos por revisões." },
-      { label: "Oficina produtiva", current: 0, lastYear: previousSnapshot?.productiveShop ?? 0, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
-      { label: "Fat. total serviços", current: 0, lastYear: previousSnapshot?.totalServices ?? 0, type: "currency", note: "Faturamento total de serviços." },
+      { label: "Oficina produtiva", current: 0, lastYear: previousProductiveShop, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
+      { label: "Fat. total serviços", current: 0, lastYear: previousTotalServices, type: "currency", note: "Faturamento total de serviços." },
       { label: "TKM serviços", current: 0, lastYear: previousTkmServices, type: "currency", note: "TKM geral de serviços." },
     ];
 
