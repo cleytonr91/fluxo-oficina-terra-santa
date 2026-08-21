@@ -4,6 +4,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  documentId,
   deleteField,
   getDoc,
   getDocs,
@@ -211,6 +212,26 @@ export function subscribePartsCounterEntries(
   }, (error) => onError?.(error));
 }
 
+export function subscribePartsCounterEntriesForMonth(
+  month: string,
+  onData: (items: PartsCounterEntry[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const monthStart = `${month}-01`;
+  const [year, monthNumber] = month.split("-").map(Number);
+  const nextMonth = new Date(year, monthNumber, 1).toISOString().slice(0, 10);
+  const ref = query(
+    collection(db, collections.partsCounterEntries),
+    where("occurredOn", ">=", monthStart),
+    where("occurredOn", "<", nextMonth),
+  );
+
+  return onSnapshot(ref, (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as PartsCounterEntry[]);
+  }, (error) => onError?.(error));
+}
+
 export function subscribePartsSalesGoals(
   onData: (items: PartsSalesGoal[]) => void,
   onError?: (error: Error) => void,
@@ -240,6 +261,20 @@ export function subscribeFarolObservations(
 ) {
   const db = getFirebaseDb();
   return onSnapshot(collection(db, collections.farolObservations), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolObservation[]);
+  }, (error) => onError?.(error));
+}
+
+export function subscribeFarolObservationsForMonth(
+  month: string,
+  onData: (items: FarolObservation[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(query(
+    collection(db, collections.farolObservations),
+    where("month", "==", month),
+  ), (snapshot) => {
     onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolObservation[]);
   }, (error) => onError?.(error));
 }
@@ -283,6 +318,20 @@ export function subscribeFarolDailyResults(
 ) {
   const db = getFirebaseDb();
   return onSnapshot(collection(db, collections.farolDailyResults), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolDailyResult[]);
+  }, (error) => onError?.(error));
+}
+
+export function subscribeFarolDailyResultsForMonth(
+  month: string,
+  onData: (items: FarolDailyResult[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(query(
+    collection(db, collections.farolDailyResults),
+    where("month", "==", month),
+  ), (snapshot) => {
     onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolDailyResult[]);
   }, (error) => onError?.(error));
 }
@@ -705,6 +754,19 @@ export async function listHgsiRecords() {
   })) as HgsiRecord[];
 }
 
+export async function listHgsiRecordsForMonth(sourceMonth: string) {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(query(
+    collection(db, collections.hgsiRecords),
+    where("sourceMonth", "==", sourceMonth),
+  ));
+
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as HgsiRecord[];
+}
+
 export async function listHgsiAnswers() {
   const db = getFirebaseDb();
   const snapshot = await getDocs(collection(db, collections.hgsiAnswers));
@@ -715,9 +777,35 @@ export async function listHgsiAnswers() {
   })) as HgsiAnswer[];
 }
 
+export async function listHgsiAnswersForMonth(sourceMonth: string) {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(query(
+    collection(db, collections.hgsiAnswers),
+    where("sourceMonth", "==", sourceMonth),
+  ));
+
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as HgsiAnswer[];
+}
+
 export async function listPostServiceCases() {
   const db = getFirebaseDb();
   const snapshot = await getDocs(collection(db, collections.postServiceCases));
+
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as PostServiceCase[];
+}
+
+export async function listPostServiceCasesForMonth(sourceMonth: string) {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(query(
+    collection(db, collections.postServiceCases),
+    where("sourceMonth", "==", sourceMonth),
+  ));
 
   return snapshot.docs.map((item) => ({
     id: item.id,
@@ -1053,6 +1141,73 @@ export async function listActiveVehicleFlows({ includeDelivered = false } = {}) 
   ));
 }
 
+export async function listVehicleFlowsForMonth(month: string) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.vehiclesFlow);
+  const monthStart = `${month}-01`;
+  const [year, monthNumber] = month.split("-").map(Number);
+  const nextMonthDate = new Date(year, monthNumber, 1);
+  const nextMonth = nextMonthDate.toISOString().slice(0, 10);
+  const deliveredStart = Timestamp.fromDate(new Date(`${monthStart}T00:00:00`));
+  const deliveredEnd = Timestamp.fromDate(new Date(`${nextMonth}T00:00:00`));
+  const [appointmentSnapshot, deliveredSnapshot] = await Promise.all([
+    getDocs(query(
+      ref,
+      where("appointmentDate", ">=", monthStart),
+      where("appointmentDate", "<", nextMonth),
+    )),
+    getDocs(query(
+      ref,
+      where("deliveredAt", ">=", deliveredStart),
+      where("deliveredAt", "<", deliveredEnd),
+    )),
+  ]);
+
+  return [...new Map([
+    ...appointmentSnapshot.docs,
+    ...deliveredSnapshot.docs,
+  ].map((item) => [
+    item.id,
+    { id: item.id, ...item.data() } as VehicleFlow,
+  ])).values()];
+}
+
+export async function listDeliveredVehicleFlowsForMonth(month: string) {
+  const db = getFirebaseDb();
+  const [year, monthNumber] = month.split("-").map(Number);
+  const monthStart = Timestamp.fromDate(new Date(`${month}-01T00:00:00`));
+  const nextMonth = Timestamp.fromDate(new Date(year, monthNumber, 1));
+  const snapshot = await getDocs(query(
+    collection(db, collections.vehiclesFlow),
+    where("deliveredAt", ">=", monthStart),
+    where("deliveredAt", "<", nextMonth),
+  ));
+
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as VehicleFlow[];
+}
+
+export async function listVehicleFlowsByIds(vehicleFlowIds: string[]) {
+  const db = getFirebaseDb();
+  const uniqueIds = Array.from(new Set(vehicleFlowIds.filter(Boolean)));
+  if (!uniqueIds.length) return [];
+
+  const snapshots = await Promise.all(Array.from(
+    { length: Math.ceil(uniqueIds.length / 30) },
+    (_, index) => getDocs(query(
+      collection(db, collections.vehiclesFlow),
+      where(documentId(), "in", uniqueIds.slice(index * 30, (index + 1) * 30)),
+    )),
+  ));
+
+  return snapshots.flatMap((snapshot) => snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  }))) as VehicleFlow[];
+}
+
 export async function findVehicleFlowConflict({
   plate,
   chassi,
@@ -1065,11 +1220,25 @@ export async function findVehicleFlowConflict({
   if (!normalizedPlate && !normalizedChassi) return null;
 
   const db = getFirebaseDb();
-  const snapshot = await getDocs(collection(db, collections.vehiclesFlow));
-  const vehicles = snapshot.docs.map((item) => ({
-    id: item.id,
-    ...item.data(),
-  })) as VehicleFlow[];
+  const ref = collection(db, collections.vehiclesFlow);
+  const identifierValues = (value?: string) => Array.from(new Set([
+    value?.trim(),
+    value?.trim().toUpperCase(),
+    value?.trim().toLowerCase(),
+    normalizeVehicleIdentifier(value),
+  ].filter((entry): entry is string => Boolean(entry))));
+  const searches = [
+    { field: "plate", values: identifierValues(plate) },
+    { field: "chassi", values: identifierValues(chassi) },
+  ].filter((search) => search.values.length > 0);
+  const snapshots = await Promise.all(searches.map((search) => getDocs(query(
+    ref,
+    where(search.field, "in", search.values),
+  ))));
+  const vehicles = [...new Map(snapshots.flatMap((snapshot) => snapshot.docs.map((item) => [
+    item.id,
+    { id: item.id, ...item.data() } as VehicleFlow,
+  ]))).values()];
 
   return vehicles.find((vehicle) => {
     if (vehicle.id === ignoreId || vehicle.status !== "ativo" || vehicle.currentLane === "entregue") return false;
@@ -1106,6 +1275,146 @@ export function subscribeActiveVehicleFlows(
       includeDelivered || vehicle.currentLane !== "entregue"
     )));
   }, onError);
+}
+
+export function subscribeVehicleFlowsByIds(
+  vehicleFlowIds: string[],
+  onChange: (vehicles: VehicleFlow[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const uniqueIds = Array.from(new Set(vehicleFlowIds.filter(Boolean)));
+
+  if (!uniqueIds.length) {
+    onChange([]);
+    return () => undefined;
+  }
+
+  const chunks: string[][] = [];
+  for (let index = 0; index < uniqueIds.length; index += 30) {
+    chunks.push(uniqueIds.slice(index, index + 30));
+  }
+
+  const vehiclesByChunk = new Map<number, VehicleFlow[]>();
+  const emit = () => onChange(Array.from(vehiclesByChunk.values()).flat());
+  const unsubscribes = chunks.map((ids, chunkIndex) => onSnapshot(query(
+    collection(db, collections.vehiclesFlow),
+    where(documentId(), "in", ids),
+  ), (snapshot) => {
+    vehiclesByChunk.set(chunkIndex, snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as VehicleFlow[]);
+    emit();
+  }, onError));
+
+  return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+}
+
+export function subscribeVehicleFlowsByIdentifiers(
+  plates: string[],
+  chassis: string[],
+  onChange: (vehicles: VehicleFlow[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const queries: Array<{ field: "plate" | "chassi"; values: string[] }> = [];
+
+  ([
+    ["plate", Array.from(new Set(plates.filter(Boolean)))],
+    ["chassi", Array.from(new Set(chassis.filter(Boolean)))],
+  ] as const).forEach(([field, values]) => {
+    for (let index = 0; index < values.length; index += 30) {
+      queries.push({ field, values: values.slice(index, index + 30) });
+    }
+  });
+
+  if (!queries.length) {
+    onChange([]);
+    return () => undefined;
+  }
+
+  const vehiclesByQuery = new Map<number, VehicleFlow[]>();
+  const emit = () => onChange([...new Map(
+    Array.from(vehiclesByQuery.values())
+      .flat()
+      .map((vehicle) => [vehicle.id, vehicle]),
+  ).values()]);
+  const unsubscribes = queries.map(({ field, values }, queryIndex) => onSnapshot(query(
+    collection(db, collections.vehiclesFlow),
+    where(field, "in", values),
+  ), (snapshot) => {
+    vehiclesByQuery.set(queryIndex, snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as VehicleFlow[]);
+    emit();
+  }, onError));
+
+  return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+}
+
+export function subscribeVehicleFlowsForPreparation(
+  selectedDate: string,
+  onChange: (vehicles: VehicleFlow[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.vehiclesFlow);
+  let selectedDateVehicles = new Map<string, VehicleFlow>();
+  let pendingVehicles = new Map<string, VehicleFlow>();
+  let immobilizedVehicles = new Map<string, VehicleFlow>();
+  const emit = () => onChange([...new Map([
+    ...selectedDateVehicles,
+    ...pendingVehicles,
+    ...immobilizedVehicles,
+  ]).values()]);
+
+  const unsubscribeSelectedDate = onSnapshot(
+    query(ref, where("appointmentDate", "==", selectedDate)),
+    (snapshot) => {
+      selectedDateVehicles = new Map(snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }) as VehicleFlow)
+        .filter((vehicle) => vehicle.status !== "cancelado")
+        .map((vehicle) => [vehicle.id, vehicle]));
+      emit();
+    },
+    onError,
+  );
+
+  const unsubscribePending = onSnapshot(
+    query(ref, where("currentLane", "in", ["aguardando_servico", "em_servico"])),
+    (snapshot) => {
+      pendingVehicles = new Map(snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }) as VehicleFlow)
+        .filter((vehicle) => (
+          vehicle.status === "ativo"
+          && !vehicle.noShow
+          && Boolean(vehicle.appointmentDate && vehicle.appointmentDate < selectedDate)
+        ))
+        .map((vehicle) => [vehicle.id, vehicle]));
+      emit();
+    },
+    onError,
+  );
+
+  const unsubscribeImmobilized = onSnapshot(
+    query(ref, where("vehicleImmobilized", "==", true)),
+    (snapshot) => {
+      immobilizedVehicles = new Map(snapshot.docs
+        .map((item) => ({ id: item.id, ...item.data() }) as VehicleFlow)
+        .filter((vehicle) => vehicle.status === "ativo")
+        .map((vehicle) => [vehicle.id, vehicle]));
+      emit();
+    },
+    onError,
+  );
+
+  return () => {
+    unsubscribeSelectedDate();
+    unsubscribePending();
+    unsubscribeImmobilized();
+  };
 }
 
 export function subscribeVehicleFlowsForDate(
@@ -1222,6 +1531,31 @@ export function subscribePartOrders(
     })) as PartOrder[];
 
   onChange(orders.sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))));
+  }, onError);
+}
+
+export function subscribePartOrdersByStatuses(
+  statuses: PartOrderStatus[],
+  onChange: (orders: PartOrder[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  const uniqueStatuses = Array.from(new Set(statuses));
+
+  if (!uniqueStatuses.length) {
+    onChange([]);
+    return () => undefined;
+  }
+
+  return onSnapshot(query(
+    collection(db, collections.partOrders),
+    where("orderStatus", "in", uniqueStatuses),
+  ), (snapshot) => {
+    const orders = snapshot.docs.map((item) => ({
+      id: item.id,
+      ...item.data(),
+    })) as PartOrder[];
+    onChange(orders.sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))));
   }, onError);
 }
 

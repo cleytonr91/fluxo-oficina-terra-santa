@@ -3,10 +3,20 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
-import { findVehicleFlowConflict, savePreparedVehicle, subscribeActiveVehicleFlows, subscribePartOrders } from "@/services/firestore";
-import type { FlowLane, PartOrder, VehicleFlow } from "@/types/domain";
+import { findVehicleFlowConflict, savePreparedVehicle, subscribePartOrdersByStatuses, subscribeVehicleFlowsByIds, subscribeVehicleFlowsForPreparation } from "@/services/firestore";
+import type { FlowLane, PartOrder, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
 const technicians = ["Definir", "Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan", "Igo"];
+const openPartOrderStatuses: PartOrderStatus[] = [
+  "solicitado_oficina",
+  "necessidade_identificada",
+  "aguardando_pecas",
+  "pedido_realizado",
+  "back_order",
+  "em_transito",
+  "recebido",
+  "disponivel",
+];
 
 const laneLabels: Record<FlowLane, string> = {
   preparacao_confirmada: "Agendamento do dia",
@@ -235,16 +245,33 @@ export function PreparationImport() {
   const [missingOnly, setMissingOnly] = useState(false);
   const [availableImmobilizedOnly, setAvailableImmobilizedOnly] = useState(false);
   const [savingId, setSavingId] = useState("");
-  const [flowVehicles, setFlowVehicles] = useState<VehicleFlow[]>([]);
+  const [preparationVehicles, setPreparationVehicles] = useState<VehicleFlow[]>([]);
+  const [orderVehicles, setOrderVehicles] = useState<VehicleFlow[]>([]);
   const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
 
   useEffect(() => {
-    return subscribeActiveVehicleFlows(setFlowVehicles, undefined, { includeDelivered: true });
-  }, []);
+    if (!selectedDate) return undefined;
+    return subscribeVehicleFlowsForPreparation(selectedDate, setPreparationVehicles);
+  }, [selectedDate]);
 
   useEffect(() => {
-    return subscribePartOrders(setPartOrders, () => undefined);
+    return subscribePartOrdersByStatuses(openPartOrderStatuses, setPartOrders, () => undefined);
   }, []);
+
+  const partOrderVehicleIds = useMemo(
+    () => Array.from(new Set(partOrders.map((order) => order.vehicleFlowId).filter(Boolean))).sort(),
+    [partOrders],
+  );
+  const partOrderVehicleIdsKey = partOrderVehicleIds.join("|");
+
+  useEffect(() => {
+    return subscribeVehicleFlowsByIds(partOrderVehicleIds, setOrderVehicles, () => undefined);
+  }, [partOrderVehicleIdsKey]);
+
+  const flowVehicles = useMemo(() => [...new Map([
+    ...preparationVehicles.map((vehicle) => [vehicle.id, vehicle] as const),
+    ...orderVehicles.map((vehicle) => [vehicle.id, vehicle] as const),
+  ]).values()], [orderVehicles, preparationVehicles]);
 
   const detectedDates = useMemo(() => {
     return Array.from(new Set(state.appointments.map((item) => item.date).filter(Boolean))).sort();

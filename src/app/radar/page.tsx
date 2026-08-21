@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { downloadFarolPdf } from "@/lib/farol-pdf";
 import { historicalSalesResults } from "@/lib/balcao-indicators";
-import { listActiveVehicleFlows, saveFarolDailyResult, saveFarolObservation, subscribeFarolDailyResults, subscribeFarolObservations, subscribePartsCounterEntries, subscribePartsSalesGoals, type FarolDailyResult, type FarolObservation } from "@/services/firestore";
+import { listVehicleFlowsForMonth, saveFarolDailyResult, saveFarolObservation, subscribeFarolDailyResultsForMonth, subscribeFarolObservationsForMonth, subscribePartsCounterEntriesForMonth, subscribePartsSalesGoals, type FarolDailyResult, type FarolObservation } from "@/services/firestore";
 import type { PartsCounterEntry, PartsSalesGoal, VehicleFlow } from "@/types/domain";
 
 
@@ -556,7 +556,7 @@ export default function FarolGerencialPage() {
       setError("");
 
       try {
-        const data = await listActiveVehicleFlows({ includeDelivered: true });
+        const data = await listVehicleFlowsForMonth(selectedMonth);
         if (!active) return;
         setVehicles(data);
       } catch (currentError) {
@@ -571,17 +571,16 @@ export default function FarolGerencialPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [selectedMonth]);
 
-  useEffect(() => subscribeFarolObservations((items: FarolObservation[]) => {
-    const monthItems = items.filter((item) => item.month === selectedMonth);
-    setObservations(Object.fromEntries(monthItems.map((item) => [item.indicatorKey, item.text])));
-    setObservationValues(Object.fromEntries(monthItems.map((item) => [item.indicatorKey, item.value ?? ""])));
+  useEffect(() => subscribeFarolObservationsForMonth(selectedMonth, (items: FarolObservation[]) => {
+    setObservations(Object.fromEntries(items.map((item) => [item.indicatorKey, item.text])));
+    setObservationValues(Object.fromEntries(items.map((item) => [item.indicatorKey, item.value ?? ""])));
   }, (currentError) => setError(currentError.message)), [selectedMonth]);
 
-  useEffect(() => subscribePartsCounterEntries(setPartsEntries, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribePartsCounterEntriesForMonth(selectedMonth, setPartsEntries, (currentError) => setError(currentError.message)), [selectedMonth]);
   useEffect(() => subscribePartsSalesGoals(setPartsGoals, (currentError) => setError(currentError.message)), []);
-  useEffect(() => subscribeFarolDailyResults(setDailyResults, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribeFarolDailyResultsForMonth(selectedMonth, setDailyResults, (currentError) => setError(currentError.message)), [selectedMonth]);
 
   const monthSummary = useMemo(() => buildMonthSummary(selectedMonth, new Date()), [selectedMonth]);
   const financialRows = useMemo(() => buildFinancialRows(selectedMonth, 160000, 35000, new Date(), dailyResults), [dailyResults, selectedMonth]);

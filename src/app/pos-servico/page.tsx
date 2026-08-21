@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { listActiveVehicleFlows, listHgsiAnswers, listHgsiRecords, listPostServiceCases, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
+import { listDeliveredVehicleFlowsForMonth, listHgsiAnswersForMonth, listHgsiRecordsForMonth, listPostServiceCasesForMonth, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
 import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from "@/types/domain";
 
 const consultants = ["Cleverton", "Rosangela", "Eliane"];
@@ -628,13 +628,13 @@ export default function PosServicoPage() {
 
       try {
         const [flowData, savedRecords, savedAnswers, savedCases] = await Promise.all([
-          listActiveVehicleFlows({ includeDelivered: true }),
-          listHgsiRecords(),
-          listHgsiAnswers(),
-          listPostServiceCases(),
+          listDeliveredVehicleFlowsForMonth(selectedMonth),
+          listHgsiRecordsForMonth(selectedMonth),
+          listHgsiAnswersForMonth(selectedMonth),
+          listPostServiceCasesForMonth(selectedMonth),
         ]);
         if (!active) return;
-        setVehicles(flowData.filter((vehicle) => vehicle.currentLane === "entregue"));
+        setVehicles(flowData);
         const nextRecords = savedRecords.map((record) => ({
           chassi: normalizeChassi(record.chassi),
           osNumber: record.osNumber,
@@ -677,12 +677,6 @@ export default function PosServicoPage() {
         })).filter((answer) => answer.chassi || answer.osNumber || answer.questionnaireId);
         setHgsiRecords(nextRecords);
         setHgsiAnswers(nextAnswers);
-        const loadedMonths = Array.from(new Set([
-          ...flowData.map((vehicle) => monthFromValue(vehicle.deliveredAt)),
-          ...nextRecords.map((record) => record.sourceMonth),
-          ...nextAnswers.map((answer) => answer.sourceMonth),
-        ].filter(Boolean) as string[])).sort((first, second) => second.localeCompare(first));
-        setSelectedMonth(loadedMonths[0] || new Date().toISOString().slice(0, 7));
         setPostCases(savedCases);
       } catch (currentError) {
         if (!active) return;
@@ -696,7 +690,7 @@ export default function PosServicoPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [selectedMonth]);
 
   const flowItems = useMemo(() => vehicles.map(vehicleToItem), [vehicles]);
 

@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { markPartSchedulingCompleted, registerPartSchedulingAction, subscribeActiveVehicleFlows, subscribePartOrders } from "@/services/firestore";
+import { markPartSchedulingCompleted, registerPartSchedulingAction, subscribePartOrdersByStatuses, subscribeVehicleFlowsByIdentifiers, subscribeVehicleFlowsByIds } from "@/services/firestore";
 import type { PartOrder, PartOrderItem, PartOrderStatus, PartSchedulingActionType, PartSchedulingStatus, VehicleFlow } from "@/types/domain";
 
 type ScheduleForm = {
@@ -160,7 +160,8 @@ function normalizeIdentifier(value?: string) {
 export default function AgendamentoPage() {
   const { profile, user } = useAuth();
   const [orders, setOrders] = useState<PartOrder[]>([]);
-  const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
+  const [orderVehicles, setOrderVehicles] = useState<VehicleFlow[]>([]);
+  const [relatedVehicles, setRelatedVehicles] = useState<VehicleFlow[]>([]);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<SchedulingFilter>("available");
   const [activeOrder, setActiveOrder] = useState<PartOrder | null>(null);
@@ -175,7 +176,7 @@ export default function AgendamentoPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const unsubscribe = subscribePartOrders((items) => {
+    const unsubscribe = subscribePartOrdersByStatuses(["disponivel"], (items) => {
       setOrders(items);
       setError("");
     }, (currentError) => {
@@ -184,6 +185,41 @@ export default function AgendamentoPage() {
 
     return unsubscribe;
   }, []);
+
+  const orderVehicleIds = useMemo(
+    () => Array.from(new Set(orders.map((order) => order.vehicleFlowId).filter(Boolean))).sort(),
+    [orders],
+  );
+  const orderVehicleIdsKey = orderVehicleIds.join("|");
+
+  useEffect(() => {
+    return subscribeVehicleFlowsByIds(orderVehicleIds, setOrderVehicles, () => undefined);
+  }, [orderVehicleIdsKey]);
+
+  const relatedIdentifiers = useMemo(() => ({
+    plates: Array.from(new Set([
+      ...orders.map((order) => order.plate),
+      ...orderVehicles.map((vehicle) => vehicle.plate),
+    ].filter((value): value is string => Boolean(value)))).sort(),
+    chassis: Array.from(new Set(orderVehicles
+      .map((vehicle) => vehicle.chassi)
+      .filter((value): value is string => Boolean(value)))).sort(),
+  }), [orderVehicles, orders]);
+  const relatedIdentifiersKey = `${relatedIdentifiers.plates.join("|")}::${relatedIdentifiers.chassis.join("|")}`;
+
+  useEffect(() => {
+    return subscribeVehicleFlowsByIdentifiers(
+      relatedIdentifiers.plates,
+      relatedIdentifiers.chassis,
+      setRelatedVehicles,
+      () => undefined,
+    );
+  }, [relatedIdentifiersKey]);
+
+  const vehicles = useMemo(() => [...new Map([
+    ...orderVehicles.map((vehicle) => [vehicle.id, vehicle] as const),
+    ...relatedVehicles.map((vehicle) => [vehicle.id, vehicle] as const),
+  ]).values()], [orderVehicles, relatedVehicles]);
 
   const vehiclesById = useMemo(() => {
     const mapped = new Map<string, VehicleFlow>();
@@ -252,11 +288,6 @@ export default function AgendamentoPage() {
 
     return () => { cancelled = true; };
   }, [newerPassageByOrder, profile?.name, user?.email, user?.uid]);
-
-  useEffect(() => {
-    const unsubscribe = subscribeActiveVehicleFlows(setVehicles, () => undefined, { includeDelivered: true });
-    return unsubscribe;
-  }, []);
 
   const availableOrders = useMemo(() => (
     [...schedulableOrders]

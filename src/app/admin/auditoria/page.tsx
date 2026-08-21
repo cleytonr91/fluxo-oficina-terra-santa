@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { listActiveVehicleFlows, listRecentFlowEvents } from "@/services/firestore";
+import { listRecentFlowEvents, listVehicleFlowsByIds } from "@/services/firestore";
 import type { FlowEvent, VehicleFlow } from "@/types/domain";
 
 const laneNames: Record<string, string> = {
@@ -62,10 +62,8 @@ export default function AuditPage() {
       setError("");
 
       try {
-        const [vehicleData, eventData] = await Promise.all([
-          listActiveVehicleFlows({ includeDelivered: true }),
-          listRecentFlowEvents(250),
-        ]);
+        const eventData = await listRecentFlowEvents(250);
+        const vehicleData = await listVehicleFlowsByIds(eventData.map((event) => event.vehicleFlowId));
 
         if (!active) return;
         setVehicles(vehicleData);
