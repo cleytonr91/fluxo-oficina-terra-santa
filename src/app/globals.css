@@ -4013,7 +4013,8 @@ textarea {
   border: 1px solid #cbd7df;
   border-radius: 13px;
   box-shadow: var(--shadow);
-  min-height: 650px;
+  height: min(680px, calc(100vh - 210px));
+  min-height: 540px;
   overflow: hidden;
 }
 
@@ -4371,6 +4372,14 @@ textarea {
   color: var(--muted);
   font-size: 11px;
   line-height: 1.5;
+  text-align: center;
+}
+
+.maintenance-items-empty {
+  color: var(--muted);
+  font-size: 11px;
+  grid-column: 1 / -1;
+  margin: 8px 0;
   text-align: center;
 }
 
@@ -4945,6 +4954,7 @@ textarea {
   }
 
   .manual-page-browser {
+    height: auto;
     min-height: 0;
   }
 
@@ -5038,7 +5048,10 @@ textarea {
   }
 
   .revision-options {
-    grid-template-columns: repeat(10, 68px);
+    grid-auto-columns: 68px;
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    grid-template-rows: auto;
   }
 
   .maintenance-summary,

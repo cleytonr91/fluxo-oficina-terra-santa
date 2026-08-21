@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import maintenanceData from "@/data/maintenance-plans.json";
 
 type MaintenancePlan = (typeof maintenanceData.plans)[number];
@@ -12,11 +12,21 @@ function yearRange(years: number[]) {
   return years.length === 1 ? String(years[0]) : `${years[0]}–${years.at(-1)}`;
 }
 
+function planId(plan: MaintenancePlan) {
+  return `${plan.model}-${plan.years.join("-")}`;
+}
+
+function revisionPrice(total: number | null) {
+  if (total == null) return "—";
+  return total === 0 ? "Gratuita" : money.format(total);
+}
+
 export function MaintenancePlans({ embedded = false }: { embedded?: boolean }) {
   const [family, setFamily] = useState("Todos");
   const [query, setQuery] = useState("");
-  const [selectedModel, setSelectedModel] = useState(maintenanceData.plans[0]?.model ?? "");
+  const [selectedPlanId, setSelectedPlanId] = useState(maintenanceData.plans[0] ? planId(maintenanceData.plans[0]) : "");
   const [revision, setRevision] = useState(0);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   const families = useMemo(
     () => ["Todos", ...Array.from(new Set(maintenanceData.plans.map((plan) => plan.family)))],
@@ -32,12 +42,13 @@ export function MaintenancePlans({ embedded = false }: { embedded?: boolean }) {
     });
   }, [family, query]);
 
-  const selectedPlan = (filteredPlans.find((plan) => plan.model === selectedModel) ?? filteredPlans[0]) as MaintenancePlan | undefined;
+  const selectedPlan = (filteredPlans.find((plan) => planId(plan) === selectedPlanId) ?? filteredPlans[0]) as MaintenancePlan | undefined;
   const includedItems = selectedPlan?.items.filter((item) => item.revisions[revision]) ?? [];
 
   function selectPlan(plan: MaintenancePlan) {
-    setSelectedModel(plan.model);
+    setSelectedPlanId(planId(plan));
     setRevision(0);
+    if (detailRef.current) detailRef.current.scrollTop = 0;
   }
 
   function selectFamily(nextFamily: string) {
@@ -74,8 +85,8 @@ export function MaintenancePlans({ embedded = false }: { embedded?: boolean }) {
             {filteredPlans.map((plan) => (
               <button
                 type="button"
-                key={plan.model}
-                className={selectedPlan?.model === plan.model ? "active" : ""}
+                key={planId(plan)}
+                className={selectedPlan && planId(selectedPlan) === planId(plan) ? "active" : ""}
                 onClick={() => selectPlan(plan)}
               >
                 <strong>{plan.model}</strong>
@@ -86,7 +97,7 @@ export function MaintenancePlans({ embedded = false }: { embedded?: boolean }) {
           </div>
         </aside>
 
-        <div className="maintenance-detail">
+        <div className="maintenance-detail" ref={detailRef}>
           {selectedPlan ? (
             <>
               <div className="maintenance-detail-head">
@@ -107,7 +118,7 @@ export function MaintenancePlans({ embedded = false }: { embedded?: boolean }) {
                     <button type="button" key={index} className={revision === index ? "active" : ""} onClick={() => setRevision(index)}>
                       <span>{index + 1}ª</span>
                       <small>{(index + 1) * 10} mil km</small>
-                      <strong>{total == null ? "—" : money.format(total)}</strong>
+                      <strong>{revisionPrice(total)}</strong>
                     </button>
                   ))}
                 </div>
@@ -116,7 +127,7 @@ export function MaintenancePlans({ embedded = false }: { embedded?: boolean }) {
               <div className="maintenance-summary">
                 <div className="maintenance-price-card">
                   <span>Valor total da {revision + 1}ª revisão</span>
-                  <strong>{selectedPlan.totals[revision] == null ? "Consulte" : money.format(selectedPlan.totals[revision])}</strong>
+                  <strong>{selectedPlan.totals[revision] == null ? "Consulte" : revisionPrice(selectedPlan.totals[revision])}</strong>
                   <small>Peças, mão de obra e lavagem cortesia</small>
                 </div>
                 <div>
@@ -143,14 +154,19 @@ export function MaintenancePlans({ embedded = false }: { embedded?: boolean }) {
                       <span className="maintenance-check" aria-hidden="true">✓</span>
                       <div>
                         <strong>{item.name}</strong>
-                        <p>
-                          {item.partNumber && <>PN {item.partNumber} · </>}
-                          Quantidade {item.quantity ?? "—"}
-                        </p>
+                        {(item.partNumber || item.quantity != null) && (
+                          <p>
+                            {item.partNumber && <>PN {item.partNumber}{item.quantity != null && " · "}</>}
+                            {item.quantity != null && <>Quantidade {item.quantity}</>}
+                          </p>
+                        )}
                       </div>
                       {item.unitPrice != null && <small>{money.format(item.unitPrice)} / un.</small>}
                     </article>
                   ))}
+                  {!includedItems.length && (
+                    <p className="maintenance-items-empty">Nenhum item substituído nesta revisão.</p>
+                  )}
                 </div>
               </section>
             </>
@@ -161,7 +177,7 @@ export function MaintenancePlans({ embedded = false }: { embedded?: boolean }) {
       </section>
 
       <footer className="manual-page-footer">
-        <span>Fonte: Planos de Manutenção Hyundai · Jul–Dez 2026</span>
+        <span>Fonte: Planos de Manutenção Hyundai · Nacionais e importados · Jul–Dez 2026</span>
         <span>Vigência dos valores: <strong>01/07 a 31/12/2026</strong></span>
       </footer>
     </>
