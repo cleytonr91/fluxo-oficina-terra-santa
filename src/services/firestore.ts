@@ -360,6 +360,170 @@ export async function saveFarolDailyResult({
   }), { merge: true });
 }
 
+export type FarolRevenue = {
+  id: string;
+  month: string;
+  parts: number;
+  services: number;
+  updatedBy?: string;
+  updatedAt?: unknown;
+};
+
+export function subscribeFarolRevenue(
+  onData: (items: FarolRevenue[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(collection(db, collections.farolRevenue), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolRevenue[]);
+  }, (error) => onError?.(error));
+}
+
+export async function saveFarolRevenue({
+  month,
+  parts,
+  services,
+  updatedBy,
+}: Omit<FarolRevenue, "id" | "updatedAt">) {
+  const db = getFirebaseDb();
+  await setDoc(doc(db, collections.farolRevenue, month), withoutUndefined({
+    month,
+    parts: Math.max(0, Number(parts) || 0),
+    services: Math.max(0, Number(services) || 0),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
+export type FarolGrossProfit = {
+  id: string;
+  month: string;
+  planned: number;
+  realized: number;
+  previousYear: number;
+  margin: number;
+  updatedBy?: string;
+  updatedAt?: unknown;
+};
+
+export function subscribeFarolGrossProfit(
+  onData: (items: FarolGrossProfit[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(collection(db, collections.farolGrossProfit), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolGrossProfit[]);
+  }, (error) => onError?.(error));
+}
+
+export async function saveFarolGrossProfit({
+  month,
+  planned,
+  realized,
+  previousYear,
+  margin,
+  updatedBy,
+}: Omit<FarolGrossProfit, "id" | "updatedAt">) {
+  const db = getFirebaseDb();
+  await setDoc(doc(db, collections.farolGrossProfit, month), withoutUndefined({
+    month,
+    planned: Math.max(0, Number(planned) || 0),
+    realized: Math.max(0, Number(realized) || 0),
+    previousYear: Math.max(0, Number(previousYear) || 0),
+    margin: Math.max(0, Number(margin) || 0),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
+export type FarolChannelRevenue = {
+  id: string;
+  month: string;
+  oficinaProdutiva: number;
+  acessorios: number;
+  embelezamento: number;
+  funilaria: number;
+  balcao: number;
+  updatedBy?: string;
+  updatedAt?: unknown;
+};
+
+export function subscribeFarolChannelRevenue(
+  onData: (items: FarolChannelRevenue[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(collection(db, collections.farolChannelRevenue), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolChannelRevenue[]);
+  }, (error) => onError?.(error));
+}
+
+export async function saveFarolChannelRevenue({
+  month,
+  oficinaProdutiva,
+  acessorios,
+  embelezamento,
+  funilaria,
+  balcao,
+  updatedBy,
+}: Omit<FarolChannelRevenue, "id" | "updatedAt">) {
+  const db = getFirebaseDb();
+  await setDoc(doc(db, collections.farolChannelRevenue, month), withoutUndefined({
+    month,
+    oficinaProdutiva: Math.max(0, Number(oficinaProdutiva) || 0),
+    acessorios: Math.max(0, Number(acessorios) || 0),
+    embelezamento: Math.max(0, Number(embelezamento) || 0),
+    funilaria: Math.max(0, Number(funilaria) || 0),
+    balcao: Math.max(0, Number(balcao) || 0),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
+export type FarolServiceProductivity = {
+  id: string;
+  month: string;
+  revisions: number;
+  revisionSales: number;
+  mechanicsSales: number;
+  additionalSales: number;
+  beautySales: number;
+  updatedBy?: string;
+  updatedAt?: unknown;
+};
+
+export function subscribeFarolServiceProductivity(
+  onData: (items: FarolServiceProductivity[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(collection(db, collections.farolServiceProductivity), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolServiceProductivity[]);
+  }, (error) => onError?.(error));
+}
+
+export async function saveFarolServiceProductivity({
+  month,
+  revisions,
+  revisionSales,
+  mechanicsSales,
+  additionalSales,
+  beautySales,
+  updatedBy,
+}: Omit<FarolServiceProductivity, "id" | "updatedAt">) {
+  const db = getFirebaseDb();
+  await setDoc(doc(db, collections.farolServiceProductivity, month), withoutUndefined({
+    month,
+    revisions: Math.max(0, Math.floor(Number(revisions) || 0)),
+    revisionSales: Math.max(0, Number(revisionSales) || 0),
+    mechanicsSales: Math.max(0, Number(mechanicsSales) || 0),
+    additionalSales: Math.max(0, Number(additionalSales) || 0),
+    beautySales: Math.max(0, Number(beautySales) || 0),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
 function normalizeCounterItems(items: PartsCounterItem[], entryType: PartsCounterEntryType) {
   return items.map((item, index) => withoutUndefined({
     id: item.id || `item-${index + 1}`,

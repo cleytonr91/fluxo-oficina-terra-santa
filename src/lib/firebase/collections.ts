@@ -20,6 +20,10 @@ export const collections = {
   partsSalesGoals: "partsSalesGoals",
   farolObservations: "farolObservations",
   farolDailyResults: "farolDailyResults",
+  farolRevenue: "farolRevenue",
+  farolGrossProfit: "farolGrossProfit",
+  farolChannelRevenue: "farolChannelRevenue",
+  farolServiceProductivity: "farolServiceProductivity",
 } as const;
 
 export type CollectionName = (typeof collections)[keyof typeof collections];

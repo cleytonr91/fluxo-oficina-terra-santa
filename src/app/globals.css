@@ -1379,6 +1379,43 @@
   resize: vertical;
 }
 
+.farol-revenue-form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.farol-revenue-total-preview {
+  align-items: center;
+  background: #f1f7f3;
+  border: 1px solid #d7e5db;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding: 12px 13px;
+}
+
+.farol-revenue-total-preview span {
+  color: #52625b;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.farol-revenue-total-preview strong {
+  color: #176241;
+  font-size: 1.05rem;
+}
+
+.farol-revenue-last-update {
+  color: #6d7b74;
+  font-size: 0.62rem;
+  font-weight: 700;
+  margin-left: auto;
+  text-transform: none;
+}
+
 .farol-report-modal-actions {
   display: flex;
   gap: 9px;
@@ -1535,6 +1572,75 @@
   display: grid;
   gap: 9px;
 }
+
+.farol-channel-chart {
+  background: #f7faf7;
+  border-bottom: 1px solid #dce4dd;
+  padding: 13px 16px 10px;
+}
+
+.farol-channel-chart-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.farol-channel-chart-bars {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: 190px;
+  margin-top: 10px;
+}
+
+.farol-channel-chart-bars article {
+  display: grid;
+  gap: 5px;
+  grid-template-rows: 1fr auto;
+  height: 100%;
+  min-width: 0;
+  text-align: center;
+}
+
+.farol-channel-chart-bars strong {
+  color: #263746;
+  font-size: 0.68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farol-channel-chart-columns {
+  align-items: end;
+  border-bottom: 1px solid #d6e0d9;
+  display: flex;
+  gap: 5px;
+  height: 100%;
+  justify-content: center;
+}
+
+.farol-channel-chart-columns i {
+  border-radius: 5px 5px 1px 1px;
+  display: block;
+  max-width: 31px;
+  min-height: 0;
+  width: 27%;
+}
+
+.farol-channel-chart-columns .current { background: #2f7d55; }
+.farol-channel-chart-columns .average { background: #d9a441; }
+.farol-channel-chart-columns .previous { background: #2c6fbb; }
+
+.farol-channel-form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.farol-channel-modal { max-width: 560px; }
+.farol-productivity-modal { max-width: 560px; }
 
 .farol-channel-summary {
   display: grid;

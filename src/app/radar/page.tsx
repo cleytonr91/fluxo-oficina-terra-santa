@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { downloadFarolPdf } from "@/lib/farol-pdf";
 import { historicalSalesResults } from "@/lib/balcao-indicators";
-import { listVehicleFlowsForMonth, saveFarolDailyResult, saveFarolObservation, subscribeFarolDailyResultsForMonth, subscribeFarolObservationsForMonth, subscribePartsCounterEntriesForMonth, subscribePartsSalesGoals, type FarolDailyResult, type FarolObservation } from "@/services/firestore";
+import { listVehicleFlowsForMonth, saveFarolChannelRevenue, saveFarolDailyResult, saveFarolGrossProfit, saveFarolObservation, saveFarolRevenue, saveFarolServiceProductivity, subscribeFarolChannelRevenue, subscribeFarolDailyResultsForMonth, subscribeFarolGrossProfit, subscribeFarolObservationsForMonth, subscribeFarolRevenue, subscribeFarolServiceProductivity, subscribePartsCounterEntriesForMonth, subscribePartsSalesGoals, type FarolChannelRevenue, type FarolDailyResult, type FarolGrossProfit, type FarolObservation, type FarolRevenue, type FarolServiceProductivity } from "@/services/firestore";
 import type { PartsCounterEntry, PartsSalesGoal, VehicleFlow } from "@/types/domain";
 
 
@@ -24,6 +24,7 @@ type DailyResult = {
 
 type ChannelRevenue = {
   channel: "Oficina Produtiva" | "Acessórios" | "Embelezamento" | "Funilaria" | "Balcão";
+  key: keyof Omit<FarolChannelRevenue, "id" | "month" | "updatedBy" | "updatedAt">;
   total: number;
 };
 
@@ -36,6 +37,7 @@ type ProductivityMetric = {
 };
 
 type GrossProfitMonth = {
+  month: string;
   label: string;
   planned: number;
   realized: number;
@@ -86,6 +88,16 @@ const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", 
 function monthLabel(value: string) {
   const [year, month] = value.split("-").map(Number);
   return `${monthNames[month - 1]} ${year}`;
+}
+
+function parseCurrencyInput(value: string) {
+  const normalized = value.trim().replace(/\./g, "").replace(",", ".");
+  return Math.max(0, Number(normalized) || 0);
+}
+
+function formatUpdatedAt(value?: unknown) {
+  if (!value || typeof value !== "object" || !("toDate" in value) || typeof value.toDate !== "function") return "base inicial";
+  return value.toDate().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
 function monthKey(date: Date) {
@@ -233,16 +245,17 @@ const dailyPreviousYearResults: Record<string, Record<number, { shop: number; be
   },
 };
 
-const august2026ChannelRevenue: ChannelRevenue[] = [
-  { channel: "Oficina Produtiva", total: 132012.77 },
-  { channel: "Acessórios", total: 0 },
-  { channel: "Embelezamento", total: 12592.67 },
-  { channel: "Funilaria", total: 15400 },
-  { channel: "Balcão", total: 22275.12 },
+const channelDefinitions: Array<Omit<ChannelRevenue, "total">> = [
+  { channel: "Oficina Produtiva", key: "oficinaProdutiva" },
+  { channel: "Acessórios", key: "acessorios" },
+  { channel: "Embelezamento", key: "embelezamento" },
+  { channel: "Funilaria", key: "funilaria" },
+  { channel: "Balcão", key: "balcao" },
 ];
 
-const august2026ChannelTotal = 182280.56;
-const august2026RevenuePerBusinessDay = 15850.48;
+const channelRevenueBaseline: Record<string, Omit<FarolChannelRevenue, "id" | "updatedBy" | "updatedAt">> = {
+  "2026-08": { month: "2026-08", oficinaProdutiva: 132012.77, acessorios: 0, embelezamento: 12592.67, funilaria: 15400, balcao: 22275.12 },
+};
 
 const monthlyTrend = [
   { month: "2025-01", label: "Jan/25", parts: 241108.24, services: 246289.65, total: 487397.89 },
@@ -268,13 +281,13 @@ const monthlyTrend = [
 ];
 
 const grossProfitTrend: GrossProfitMonth[] = [
-  { label: "Jan", planned: 282264.93, realized: 306966.65, previousYear: 225188.02, margin: 53.89 },
-  { label: "Fev", planned: 230405.81, realized: 279127.55, previousYear: 216509.83, margin: 46.84 },
-  { label: "Mar", planned: 279191.39, realized: 244476.86, previousYear: 220775.76, margin: 44.97 },
-  { label: "Abr", planned: 266895.83, realized: 235579.73, previousYear: 245068.65, margin: 43.8 },
-  { label: "Mai", planned: 272944.44, realized: 304937.56, previousYear: 262659.27, margin: 49.72 },
-  { label: "Jun", planned: 266895.83, realized: 275505.68, previousYear: 224693.3, margin: 45.17 },
-  { label: "Jul", planned: 288244.79, realized: 184033.77, previousYear: 288424.89, margin: 56.32 },
+  { month: "2026-01", label: "Jan", planned: 282264.93, realized: 306966.65, previousYear: 225188.02, margin: 53.89 },
+  { month: "2026-02", label: "Fev", planned: 230405.81, realized: 279127.55, previousYear: 216509.83, margin: 46.84 },
+  { month: "2026-03", label: "Mar", planned: 279191.39, realized: 244476.86, previousYear: 220775.76, margin: 44.97 },
+  { month: "2026-04", label: "Abr", planned: 266895.83, realized: 235579.73, previousYear: 245068.65, margin: 43.8 },
+  { month: "2026-05", label: "Mai", planned: 272944.44, realized: 304937.56, previousYear: 262659.27, margin: 49.72 },
+  { month: "2026-06", label: "Jun", planned: 266895.83, realized: 275505.68, previousYear: 224693.3, margin: 45.17 },
+  { month: "2026-07", label: "Jul", planned: 288244.79, realized: 184033.77, previousYear: 288424.89, margin: 56.32 },
 ];
 
 const serviceReportSnapshots: Record<string, { revisions: number; revisionSales: number; mechanicsSales: number; additionalSales: number; beautySales: number; productiveShop: number; totalServices: number; tkmServices?: number; tkmAdditional?: number; tkmBeauty?: number }> = {
@@ -335,14 +348,16 @@ const consultantServicePerformance: Record<string, ConsultantServicePerformance[
       additionalSales: 7542.96,
       beautySales: 2530,
       details: [
-        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 12, amount: 2448 },
-        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 8, amount: 3160 },
-        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 4, amount: 392 },
-        { category: "Adicionais", tmo: "SPF-HMB", service: "Substituição das pastilhas de freio dianteiras", quantity: 2, amount: 484.96 },
-        { category: "Adicionais", tmo: "LIE-HMB", service: "Limpeza de injeção eletrônica", quantity: 1, amount: 350 },
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 13, amount: 2680 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 8, amount: 2150 },
+        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 3, amount: 480 },
+        { category: "Adicionais", tmo: "PFD-HMB", service: "Substituição das pastilhas de freio dianteiras", quantity: 1, amount: 200 },
+        { category: "Adicionais", tmo: "SV-HMB", service: "Substituição das velas", quantity: 1, amount: 204.96 },
+        { category: "Adicionais", tmo: "LIE-HMB", service: "Limpeza de injeção eletrônica", quantity: 1, amount: 470 },
         { category: "Adicionais", tmo: "LL-HMB", service: "Limpeza e lubrificação das lonas de freio", quantity: 1, amount: 300 },
-        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 10, amount: 560 },
-        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 13, amount: 1970 },
+        { category: "Adicionais", tmo: "FF-HMB", service: "Substituição e limpeza do fluido de freio", quantity: 4, amount: 1058 },
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 10, amount: 740 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 13, amount: 1790 },
       ],
     },
     {
@@ -351,19 +366,26 @@ const consultantServicePerformance: Record<string, ConsultantServicePerformance[
       revisions: 42,
       revisionSales: 17576.82,
       additionalSales: 13557.69,
-      beautySales: 6380,
+      beautySales: 9420,
       details: [
-        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 3, amount: 2786 },
-        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 18, amount: 3360 },
-        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 5, amount: 1920 },
-        { category: "Adicionais", tmo: "LIE-HMB", service: "Limpeza de injeção eletrônica", quantity: 6, amount: 1650 },
-        { category: "Adicionais", tmo: "SV-HMB", service: "Substituição das velas", quantity: 13, amount: 1800 },
-        { category: "Adicionais", tmo: "SPF-HMB", service: "Substituição das pastilhas de freio dianteiras", quantity: 8, amount: 700 },
-        { category: "Adicionais", tmo: "LL-HMB", service: "Limpeza e lubrificação das lonas de freio", quantity: 6, amount: 500 },
-        { category: "Adicionais", tmo: "SC-HMB", service: "Substituição das correias", quantity: 2, amount: 300 },
-        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 7, amount: 1980 },
-        { category: "Embelezamento", tmo: "EST05", service: "Lavagem dos bancos e hidratação", quantity: 2, amount: 800 },
-        { category: "Embelezamento", tmo: "EST06", service: "Vitrificação, polimento e proteção", quantity: 8, amount: 3600 },
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 22, amount: 4666 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 15, amount: 1360 },
+        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 18, amount: 2400 },
+        { category: "Adicionais", tmo: "LIE-HMB", service: "Limpeza de injeção eletrônica", quantity: 6, amount: 2530 },
+        { category: "Adicionais", tmo: "SV-HMB", service: "Substituição das velas", quantity: 6, amount: 1080 },
+        { category: "Adicionais", tmo: "PFD-HMB", service: "Substituição das pastilhas de freio dianteiras", quantity: 2, amount: 374 },
+        { category: "Adicionais", tmo: "LL-HMB", service: "Limpeza e lubrificação das lonas de freio", quantity: 1, amount: 328 },
+        { category: "Adicionais", tmo: "SC-HMB", service: "Substituição das correias", quantity: 2, amount: 550 },
+        { category: "Adicionais", tmo: "FF-HMB", service: "Substituição e limpeza do fluido de freio", quantity: 1, amount: 220 },
+        { category: "Adicionais", tmo: "PENDENTE", service: "Valor não identificável no recorte do relatório", quantity: 0, amount: 49.69 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 29, amount: 4190 },
+        { category: "Embelezamento", tmo: "EST06", service: "Vitrificação da pintura", quantity: 2, amount: 2400 },
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 5, amount: 340 },
+        { category: "Embelezamento", tmo: "EST05", service: "Lavagem dos bancos e hidratação", quantity: 2, amount: 600 },
+        { category: "Embelezamento", tmo: "EST03", service: "Lavagem dos bancos", quantity: 1, amount: 220 },
+        { category: "Embelezamento", tmo: "EST19", service: "Proteção de pintura", quantity: 1, amount: 800 },
+        { category: "Embelezamento", tmo: "EST18", service: "Polimento", quantity: 1, amount: 400 },
+        { category: "Embelezamento", tmo: "PENDENTE", service: "Serviço não visível no recorte do relatório", quantity: 1, amount: 470 },
       ],
     },
     {
@@ -533,6 +555,10 @@ export default function FarolGerencialPage() {
   const [partsEntries, setPartsEntries] = useState<PartsCounterEntry[]>([]);
   const [partsGoals, setPartsGoals] = useState<PartsSalesGoal[]>([]);
   const [dailyResults, setDailyResults] = useState<FarolDailyResult[]>([]);
+  const [revenueEntries, setRevenueEntries] = useState<FarolRevenue[]>([]);
+  const [grossProfitEntries, setGrossProfitEntries] = useState<FarolGrossProfit[]>([]);
+  const [channelRevenueEntries, setChannelRevenueEntries] = useState<FarolChannelRevenue[]>([]);
+  const [serviceProductivityEntries, setServiceProductivityEntries] = useState<FarolServiceProductivity[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
   const [comparePreviousYear, setComparePreviousYear] = useState(true);
   const [observations, setObservations] = useState<Record<string, string>>({});
@@ -544,6 +570,18 @@ export default function FarolGerencialPage() {
   const [activeDailyResult, setActiveDailyResult] = useState(false);
   const [dailyResultDraft, setDailyResultDraft] = useState({ day: 1, revision: "", revisionCount: "", generalMechanics: "", alignmentBalancing: "", beauty: "" });
   const [savingDailyResult, setSavingDailyResult] = useState(false);
+  const [activeRevenueEntry, setActiveRevenueEntry] = useState(false);
+  const [revenueDraft, setRevenueDraft] = useState({ month: "", parts: "", services: "" });
+  const [savingRevenueEntry, setSavingRevenueEntry] = useState(false);
+  const [activeGrossProfitEntry, setActiveGrossProfitEntry] = useState(false);
+  const [grossProfitDraft, setGrossProfitDraft] = useState({ month: "", planned: "", realized: "", previousYear: "", margin: "" });
+  const [savingGrossProfitEntry, setSavingGrossProfitEntry] = useState(false);
+  const [activeChannelRevenueEntry, setActiveChannelRevenueEntry] = useState(false);
+  const [channelRevenueDraft, setChannelRevenueDraft] = useState({ month: "", oficinaProdutiva: "", acessorios: "", embelezamento: "", funilaria: "", balcao: "" });
+  const [savingChannelRevenueEntry, setSavingChannelRevenueEntry] = useState(false);
+  const [activeServiceProductivityEntry, setActiveServiceProductivityEntry] = useState(false);
+  const [serviceProductivityDraft, setServiceProductivityDraft] = useState({ month: "", revisions: "", revisionSales: "", mechanicsSales: "", additionalSales: "", beautySales: "" });
+  const [savingServiceProductivityEntry, setSavingServiceProductivityEntry] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -581,6 +619,10 @@ export default function FarolGerencialPage() {
   useEffect(() => subscribePartsCounterEntriesForMonth(selectedMonth, setPartsEntries, (currentError) => setError(currentError.message)), [selectedMonth]);
   useEffect(() => subscribePartsSalesGoals(setPartsGoals, (currentError) => setError(currentError.message)), []);
   useEffect(() => subscribeFarolDailyResultsForMonth(selectedMonth, setDailyResults, (currentError) => setError(currentError.message)), [selectedMonth]);
+  useEffect(() => subscribeFarolRevenue(setRevenueEntries, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribeFarolGrossProfit(setGrossProfitEntries, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribeFarolChannelRevenue(setChannelRevenueEntries, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribeFarolServiceProductivity(setServiceProductivityEntries, (currentError) => setError(currentError.message)), []);
 
   const monthSummary = useMemo(() => buildMonthSummary(selectedMonth, new Date()), [selectedMonth]);
   const financialRows = useMemo(() => buildFinancialRows(selectedMonth, 160000, 35000, new Date(), dailyResults), [dailyResults, selectedMonth]);
@@ -589,10 +631,13 @@ export default function FarolGerencialPage() {
   const beauty = useMemo(() => areaSummary(35000, sumRows(financialRows, "beautyDone"), monthSummary.passedDays, monthSummary.businessDays), [financialRows, monthSummary]);
   const productivityMetrics = useMemo<ProductivityMetric[]>(() => {
     const entries = dailyResults.filter((item) => item.month === selectedMonth);
-    const snapshot = serviceReportSnapshots[selectedMonth];
+    const manualEntry = serviceProductivityEntries.find((item) => item.month === selectedMonth);
+    const snapshot = manualEntry ?? serviceReportSnapshots[selectedMonth];
     const [selectedYear, selectedMonthNumber] = selectedMonth.split("-").map(Number);
-    const previousSnapshot = serviceReportSnapshots[`${selectedYear - 1}-${String(selectedMonthNumber).padStart(2, "0")}`];
-    if (!entries.length && !snapshot) return [
+    const previousManualEntry = serviceProductivityEntries.find((item) => item.month === `${selectedYear - 1}-${String(selectedMonthNumber).padStart(2, "0")}`);
+    const previousSnapshot = previousManualEntry ?? serviceReportSnapshots[`${selectedYear - 1}-${String(selectedMonthNumber).padStart(2, "0")}`];
+    const useDailyResults = !manualEntry && entries.length > 0;
+    if (!useDailyResults && !snapshot) return [
       { label: "Vendas de revisão", current: 0, lastYear: previousSnapshot?.revisionSales ?? 0, type: "currency", note: "Valor da categoria Revisão." },
       { label: "Revisões", current: 0, lastYear: previousSnapshot?.revisions ?? 0, type: "number", note: "Quantidade lida da categoria Revisão." },
       { label: "Embelezamento", current: 0, lastYear: previousSnapshot?.beautySales ?? 0, type: "currency", note: "Vendas de embelezamento." },
@@ -604,17 +649,17 @@ export default function FarolGerencialPage() {
       { label: "TKM serviços", current: 0, lastYear: previousSnapshot?.tkmServices ?? 0, type: "currency", note: "TKM geral de serviços." },
     ];
 
-    const revisions = entries.length ? entries.reduce((total, item) => total + item.revisionCount, 0) : snapshot!.revisions;
-    const revisionSales = entries.length ? entries.reduce((total, item) => total + item.revision, 0) : snapshot!.revisionSales;
-    const mechanicsSales = entries.length ? entries.reduce((total, item) => total + item.generalMechanics, 0) : snapshot!.mechanicsSales;
-    const additionalSales = entries.length ? entries.reduce((total, item) => total + item.alignmentBalancing, 0) : snapshot!.additionalSales;
-    const beautySales = entries.length ? entries.reduce((total, item) => total + item.beauty, 0) : snapshot!.beautySales;
-    const productiveShop = entries.length ? revisionSales + mechanicsSales + additionalSales : snapshot!.productiveShop;
-    const totalServices = entries.length ? productiveShop + beautySales : snapshot!.totalServices;
+    const revisions = useDailyResults ? entries.reduce((total, item) => total + item.revisionCount, 0) : snapshot!.revisions;
+    const revisionSales = useDailyResults ? entries.reduce((total, item) => total + item.revision, 0) : snapshot!.revisionSales;
+    const mechanicsSales = useDailyResults ? entries.reduce((total, item) => total + item.generalMechanics, 0) : snapshot!.mechanicsSales;
+    const additionalSales = useDailyResults ? entries.reduce((total, item) => total + item.alignmentBalancing, 0) : snapshot!.additionalSales;
+    const beautySales = useDailyResults ? entries.reduce((total, item) => total + item.beauty, 0) : snapshot!.beautySales;
+    const productiveShop = manualEntry || useDailyResults ? revisionSales + mechanicsSales + additionalSales : snapshot!.productiveShop;
+    const totalServices = manualEntry || useDailyResults ? productiveShop + beautySales : snapshot!.totalServices;
     const perRevision = (value: number) => revisions ? value / revisions : 0;
-    const tkmServices = entries.length ? perRevision(totalServices) : snapshot!.tkmServices ?? perRevision(totalServices);
-    const tkmAdditional = entries.length ? perRevision(additionalSales) : snapshot?.tkmAdditional ?? perRevision(additionalSales);
-    const tkmBeauty = entries.length ? perRevision(beautySales) : snapshot?.tkmBeauty ?? perRevision(beautySales);
+    const tkmServices = manualEntry || useDailyResults ? perRevision(totalServices) : snapshot!.tkmServices ?? perRevision(totalServices);
+    const tkmAdditional = manualEntry || useDailyResults ? perRevision(additionalSales) : snapshot?.tkmAdditional ?? perRevision(additionalSales);
+    const tkmBeauty = manualEntry || useDailyResults ? perRevision(beautySales) : snapshot?.tkmBeauty ?? perRevision(beautySales);
     return [
       { label: "Vendas de revisão", current: revisionSales, lastYear: previousSnapshot?.revisionSales ?? 0, type: "currency", note: "Valor da categoria Revisão." },
       { label: "Revisões", current: revisions, lastYear: previousSnapshot?.revisions ?? 0, type: "number", note: "Quantidade lida da categoria Revisão." },
@@ -626,7 +671,7 @@ export default function FarolGerencialPage() {
       { label: "Fat. total serviços", current: totalServices, lastYear: previousSnapshot?.totalServices ?? 0, type: "currency", note: "Faturamento total de serviços." },
       { label: "TKM serviços", current: tkmServices, lastYear: previousSnapshot?.tkmServices ?? 0, type: "currency", note: "TKM geral de serviços." },
     ];
-  }, [dailyResults, selectedMonth]);
+  }, [dailyResults, selectedMonth, serviceProductivityEntries]);
 
   const operation = useMemo(() => {
     const periodVehicles = vehicles.filter((vehicle) => belongsToMonth(vehicle, selectedMonth));
@@ -686,7 +731,32 @@ export default function FarolGerencialPage() {
   }, [monthSummary.businessDays, monthSummary.passedDays, partsEntries, partsGoals, selectedMonth]);
 
   const monthProgress = monthSummary.businessDays ? (monthSummary.passedDays / monthSummary.businessDays) * 100 : 0;
-  const currentGrossProfit = grossProfitTrend.find((item) => item.label === "Jun");
+  const grossProfitMonths = useMemo(() => {
+    const entryByMonth = new Map(grossProfitEntries.map((item) => [item.month, item]));
+    const months = grossProfitTrend.map((item) => {
+      const entry = entryByMonth.get(item.month);
+      return entry ? { ...item, planned: entry.planned, realized: entry.realized, previousYear: entry.previousYear, margin: entry.margin } : item;
+    });
+    grossProfitEntries.filter((entry) => !months.some((item) => item.month === entry.month)).forEach((entry) => {
+      months.push({ month: entry.month, label: monthNames[Number(entry.month.slice(5)) - 1].slice(0, 3), planned: entry.planned, realized: entry.realized, previousYear: entry.previousYear, margin: entry.margin });
+    });
+    return months.sort((a, b) => a.month.localeCompare(b.month));
+  }, [grossProfitEntries]);
+  const currentGrossProfit = grossProfitMonths.find((item) => item.month === selectedMonth) ?? { month: selectedMonth, label: monthNames[Number(selectedMonth.slice(5)) - 1].slice(0, 3), planned: 0, realized: 0, previousYear: 0, margin: 0 };
+  const channelRevenueByMonth = useMemo(() => {
+    const entries = new Map<string, Omit<FarolChannelRevenue, "id" | "updatedBy" | "updatedAt">>(Object.entries(channelRevenueBaseline));
+    channelRevenueEntries.forEach((item) => entries.set(item.month, item));
+    return entries;
+  }, [channelRevenueEntries]);
+  const currentChannelRevenue = channelRevenueByMonth.get(selectedMonth) ?? { month: selectedMonth, oficinaProdutiva: 0, acessorios: 0, embelezamento: 0, funilaria: 0, balcao: 0 };
+  const channelRows = channelDefinitions.map((item) => ({ ...item, total: currentChannelRevenue[item.key] }));
+  const previousYearChannelRevenue = channelRevenueByMonth.get(`${Number(selectedMonth.slice(0, 4)) - 1}-${selectedMonth.slice(5)}`);
+  const previousThreeChannelRevenue = [-1, -2, -3].map((offset) => {
+    const [year, month] = selectedMonth.split("-").map(Number);
+    return channelRevenueByMonth.get(monthKey(new Date(year, month - 1 + offset, 1)));
+  }).filter((item): item is Omit<FarolChannelRevenue, "id" | "updatedBy" | "updatedAt"> => Boolean(item));
+  const channelAverages = channelDefinitions.map((item) => ({ ...item, total: previousThreeChannelRevenue.length ? previousThreeChannelRevenue.reduce((sum, entry) => sum + entry[item.key], 0) / previousThreeChannelRevenue.length : 0 }));
+  const selectedChannelUpdate = channelRevenueEntries.find((item) => item.month === selectedMonth)?.updatedAt;
 
   const observationItems = [
     { key: "shop", label: "Oficina Produtiva" },
@@ -742,6 +812,126 @@ export default function FarolGerencialPage() {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar o resultado diário.");
     } finally {
       setSavingDailyResult(false);
+    }
+  }
+
+  function openRevenueEntry() {
+    const existing = revenueEntries.find((item) => item.month === selectedMonth) ?? monthlyTrend.find((item) => item.month === selectedMonth);
+    setRevenueDraft({ month: selectedMonth, parts: existing ? String(existing.parts) : "", services: existing ? String(existing.services) : "" });
+    setActiveRevenueEntry(true);
+  }
+
+  async function saveRevenueEntry() {
+    setSavingRevenueEntry(true);
+    try {
+      await saveFarolRevenue({
+        month: revenueDraft.month,
+        parts: parseCurrencyInput(revenueDraft.parts),
+        services: parseCurrencyInput(revenueDraft.services),
+        updatedBy: profile?.name,
+      });
+      setActiveRevenueEntry(false);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar o faturamento.");
+    } finally {
+      setSavingRevenueEntry(false);
+    }
+  }
+
+  function openGrossProfitEntry() {
+    const existing = grossProfitEntries.find((item) => item.month === selectedMonth) ?? grossProfitTrend.find((item) => item.month === selectedMonth);
+    setGrossProfitDraft({
+      month: selectedMonth,
+      planned: existing ? String(existing.planned) : "",
+      realized: existing ? String(existing.realized) : "",
+      previousYear: existing ? String(existing.previousYear) : "",
+      margin: existing ? String(existing.margin) : "",
+    });
+    setActiveGrossProfitEntry(true);
+  }
+
+  async function saveGrossProfitEntry() {
+    setSavingGrossProfitEntry(true);
+    try {
+      await saveFarolGrossProfit({
+        month: grossProfitDraft.month,
+        planned: parseCurrencyInput(grossProfitDraft.planned),
+        realized: parseCurrencyInput(grossProfitDraft.realized),
+        previousYear: parseCurrencyInput(grossProfitDraft.previousYear),
+        margin: parseCurrencyInput(grossProfitDraft.margin),
+        updatedBy: profile?.name,
+      });
+      setActiveGrossProfitEntry(false);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar o lucro bruto.");
+    } finally {
+      setSavingGrossProfitEntry(false);
+    }
+  }
+
+  function openChannelRevenueEntry() {
+    const existing = channelRevenueByMonth.get(selectedMonth);
+    setChannelRevenueDraft({
+      month: selectedMonth,
+      oficinaProdutiva: existing ? String(existing.oficinaProdutiva) : "",
+      acessorios: existing ? String(existing.acessorios) : "",
+      embelezamento: existing ? String(existing.embelezamento) : "",
+      funilaria: existing ? String(existing.funilaria) : "",
+      balcao: existing ? String(existing.balcao) : "",
+    });
+    setActiveChannelRevenueEntry(true);
+  }
+
+  async function saveChannelRevenueEntry() {
+    setSavingChannelRevenueEntry(true);
+    try {
+      await saveFarolChannelRevenue({
+        month: channelRevenueDraft.month,
+        oficinaProdutiva: parseCurrencyInput(channelRevenueDraft.oficinaProdutiva),
+        acessorios: parseCurrencyInput(channelRevenueDraft.acessorios),
+        embelezamento: parseCurrencyInput(channelRevenueDraft.embelezamento),
+        funilaria: parseCurrencyInput(channelRevenueDraft.funilaria),
+        balcao: parseCurrencyInput(channelRevenueDraft.balcao),
+        updatedBy: profile?.name,
+      });
+      setActiveChannelRevenueEntry(false);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar o faturamento por canal.");
+    } finally {
+      setSavingChannelRevenueEntry(false);
+    }
+  }
+
+  function openServiceProductivityEntry() {
+    const existing = serviceProductivityEntries.find((item) => item.month === selectedMonth) ?? serviceReportSnapshots[selectedMonth];
+    setServiceProductivityDraft({
+      month: selectedMonth,
+      revisions: existing ? String(existing.revisions) : "",
+      revisionSales: existing ? String(existing.revisionSales) : "",
+      mechanicsSales: existing ? String(existing.mechanicsSales) : "",
+      additionalSales: existing ? String(existing.additionalSales) : "",
+      beautySales: existing ? String(existing.beautySales) : "",
+    });
+    setActiveServiceProductivityEntry(true);
+  }
+
+  async function saveServiceProductivityEntry() {
+    setSavingServiceProductivityEntry(true);
+    try {
+      await saveFarolServiceProductivity({
+        month: serviceProductivityDraft.month,
+        revisions: Number(serviceProductivityDraft.revisions),
+        revisionSales: parseCurrencyInput(serviceProductivityDraft.revisionSales),
+        mechanicsSales: parseCurrencyInput(serviceProductivityDraft.mechanicsSales),
+        additionalSales: parseCurrencyInput(serviceProductivityDraft.additionalSales),
+        beautySales: parseCurrencyInput(serviceProductivityDraft.beautySales),
+        updatedBy: profile?.name,
+      });
+      setActiveServiceProductivityEntry(false);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar a produtividade e o TKM.");
+    } finally {
+      setSavingServiceProductivityEntry(false);
     }
   }
 
@@ -844,22 +1034,21 @@ export default function FarolGerencialPage() {
 
         <section className="panel farol-table-panel">
           <div className="panel-head farol-report-head tone-comparison">
-            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento</h2><ReportAddButton onClick={() => openObservation("comparison", "Faturamento")} /></div>
+            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento</h2><ReportAddButton onClick={openRevenueEntry} /></div>
             <label className="farol-compare-toggle"><input type="checkbox" checked={comparePreviousYear} onChange={(event) => setComparePreviousYear(event.target.checked)} /><span>Comparar ano anterior</span></label>
           </div>
-          <MonthlyOperationChart selectedMonth={selectedMonth} comparePreviousYear={comparePreviousYear} />
+          <MonthlyOperationChart selectedMonth={selectedMonth} comparePreviousYear={comparePreviousYear} revenueEntries={revenueEntries} />
         </section>
 
-        {currentGrossProfit && (
-          <section className="panel farol-table-panel">
+        <section className="panel farol-table-panel">
             <div className="panel-head farol-report-head tone-profit">
-              <div className="farol-report-title-row"><h2 className="panel-title">Lucro Bruto</h2><ReportAddButton onClick={() => openObservation("gross-profit", "Lucro Bruto")} /></div>
+              <div className="farol-report-title-row"><h2 className="panel-title">Lucro Bruto</h2><ReportAddButton onClick={openGrossProfitEntry} /></div>
               <span className="tag">{monthLabel(selectedMonth)}</span>
             </div>
             <div className="farol-lb-grid">
               <div className="farol-lb-summary-list">
                 <article className="farol-lb-summary-row">
-                  <div><span>LB realizado</span><strong>{formatCurrency(currentGrossProfit.realized)}</strong><small>2025: {formatCurrency(currentGrossProfit.previousYear)}</small></div>
+                  <div><span>LB realizado</span><strong>{formatCurrency(currentGrossProfit.realized)}</strong><small>{Number(selectedMonth.slice(0, 4)) - 1}: {formatCurrency(currentGrossProfit.previousYear)}</small></div>
                   <b className={variation(currentGrossProfit.realized, currentGrossProfit.previousYear) >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(variation(currentGrossProfit.realized, currentGrossProfit.previousYear))}</b>
                 </article>
                 <article className="farol-lb-summary-row">
@@ -871,19 +1060,22 @@ export default function FarolGerencialPage() {
                   <b className="good-text">{currentGrossProfit.margin.toFixed(1).replace(".", ",")}%</b>
                 </article>
               </div>
-              <GrossProfitChart />
+              <GrossProfitChart items={grossProfitMonths.filter((item) => item.month.startsWith(selectedMonth.slice(0, 4)) && item.month <= selectedMonth)} lastUpdated={grossProfitEntries.find((item) => item.month === selectedMonth)?.updatedAt} />
             </div>
-          </section>
-        )}
+        </section>
 
         <section className="panel farol-table-panel">
           <div className="panel-head farol-report-head tone-revenue">
-            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento por Canal</h2><ReportAddButton onClick={() => openObservation("channel-revenue", "Faturamento por Canal")} /></div>
+            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento por Canal</h2><ReportAddButton onClick={openChannelRevenueEntry} /></div>
             <span className="tag">{monthLabel(selectedMonth)} • {formatDayCount(monthSummary.passedDays)} dias úteis</span>
           </div>
+          <ChannelRevenueChart current={channelRows} previousYear={previousYearChannelRevenue ? channelDefinitions.map((item) => ({ ...item, total: previousYearChannelRevenue[item.key] })) : []} averages={channelAverages} lastUpdated={selectedChannelUpdate} />
           <div className="farol-channel-grid">
-            {august2026ChannelRevenue.map((item) => {
-              const share = august2026ChannelTotal ? (item.total / august2026ChannelTotal) * 100 : 0;
+            {channelRows.map((item) => {
+              const total = channelRows.reduce((sum, current) => sum + current.total, 0);
+              const share = total ? (item.total / total) * 100 : 0;
+              const previous = previousYearChannelRevenue?.[item.key];
+              const average = channelAverages.find((averageItem) => averageItem.key === item.key)?.total ?? 0;
 
               return (
                 <article key={item.channel} className="farol-channel-card">
@@ -893,16 +1085,17 @@ export default function FarolGerencialPage() {
                   </div>
                   <div className="farol-channel-bar"><i style={{ width: `${item.total ? Math.max(4, share) : 0}%` }} /></div>
                   <div className="farol-channel-result"><span>Total do canal</span><strong>{formatCurrency(item.total)}</strong></div>
+                  <div className="farol-channel-deltas"><small>AA: <b className={previous === undefined ? "" : variation(item.total, previous) >= 0 ? "good-text" : "bad-text"}>{previous === undefined ? "—" : formatDeltaPercent(variation(item.total, previous))}</b></small><small>Média 3M: <b>{previousThreeChannelRevenue.length ? formatCurrency(average) : "—"}</b></small></div>
                 </article>
               );
             })}
           </div>
-          <div className="farol-channel-footer"><span>Total da loja <strong>{formatCurrency(august2026ChannelTotal)}</strong></span><span>Faturamento por dia útil <strong>{formatCurrency(august2026RevenuePerBusinessDay)}</strong></span></div>
+          <div className="farol-channel-footer"><span>Total da loja <strong>{formatCurrency(channelRows.reduce((sum, item) => sum + item.total, 0))}</strong></span><span>Faturamento por dia útil <strong>{formatCurrency(monthSummary.passedDays ? channelRows.reduce((sum, item) => sum + item.total, 0) / monthSummary.passedDays : 0)}</strong></span></div>
         </section>
 
         <section className="panel farol-table-panel">
           <div className="panel-head farol-report-head tone-productivity">
-            <div><div className="farol-report-title-row"><h2 className="panel-title">Produtividade e TKM de Serviços</h2><ReportAddButton onClick={() => openObservation("productivity-tkm", "Produtividade e TKM de Serviços")} /></div><p className="comment">TKM usa revisões como base. Passagens são contabilizadas por O.S. distinta e permanecem separadas por função.</p></div>
+            <div><div className="farol-report-title-row"><h2 className="panel-title">Produtividade e TKM de Serviços</h2><ReportAddButton onClick={openServiceProductivityEntry} /></div><p className="comment">TKM usa revisões como base. Passagens são contabilizadas por O.S. distinta e permanecem separadas por função.</p></div>
             <span className="tag">{monthLabel(selectedMonth)}</span>
           </div>
           <div className="farol-productivity-grid farol-productivity-focus">
@@ -976,6 +1169,70 @@ export default function FarolGerencialPage() {
           </div>
         )}
 
+        {activeRevenueEntry && (
+          <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveRevenueEntry(false)}>
+            <section className="farol-report-modal" role="dialog" aria-modal="true" aria-labelledby="farol-revenue-modal-title" onClick={(event) => event.stopPropagation()}>
+              <div className="farol-report-modal-head"><div><span>Atualizar relatório</span><h2 id="farol-revenue-modal-title">Faturamento</h2></div><button type="button" onClick={() => setActiveRevenueEntry(false)} aria-label="Fechar">×</button></div>
+              <label><span>Mês de referência</span><input type="month" value={revenueDraft.month} onChange={(event) => setRevenueDraft((current) => ({ ...current, month: event.target.value }))} /></label>
+              <div className="farol-revenue-form-grid">
+                <label><span>Peças</span><input inputMode="decimal" value={revenueDraft.parts} onChange={(event) => setRevenueDraft((current) => ({ ...current, parts: event.target.value }))} placeholder="Ex.: 323.918,19" /></label>
+                <label><span>Serviços (M.O.)</span><input inputMode="decimal" value={revenueDraft.services} onChange={(event) => setRevenueDraft((current) => ({ ...current, services: event.target.value }))} placeholder="Ex.: 277.065,15" /></label>
+              </div>
+              <div className="farol-revenue-total-preview"><span>Total calculado</span><strong>{formatCurrency(parseCurrencyInput(revenueDraft.parts) + parseCurrencyInput(revenueDraft.services))}</strong></div>
+              <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveRevenueEntry(false)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveRevenueEntry()} disabled={!revenueDraft.month || savingRevenueEntry}>{savingRevenueEntry ? "Salvando..." : "Salvar faturamento"}</button></div>
+            </section>
+          </div>
+        )}
+
+        {activeGrossProfitEntry && (
+          <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveGrossProfitEntry(false)}>
+            <section className="farol-report-modal" role="dialog" aria-modal="true" aria-labelledby="farol-gross-profit-modal-title" onClick={(event) => event.stopPropagation()}>
+              <div className="farol-report-modal-head"><div><span>Atualizar relatório</span><h2 id="farol-gross-profit-modal-title">Lucro Bruto</h2></div><button type="button" onClick={() => setActiveGrossProfitEntry(false)} aria-label="Fechar">×</button></div>
+              <label><span>Mês de referência</span><input type="month" value={grossProfitDraft.month} onChange={(event) => setGrossProfitDraft((current) => ({ ...current, month: event.target.value }))} /></label>
+              <div className="farol-revenue-form-grid">
+                <label><span>Meta LB</span><input inputMode="decimal" value={grossProfitDraft.planned} onChange={(event) => setGrossProfitDraft((current) => ({ ...current, planned: event.target.value }))} placeholder="Ex.: 288.244,79" /></label>
+                <label><span>LB realizado</span><input inputMode="decimal" value={grossProfitDraft.realized} onChange={(event) => setGrossProfitDraft((current) => ({ ...current, realized: event.target.value }))} placeholder="Ex.: 184.033,77" /></label>
+                <label><span>LB ano anterior</span><input inputMode="decimal" value={grossProfitDraft.previousYear} onChange={(event) => setGrossProfitDraft((current) => ({ ...current, previousYear: event.target.value }))} placeholder="Ex.: 288.424,89" /></label>
+                <label><span>Margem bruta (%)</span><input inputMode="decimal" value={grossProfitDraft.margin} onChange={(event) => setGrossProfitDraft((current) => ({ ...current, margin: event.target.value }))} placeholder="Ex.: 56,32" /></label>
+              </div>
+              <div className="farol-revenue-total-preview"><span>Variação sobre o ano anterior</span><strong className={variation(parseCurrencyInput(grossProfitDraft.realized), parseCurrencyInput(grossProfitDraft.previousYear)) >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(variation(parseCurrencyInput(grossProfitDraft.realized), parseCurrencyInput(grossProfitDraft.previousYear)))}</strong></div>
+              <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveGrossProfitEntry(false)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveGrossProfitEntry()} disabled={!grossProfitDraft.month || savingGrossProfitEntry}>{savingGrossProfitEntry ? "Salvando..." : "Salvar lucro bruto"}</button></div>
+            </section>
+          </div>
+        )}
+
+        {activeChannelRevenueEntry && (
+          <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveChannelRevenueEntry(false)}>
+            <section className="farol-report-modal farol-channel-modal" role="dialog" aria-modal="true" aria-labelledby="farol-channel-modal-title" onClick={(event) => event.stopPropagation()}>
+              <div className="farol-report-modal-head"><div><span>Atualizar relatório</span><h2 id="farol-channel-modal-title">Faturamento por Canal</h2></div><button type="button" onClick={() => setActiveChannelRevenueEntry(false)} aria-label="Fechar">×</button></div>
+              <label><span>Mês de referência</span><input type="month" value={channelRevenueDraft.month} onChange={(event) => setChannelRevenueDraft((current) => ({ ...current, month: event.target.value }))} /></label>
+              <div className="farol-channel-form-grid">
+                {channelDefinitions.map((channel) => <label key={channel.key}><span>{channel.channel}</span><input inputMode="decimal" value={channelRevenueDraft[channel.key]} onChange={(event) => setChannelRevenueDraft((current) => ({ ...current, [channel.key]: event.target.value }))} placeholder="R$ 0,00" /></label>)}
+              </div>
+              <div className="farol-revenue-total-preview"><span>Total calculado</span><strong>{formatCurrency(channelDefinitions.reduce((sum, channel) => sum + parseCurrencyInput(channelRevenueDraft[channel.key]), 0))}</strong></div>
+              <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveChannelRevenueEntry(false)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveChannelRevenueEntry()} disabled={!channelRevenueDraft.month || savingChannelRevenueEntry}>{savingChannelRevenueEntry ? "Salvando..." : "Salvar canais"}</button></div>
+            </section>
+          </div>
+        )}
+
+        {activeServiceProductivityEntry && (
+          <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveServiceProductivityEntry(false)}>
+            <section className="farol-report-modal farol-productivity-modal" role="dialog" aria-modal="true" aria-labelledby="farol-productivity-modal-title" onClick={(event) => event.stopPropagation()}>
+              <div className="farol-report-modal-head"><div><span>Atualizar relatório</span><h2 id="farol-productivity-modal-title">Produtividade e TKM</h2></div><button type="button" onClick={() => setActiveServiceProductivityEntry(false)} aria-label="Fechar">×</button></div>
+              <label><span>Mês de competência</span><input type="month" value={serviceProductivityDraft.month} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, month: event.target.value }))} /></label>
+              <div className="farol-channel-form-grid">
+                <label><span>Quantidade de revisões</span><input inputMode="numeric" value={serviceProductivityDraft.revisions} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, revisions: event.target.value }))} placeholder="Ex.: 281" /></label>
+                <label><span>Vendas de revisão</span><input inputMode="decimal" value={serviceProductivityDraft.revisionSales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, revisionSales: event.target.value }))} placeholder="R$ 114.710,32" /></label>
+                <label><span>Mecânica geral e demais</span><input inputMode="decimal" value={serviceProductivityDraft.mechanicsSales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, mechanicsSales: event.target.value }))} placeholder="R$ 27.828,88" /></label>
+                <label><span>Serviços adicionais</span><input inputMode="decimal" value={serviceProductivityDraft.additionalSales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, additionalSales: event.target.value }))} placeholder="R$ 84.660,52" /></label>
+                <label><span>Embelezamento</span><input inputMode="decimal" value={serviceProductivityDraft.beautySales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, beautySales: event.target.value }))} placeholder="R$ 40.332,37" /></label>
+              </div>
+              <div className="farol-revenue-total-preview"><span>Oficina produtiva / total de serviços</span><strong>{formatCurrency(parseCurrencyInput(serviceProductivityDraft.revisionSales) + parseCurrencyInput(serviceProductivityDraft.mechanicsSales) + parseCurrencyInput(serviceProductivityDraft.additionalSales))} / {formatCurrency(parseCurrencyInput(serviceProductivityDraft.revisionSales) + parseCurrencyInput(serviceProductivityDraft.mechanicsSales) + parseCurrencyInput(serviceProductivityDraft.additionalSales) + parseCurrencyInput(serviceProductivityDraft.beautySales))}</strong></div>
+              <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveServiceProductivityEntry(false)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveServiceProductivityEntry()} disabled={!serviceProductivityDraft.month || savingServiceProductivityEntry}>{savingServiceProductivityEntry ? "Salvando..." : "Salvar produtividade"}</button></div>
+            </section>
+          </div>
+        )}
+
         {activeDailyResult && (
           <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveDailyResult(false)}>
             <section className="farol-report-modal farol-daily-input-modal" role="dialog" aria-modal="true" aria-labelledby="farol-daily-input-title" onClick={(event) => event.stopPropagation()}>
@@ -1033,7 +1290,7 @@ function ConsultantServiceReport({ selectedMonth }: { selectedMonth: string }) {
           </div>
           <div className="farol-consultant-services">
             <div className="farol-consultant-services-head"><span>Vendas por serviço</span><div><small>Quant.</small><small>Vendas</small><small>TKM</small></div></div>
-            {consultant.details.map((service) => <div key={`${service.tmo}-${service.service}`} className="farol-consultant-service-row"><span className={service.category === "Adicionais" ? "is-additional" : "is-beauty"}>{service.tmo}</span><strong>{service.service}</strong><b>{service.quantity}</b><em>{formatCurrency(service.amount)}</em><i>{formatCurrency(tkm(service.amount, consultant.revisions))}</i></div>)}
+            {consultant.details.map((service) => <div key={`${service.tmo}-${service.service}`} className="farol-consultant-service-row"><span className={service.category === "Adicionais" ? "is-additional" : "is-beauty"}>{service.tmo}</span><strong>{service.service}</strong><b>{service.quantity}</b><em>{formatCurrency(service.amount)}</em><i>{formatCurrency(service.quantity ? service.amount / service.quantity : 0)}</i></div>)}
           </div>
         </article>
       ))}
@@ -1151,16 +1408,30 @@ function ReportAddButton({ onClick }: { onClick: () => void }) {
   return <button type="button" className="farol-report-add" onClick={onClick} aria-label="Adicionar número e comentário">+</button>;
 }
 
-function MonthlyOperationChart({ selectedMonth, comparePreviousYear }: { selectedMonth: string; comparePreviousYear: boolean }) {
+function MonthlyOperationChart({ selectedMonth, comparePreviousYear, revenueEntries }: { selectedMonth: string; comparePreviousYear: boolean; revenueEntries: FarolRevenue[] }) {
   const selectedYear = selectedMonth.slice(0, 4);
-  const visibleTrend = monthlyTrend.filter((item) => item.month.startsWith(selectedYear) && item.month <= selectedMonth);
-  const previousByMonth = new Map(monthlyTrend.map((item) => [item.month, item]));
+  const entryByMonth = new Map(revenueEntries.map((item) => [item.month, item]));
+  const mergedTrend = monthlyTrend.map((item) => {
+    const entry = entryByMonth.get(item.month);
+    return entry ? { ...item, parts: entry.parts, services: entry.services, total: entry.parts + entry.services } : item;
+  });
+  revenueEntries.filter((entry) => !mergedTrend.some((item) => item.month === entry.month)).forEach((entry) => {
+    mergedTrend.push({ month: entry.month, label: monthLabel(entry.month), parts: entry.parts, services: entry.services, total: entry.parts + entry.services });
+  });
+  mergedTrend.sort((a, b) => a.month.localeCompare(b.month));
+  const visibleTrend = mergedTrend.filter((item) => item.month.startsWith(selectedYear) && item.month <= selectedMonth);
+  const previousByMonth = new Map(mergedTrend.map((item) => [item.month, item]));
   const previousTrend = visibleTrend.map((item) => previousByMonth.get(`${Number(selectedYear) - 1}-${item.month.slice(5)}`));
   const max = Math.max(...visibleTrend.map((item) => item.total), ...previousTrend.map((item) => item?.total ?? 0), 1);
+  const lastRevenueUpdate = revenueEntries.filter((item) => item.month.startsWith(selectedYear) && item.month <= selectedMonth).sort((a, b) => {
+    const left = a.updatedAt && typeof a.updatedAt === "object" && "toMillis" in a.updatedAt && typeof a.updatedAt.toMillis === "function" ? a.updatedAt.toMillis() : 0;
+    const right = b.updatedAt && typeof b.updatedAt === "object" && "toMillis" in b.updatedAt && typeof b.updatedAt.toMillis === "function" ? b.updatedAt.toMillis() : 0;
+    return right - left;
+  })[0]?.updatedAt;
 
   return (
     <div className="farol-monthly-operation-chart" aria-label="Peças, serviços e total por mês">
-      <div className="farol-monthly-operation-legend"><span><i className="parts" />Peças</span><span><i className="services" />Serviços (M.O.)</span><span><i className="total" />Total</span>{comparePreviousYear && <span><i className="previous-year" />Referência do ano anterior</span>}</div>
+      <div className="farol-monthly-operation-legend"><span><i className="parts" />Peças</span><span><i className="services" />Serviços (M.O.)</span><span><i className="total" />Total</span>{comparePreviousYear && <span><i className="previous-year" />Referência do ano anterior</span>}<small className="farol-revenue-last-update">Última atualização: {formatUpdatedAt(lastRevenueUpdate)}</small></div>
       <div className="farol-monthly-operation-scroll">
         <div className="farol-monthly-operation-months">
           {visibleTrend.map((item, index) => {
@@ -1186,8 +1457,25 @@ function MonthlyOperationChart({ selectedMonth, comparePreviousYear }: { selecte
   );
 }
 
-function GrossProfitChart() {
-  const max = Math.max(...grossProfitTrend.flatMap((item) => [item.planned, item.realized]));
+function ChannelRevenueChart({ current, previousYear, averages, lastUpdated }: { current: ChannelRevenue[]; previousYear: ChannelRevenue[]; averages: ChannelRevenue[]; lastUpdated?: unknown }) {
+  const max = Math.max(...current.map((item) => item.total), ...previousYear.map((item) => item.total), ...averages.map((item) => item.total), 1);
+
+  return (
+    <div className="farol-channel-chart" aria-label="Comparativo de faturamento por canal">
+      <div className="farol-channel-chart-head"><div className="farol-lb-legend"><span><i className="realized" />Mês selecionado</span><span><i className="planned" />Média últimos 3 meses</span><span><i className="margin" />Mesmo mês ano anterior</span></div><small className="farol-revenue-last-update">Última atualização: {formatUpdatedAt(lastUpdated)}</small></div>
+      <div className="farol-channel-chart-bars">
+        {current.map((item) => {
+          const average = averages.find((averageItem) => averageItem.key === item.key)?.total ?? 0;
+          const previous = previousYear.find((previousItem) => previousItem.key === item.key)?.total ?? 0;
+          return <article key={item.key}><div className="farol-channel-chart-columns"><i className="current" title={`Mês selecionado: ${formatCurrency(item.total)}`} style={{ height: `${Math.max(item.total ? 6 : 0, (item.total / max) * 100)}%` }} /><i className="average" title={`Média últimos 3 meses: ${formatCurrency(average)}`} style={{ height: `${Math.max(average ? 6 : 0, (average / max) * 100)}%` }} /><i className="previous" title={`Ano anterior: ${formatCurrency(previous)}`} style={{ height: `${Math.max(previous ? 6 : 0, (previous / max) * 100)}%` }} /></div><strong>{item.channel}</strong></article>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+function GrossProfitChart({ items, lastUpdated }: { items: GrossProfitMonth[]; lastUpdated?: unknown }) {
+  const max = Math.max(...items.flatMap((item) => [item.planned, item.realized]), 1);
 
   return (
     <div className="farol-lb-chart" aria-label="Lucro bruto planejado, realizado e margem bruta por mês">
@@ -1195,10 +1483,11 @@ function GrossProfitChart() {
         <span><i className="planned" />Planejado</span>
         <span><i className="realized" />Realizado</span>
         <span><i className="margin" />MB %</span>
+        <small className="farol-revenue-last-update">Última atualização: {formatUpdatedAt(lastUpdated)}</small>
       </div>
       <div className="farol-lb-bars">
-        {grossProfitTrend.map((item) => (
-          <div key={item.label} className="farol-lb-month">
+        {items.map((item) => (
+          <div key={item.month} className="farol-lb-month">
             <div className="farol-lb-columns">
               <i className="planned" style={{ height: `${Math.max(8, (item.planned / max) * 100)}%` }} />
               <i className="realized" style={{ height: `${Math.max(8, (item.realized / max) * 100)}%` }} />
