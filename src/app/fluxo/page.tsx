@@ -99,13 +99,6 @@ function hasActivePartOrder(vehicleId?: string, orders: PartOrder[] = []) {
   return orders.some((order) => order.vehicleFlowId === vehicleId && order.orderStatus !== "cancelado");
 }
 
-function daysBetween(start: unknown, end: unknown) {
-  const startDate = toDate(start);
-  const endDate = toDate(end);
-  if (!startDate || !endDate) return null;
-  return Math.max(0, Math.round((endDate.getTime() - startDate.getTime()) / 86400000));
-}
-
 function partOrderItems(order: PartOrder) {
   if (order.parts?.length) return order.parts;
   return [{ id: `${order.id}-part`, partReference: order.partReference ?? "", partDescription: order.partDescription ?? "" }];
@@ -631,10 +624,6 @@ function FlowChip({
   const progress = timeProgress(vehicle, now);
   const stay = immobilized ? immobilizedStay(vehicle, now) : null;
   const previousDay = isPreviousDayVehicle(vehicle, selectedDate);
-  const passageToOrderDays = daysBetween(vehicle.appointmentDate, partOrder?.orderDate ?? partOrder?.createdAt);
-  const orderToDeliveryDays = daysBetween(partOrder?.orderDate ?? partOrder?.createdAt, vehicle.deliveredAt);
-  const passageToDeliveryDays = daysBetween(vehicle.appointmentDate, vehicle.deliveredAt);
-
   return (
     <article className={`chip flow-chip ${chipClass}`} onDoubleClick={() => onDetails(vehicle)}>
       <div className="chip-top">
@@ -696,11 +685,6 @@ function FlowChip({
         <div><span>Consultor:</span> {consultantDisplayName(vehicle.consultantName)}</div>
         <div><span>Técnico:</span> {firstName(vehicle.technicianName)}</div>
         {vehicle.appointmentTime && <div><span>Agenda:</span> {vehicle.appointmentTime}</div>}
-        {vehicle.currentLane === "entregue" && partOrder && (
-          <div className="parts-report-details">
-            <span>Tempo peças:</span> passagem→pedido {passageToOrderDays ?? "-"}d · pedido→entrega {orderToDeliveryDays ?? "-"}d · total {passageToDeliveryDays ?? "-"}d
-          </div>
-        )}
       </div>
 
       {immobilized ? (
