@@ -399,6 +399,8 @@ export interface PartOrder {
   id: string;
   vehicleFlowId: string;
   plate?: string;
+  chassi?: string;
+  phone?: string;
   customerId?: string;
   clientName?: string;
   consultantName?: string;

@@ -2130,6 +2130,8 @@ export default function FluxoPage() {
         id: detailVehicle.id,
         vehicleFlowId: detailVehicle.id,
         plate: detailVehicle.plate,
+        chassi: detailVehicle.chassi,
+        phone: detailVehicle.phone,
         orderKind: partOrderForm.orderKind,
         clientName: detailVehicle.clientName,
         consultantName: detailVehicle.consultantName,

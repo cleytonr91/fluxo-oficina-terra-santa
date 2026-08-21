@@ -4,9 +4,9 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { invalidatePartsCatalogCache, PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
-import { createStandalonePartOrder, replaceHyundaiPartsCatalog, subscribeActiveVehicleFlows, subscribeFlowEventsForVehicles, subscribePartOrders, updatePartOrder } from "@/services/firestore";
+import { createStandalonePartOrder, replaceHyundaiPartsCatalog, subscribePartOrders, subscribeVehicleFlowsByIds, updatePartOrder } from "@/services/firestore";
 import { parseHyundaiPartsCatalog } from "@/lib/hyundai-parts-catalog";
-import type { FlowEvent, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
+import type { PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
 type PartOrderFormFields = {
   customerId: string;
@@ -240,53 +240,29 @@ function normalizeSearchText(value?: string) {
     .toUpperCase();
 }
 
-function shouldShowWorkshopActionOrder(order: PartOrder) {
-  const hasInformedPart = orderParts(order).some((part) => (
+function hasInformedPart(order: PartOrder) {
+  return orderParts(order).some((part) => (
     Boolean(part.partReference?.trim()) || Boolean(part.partDescription?.trim())
   ));
-  const isInternalCommission = normalizeSearchText(order.plate) === "LIN226"
-    || normalizeSearchText(order.clientName) === "COMISSAOCLIENTES";
+}
 
-  return hasInformedPart && !isInternalCommission;
+function isInternalCommissionOrder(order: PartOrder) {
+  return normalizeSearchText(order.plate) === "LIN226"
+    || normalizeSearchText(order.clientName) === "COMISSAOCLIENTES";
+}
+
+function isAutomaticallyCompletedWorkshopOrder(order: PartOrder) {
+  return isWorkshopRequestedStatus(order)
+    && (!hasInformedPart(order) || isInternalCommissionOrder(order));
+}
+
+function shouldShowWorkshopActionOrder(order: PartOrder) {
+  return isWorkshopRequestedStatus(order) && !isAutomaticallyCompletedWorkshopOrder(order);
 }
 
 function orderTimeValue(order: PartOrder) {
   const date = toDate(order.createdAt) ?? toDate(order.updatedAt);
   return date?.getTime() ?? 0;
-}
-
-function completionReferenceTime(order: PartOrder) {
-  let referenceTime = orderTimeValue(order);
-
-  order.schedulingHistory
-    ?.filter((item) => item.action === "agendamento_confirmado")
-    .forEach((item) => {
-      referenceTime = Math.max(referenceTime, toDate(item.actionAt)?.getTime() ?? 0);
-    });
-
-  if (order.schedulingStatus === "agendamento_confirmado") {
-    referenceTime = Math.max(referenceTime, toDate(order.schedulingUpdatedAt)?.getTime() ?? 0);
-  }
-
-  return referenceTime;
-}
-
-function isNewReturnFlow(order: PartOrder, originalVehicle: VehicleFlow | undefined, candidate: VehicleFlow) {
-  if (candidate.id === order.vehicleFlowId || candidate.status === "cancelado") return false;
-
-  const referenceTime = completionReferenceTime(order);
-  const candidateCreatedAt = toDate(candidate.createdAt)?.getTime() ?? 0;
-  if (!referenceTime || candidateCreatedAt <= referenceTime) return false;
-
-  const originalPlate = normalizeCode(order.plate || originalVehicle?.plate);
-  const originalChassi = normalizeCode(originalVehicle?.chassi);
-  const candidatePlate = normalizeCode(candidate.plate);
-  const candidateChassi = normalizeCode(candidate.chassi);
-
-  return Boolean(
-    (originalPlate && candidatePlate && originalPlate === candidatePlate)
-    || (originalChassi && candidateChassi && originalChassi === candidateChassi),
-  );
 }
 
 function statusTimeValue(order: PartOrder) {
@@ -318,14 +294,6 @@ function needsStatusUpdate(order: PartOrder) {
   const days = daysInCurrentStatus(order);
   return (status === "pedido_realizado" && days > 3)
     || (status === "em_transito" && days > 9);
-}
-
-function eventTimeValue(event: FlowEvent) {
-  return toDate(event.createdAt)?.getTime() ?? 0;
-}
-
-function isFlowPassage(event: FlowEvent) {
-  return Boolean(event.fromLane && event.fromLane !== event.toLane);
 }
 
 function orderHasPart(order: PartOrder, partReference: string) {
@@ -367,8 +335,6 @@ export default function PecasPage() {
     ? ""
     : new URLSearchParams(window.location.search).get("pedido") ?? "";
   const [orders, setOrders] = useState<PartOrder[]>([]);
-  const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
-  const [flowEvents, setFlowEvents] = useState<FlowEvent[]>([]);
   const [orderForms, setOrderForms] = useState<Record<string, Partial<PartOrderFormFields>>>({});
   const [orderValidationErrors, setOrderValidationErrors] = useState<Record<string, PartOrderValidationErrors>>({});
   const [openSections, setOpenSections] = useState<Record<string, PartEditSection | undefined>>({});
@@ -439,64 +405,45 @@ export default function PecasPage() {
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = subscribeActiveVehicleFlows((items) => {
-      setVehicles(items);
-    }, () => undefined, { includeDelivered: true });
+  const orderVehicleIds = useMemo(
+    () => Array.from(new Set(orders.map((order) => order.vehicleFlowId).filter(Boolean))).sort(),
+    [orders],
+  );
+  const orderVehicleIdsKey = orderVehicleIds.join("|");
 
-    return unsubscribe;
-  }, []);
+  const [orderVehicles, setOrderVehicles] = useState<VehicleFlow[]>([]);
+
+  useEffect(() => {
+    return subscribeVehicleFlowsByIds(orderVehicleIds, setOrderVehicles, () => undefined);
+  // A chave evita recriar a assinatura quando apenas outros dados do pedido mudam.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderVehicleIdsKey]);
 
   const mergedOrders = useMemo(() => {
-    const orderByVehicle = new Map(orders.map((order) => [order.vehicleFlowId, order]));
-    const syntheticOrders = vehicles
-      .filter((vehicle) => vehicle.partsOrdered && !orderByVehicle.has(vehicle.id))
-      .map((vehicle): PartOrder => ({
-        id: vehicle.id,
-        vehicleFlowId: vehicle.id,
-        plate: vehicle.plate,
-        customerId: "",
-        clientName: vehicle.clientName,
-        consultantName: vehicle.consultantName,
-        technicianName: vehicle.technicianName,
-        parts: [{ id: "peca-1", partReference: "", partDescription: vehicle.partsNote ?? "" }],
-        orderStatus: "solicitado_oficina",
-        createdAt: vehicle.createdAt,
-        updatedAt: vehicle.updatedAt,
-      }));
-
-    return [...orders, ...syntheticOrders];
-  }, [orders, vehicles]);
+    const vehiclesById = new Map(orderVehicles.map((vehicle) => [vehicle.id, vehicle]));
+    return orders.map((order) => {
+      const vehicle = vehiclesById.get(order.vehicleFlowId);
+      return {
+        ...order,
+        plate: order.plate || vehicle?.plate,
+        chassi: order.chassi || vehicle?.chassi,
+        phone: order.phone || vehicle?.phone,
+        clientName: order.clientName || vehicle?.clientName,
+        consultantName: order.consultantName || vehicle?.consultantName,
+        technicianName: order.technicianName || vehicle?.technicianName,
+      };
+    });
+  }, [orderVehicles, orders]);
 
   const vehiclesById = useMemo(() => {
     const mapped = new Map<string, VehicleFlow>();
-    vehicles.forEach((vehicle) => mapped.set(vehicle.id, vehicle));
+    orderVehicles.forEach((vehicle) => mapped.set(vehicle.id, vehicle));
     return mapped;
-  }, [vehicles]);
-
-  const trackedVehicleFlowIds = useMemo(() => (
-    Array.from(new Set(mergedOrders.flatMap((order) => {
-      const originalVehicle = vehiclesById.get(order.vehicleFlowId);
-      return vehicles
-        .filter((vehicle) => isNewReturnFlow(order, originalVehicle, vehicle))
-        .map((vehicle) => vehicle.id);
-    }))).sort()
-  ), [mergedOrders, vehicles, vehiclesById]);
-  const trackedVehicleFlowKey = trackedVehicleFlowIds.join("|");
-
-  useEffect(() => {
-    const unsubscribe = subscribeFlowEventsForVehicles(trackedVehicleFlowIds, setFlowEvents, (currentError) => {
-      setError(currentError instanceof Error ? currentError.message : "Não foi possível consultar as passagens dos chips.");
-    });
-
-    return unsubscribe;
-  // A chave evita recriar a assinatura quando apenas outros dados do pedido mudam.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trackedVehicleFlowKey]);
+  }, [orderVehicles]);
 
   function customerNameContent(order: PartOrder) {
     const name = order.clientName ?? "Cliente sem nome";
-    const url = whatsappUrl(vehiclesById.get(order.vehicleFlowId)?.phone);
+    const url = whatsappUrl(order.phone || vehiclesById.get(order.vehicleFlowId)?.phone);
 
     if (!url) return <strong>{name}</strong>;
 
@@ -508,30 +455,10 @@ export default function PecasPage() {
   }
 
   const completedOrderIds = useMemo(() => {
-    const passagesByVehicle = new Map<string, FlowEvent[]>();
-
-    flowEvents.forEach((event) => {
-      if (!isFlowPassage(event)) return;
-      const current = passagesByVehicle.get(event.vehicleFlowId) ?? [];
-      current.push(event);
-      passagesByVehicle.set(event.vehicleFlowId, current);
-    });
-
     return new Set(mergedOrders
-      .filter((order) => {
-        if (!order.vehicleFlowId || effectiveOrderStatus(order) === "cancelado") return false;
-        const referenceTime = completionReferenceTime(order);
-        if (!referenceTime) return false;
-
-        const originalVehicle = vehiclesById.get(order.vehicleFlowId);
-        return vehicles.some((vehicle) => (
-          isNewReturnFlow(order, originalVehicle, vehicle)
-          && (passagesByVehicle.get(vehicle.id) ?? [])
-            .some((event) => eventTimeValue(event) > referenceTime)
-        ));
-      })
+      .filter((order) => Boolean(order.schedulingCompletedAt) || isAutomaticallyCompletedWorkshopOrder(order))
       .map((order) => order.id));
-  }, [flowEvents, mergedOrders, vehicles, vehiclesById]);
+  }, [mergedOrders]);
 
   const completedOrders = useMemo(() => (
     mergedOrders.filter((order) => completedOrderIds.has(order.id))
@@ -553,7 +480,7 @@ export default function PecasPage() {
 
   const workshopActionOrders = useMemo(() => (
     operationalOrders
-      .filter((order) => isWorkshopRequestedStatus(order) && shouldShowWorkshopActionOrder(order))
+      .filter(shouldShowWorkshopActionOrder)
       .sort((a, b) => daysInCurrentStatus(b) - daysInCurrentStatus(a))
   ), [operationalOrders]);
 
@@ -850,6 +777,8 @@ export default function PecasPage() {
         orderId: order.id,
         vehicleFlowId: order.vehicleFlowId,
         plate: order.plate,
+        chassi: order.chassi,
+        phone: order.phone,
         customerId: form.customerId,
         clientName: order.clientName,
         consultantName: order.consultantName,
@@ -1548,7 +1477,15 @@ export default function PecasPage() {
                     <div>
                       <span>Status</span>
                       <strong className={`tag ${statusTone(effectiveOrderStatus(order))}`}>{statusLabels[effectiveOrderStatus(order)]}</strong>
-                      {completedOrderIds.has(order.id) && <small className="tag good">Concluído após passagem</small>}
+                      {completedOrderIds.has(order.id) && (
+                        <small className="tag good">
+                          {isInternalCommissionOrder(order)
+                            ? "Concluído: registro interno"
+                            : isAutomaticallyCompletedWorkshopOrder(order)
+                              ? "Concluído: sem peça informada"
+                              : "Concluído após passagem"}
+                        </small>
+                      )}
                     </div>
                   </div>
                   <div className="parts-cell parts-duo-cell">

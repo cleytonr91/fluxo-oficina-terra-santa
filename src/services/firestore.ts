@@ -766,6 +766,8 @@ type UpdatePartOrderInput = {
   orderId: string;
   vehicleFlowId?: string;
   plate?: string;
+  chassi?: string;
+  phone?: string;
   customerId?: string;
   clientName?: string;
   consultantName?: string;
@@ -1989,6 +1991,8 @@ export async function savePartOrder({
   batch.set(orderRef, withoutUndefined({
     vehicleFlowId: vehicle.id,
     plate: vehicle.plate,
+    chassi: vehicle.chassi,
+    phone: vehicle.phone,
     customerId: cleanCustomerId,
     orderKind,
     clientName: vehicle.clientName,
@@ -2047,6 +2051,8 @@ export async function updatePartOrder({
   orderId,
   vehicleFlowId,
   plate,
+  chassi,
+  phone,
   customerId,
   clientName,
   consultantName,
@@ -2085,6 +2091,8 @@ export async function updatePartOrder({
   await setDoc(ref, withoutUndefined({
     vehicleFlowId,
     plate,
+    chassi,
+    phone,
     customerId: cleanCustomerId,
     clientName,
     consultantName,
