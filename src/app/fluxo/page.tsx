@@ -60,7 +60,7 @@ const partOrderKindLabels: Record<NonNullable<PartOrder["orderKind"]>, string> =
 
 const fixedConsultants = ["Cleverton", "Eliane", "Rosangela", "Luan"];
 
-const workshopTechnicians = ["Hernando", "Elimarcos", "Wesley", "Ayslan", "Nathan", "Igo"];
+const workshopTechnicians = ["Hernando", "Elimarcos", "Wesley", "Ayslan", "Gilvan", "Nathan", "Igo"];
 
 const walkInServices = [
   "Revisão 01",
