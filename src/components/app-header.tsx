@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
@@ -37,9 +37,11 @@ function currentTime() {
 export function AppHeader({
   title,
   subtitle,
+  status,
 }: {
   title: string;
   subtitle?: string;
+  status?: ReactNode;
 }) {
   const pathname = usePathname();
   const { profile, user, logout } = useAuth();
@@ -172,6 +174,7 @@ export function AppHeader({
         <div>
           <h1>{title}</h1>
           {subtitle && !isFlow && <p>{subtitle}</p>}
+          {isFlow && status}
         </div>
       </div>
 

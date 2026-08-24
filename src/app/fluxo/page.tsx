@@ -2426,13 +2426,14 @@ export default function FluxoPage() {
     <ProtectedPage
       title="Fluxo da Oficina"
       subtitle="Agenda, passantes, oficina, lavagem e entrega."
-    >
-      <main className="flow-page">
-        <div className={`realtime-status ${error ? "offline" : ""}`}>
+      headerStatus={(
+        <div className={`realtime-status header-realtime-status ${error ? "offline" : ""}`}>
           <span>{error ? "Conexão do fluxo instável" : "Atualização em tempo real ativa"}</span>
           <strong>{lastSyncAt ? `Atualizado ${lastSyncAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Conectando..."}</strong>
         </div>
-
+      )}
+    >
+      <main className="flow-page">
         <section className="flow-metrics flow-day-panel">
           <button
             className={`flow-metric flow-total active ${metricFilter === "todos" ? "selected-total" : ""}`}
