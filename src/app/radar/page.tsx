@@ -95,6 +95,14 @@ function parseCurrencyInput(value: string) {
   return Math.max(0, Number(normalized) || 0);
 }
 
+function parsePercentInput(value: string) {
+  return Math.max(0, Number(value.trim().replace(",", ".")) || 0);
+}
+
+function normalizePercentValue(value: number) {
+  return value > 100 ? value / 100 : value;
+}
+
 function formatUpdatedAt(value?: unknown) {
   if (!value || typeof value !== "object" || !("toDate" in value) || typeof value.toDate !== "function") return "base inicial";
   return value.toDate().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
@@ -749,14 +757,16 @@ export default function FarolGerencialPage() {
     const entryByMonth = new Map(grossProfitEntries.map((item) => [item.month, item]));
     const months = grossProfitTrend.map((item) => {
       const entry = entryByMonth.get(item.month);
-      return entry ? { ...item, planned: entry.planned, realized: entry.realized, previousYear: entry.previousYear, margin: entry.margin } : item;
+      return entry ? { ...item, planned: entry.planned, realized: entry.realized, previousYear: entry.previousYear, margin: normalizePercentValue(entry.margin) } : item;
     });
     grossProfitEntries.filter((entry) => !months.some((item) => item.month === entry.month)).forEach((entry) => {
-      months.push({ month: entry.month, label: monthNames[Number(entry.month.slice(5)) - 1].slice(0, 3), planned: entry.planned, realized: entry.realized, previousYear: entry.previousYear, margin: entry.margin });
+      months.push({ month: entry.month, label: monthNames[Number(entry.month.slice(5)) - 1].slice(0, 3), planned: entry.planned, realized: entry.realized, previousYear: entry.previousYear, margin: normalizePercentValue(entry.margin) });
     });
     return months.sort((a, b) => a.month.localeCompare(b.month));
   }, [grossProfitEntries]);
   const currentGrossProfit = grossProfitMonths.find((item) => item.month === selectedMonth) ?? { month: selectedMonth, label: monthNames[Number(selectedMonth.slice(5)) - 1].slice(0, 3), planned: 0, realized: 0, previousYear: 0, margin: 0 };
+  const projectedGrossProfit = monthSummary.passedDays > 0 ? (currentGrossProfit.realized / monthSummary.passedDays) * monthSummary.businessDays : 0;
+  const projectedGrossProfitPercent = currentGrossProfit.planned > 0 ? (projectedGrossProfit / currentGrossProfit.planned) * 100 : 0;
   const channelRevenueByMonth = useMemo(() => {
     const entries = new Map<string, Omit<FarolChannelRevenue, "id" | "updatedBy" | "updatedAt">>(Object.entries(channelRevenueBaseline));
     channelRevenueEntries.forEach((item) => entries.set(item.month, item));
@@ -886,7 +896,7 @@ export default function FarolGerencialPage() {
         planned: parseCurrencyInput(grossProfitDraft.planned),
         realized: parseCurrencyInput(grossProfitDraft.realized),
         previousYear: parseCurrencyInput(grossProfitDraft.previousYear),
-        margin: parseCurrencyInput(grossProfitDraft.margin),
+        margin: parsePercentInput(grossProfitDraft.margin),
         updatedBy: profile?.name,
       });
       setActiveGrossProfitEntry(false);
@@ -1093,16 +1103,13 @@ export default function FarolGerencialPage() {
             <div className="farol-lb-grid">
               <div className="farol-lb-summary-list">
                 <article className="farol-lb-summary-row">
-                  <div><span>LB realizado</span><strong>{formatCurrency(currentGrossProfit.realized)}</strong><small>{Number(selectedMonth.slice(0, 4)) - 1}: {formatCurrency(currentGrossProfit.previousYear)}</small></div>
-                  <b className={variation(currentGrossProfit.realized, currentGrossProfit.previousYear) >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(variation(currentGrossProfit.realized, currentGrossProfit.previousYear))}</b>
+                  <div><span>LB realizado</span><div className="farol-lb-value-row"><strong>{formatCurrency(currentGrossProfit.realized)}</strong><div className="farol-lb-percentages"><b className={variation(currentGrossProfit.realized, currentGrossProfit.previousYear) >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(variation(currentGrossProfit.realized, currentGrossProfit.previousYear))}</b><b className={projectedGrossProfitPercent >= 100 ? "good-text" : "bad-text"}>{formatPercent(projectedGrossProfitPercent)} projeção</b></div></div><small>{Number(selectedMonth.slice(0, 4)) - 1}: {formatCurrency(currentGrossProfit.previousYear)}</small></div>
                 </article>
                 <article className="farol-lb-summary-row">
-                  <div><span>Meta LB</span><strong>{formatCurrency(currentGrossProfit.planned)}</strong><small>Atingimento da meta</small></div>
-                  <b className={currentGrossProfit.realized >= currentGrossProfit.planned ? "good-text" : "bad-text"}>{formatPercent((currentGrossProfit.realized / currentGrossProfit.planned) * 100)}</b>
+                  <div><span>Meta LB</span><div className="farol-lb-value-row"><strong>{formatCurrency(currentGrossProfit.planned)}</strong><b className={currentGrossProfit.realized >= currentGrossProfit.planned ? "good-text" : "bad-text"}>{formatPercent((currentGrossProfit.realized / currentGrossProfit.planned) * 100)}</b></div><small>Atingimento da meta</small></div>
                 </article>
                 <article className="farol-lb-summary-row">
-                  <div><span>Margem bruta</span><strong>LB sobre receita líquida</strong><small>Margem realizada no período</small></div>
-                  <b className="good-text">{currentGrossProfit.margin.toFixed(1).replace(".", ",")}%</b>
+                  <div><span>Margem bruta</span><div className="farol-lb-value-row"><strong>LB sobre receita líquida</strong><b className="good-text">{currentGrossProfit.margin.toFixed(1).replace(".", ",")}%</b></div><small>Margem realizada no período</small></div>
                 </article>
               </div>
               <GrossProfitChart items={grossProfitMonths.filter((item) => item.month.startsWith(selectedMonth.slice(0, 4)) && item.month <= selectedMonth)} lastUpdated={grossProfitEntries.find((item) => item.month === selectedMonth)?.updatedAt} />
@@ -1114,7 +1121,7 @@ export default function FarolGerencialPage() {
             <div className="farol-report-title-row"><h2 className="panel-title">Faturamento por Canal</h2><ReportAddButton onClick={openChannelRevenueEntry} /></div>
             <span className="tag">{monthLabel(selectedMonth)} • {formatDayCount(monthSummary.passedDays)} dias úteis</span>
           </div>
-          <ChannelRevenueChart current={channelRows} previousYear={previousYearChannelRevenue ? channelDefinitions.map((item) => ({ ...item, total: previousYearChannelRevenue[item.key] })) : []} averages={channelAverages} lastUpdated={selectedChannelUpdate} />
+          <ChannelRevenueChart current={channelRows} lastUpdated={selectedChannelUpdate} />
           <div className="farol-channel-grid">
             {channelRows.map((item) => {
               const total = channelRows.reduce((sum, current) => sum + current.total, 0);
@@ -1496,40 +1503,59 @@ function MonthlyOperationChart({ selectedMonth, comparePreviousYear, revenueEntr
   );
 }
 
-function ChannelRevenueChart({ current, previousYear, averages, lastUpdated }: { current: ChannelRevenue[]; previousYear: ChannelRevenue[]; averages: ChannelRevenue[]; lastUpdated?: unknown }) {
-  const max = Math.max(...current.map((item) => item.total), ...previousYear.map((item) => item.total), ...averages.map((item) => item.total), 1);
+function ChannelRevenueChart({ current, lastUpdated }: { current: ChannelRevenue[]; lastUpdated?: unknown }) {
+  const total = current.reduce((sum, item) => sum + item.total, 0);
+  const colors = ["#2f7d55", "#d9a441", "#2c6fbb", "#9a6335", "#168075"];
+  let accumulated = 0;
+  const slices = current.map((item, index) => {
+    const share = total ? (item.total / total) * 100 : 0;
+    const start = accumulated;
+    accumulated += share;
+    return { ...item, share, start, end: accumulated, color: colors[index % colors.length] };
+  });
+  const pieBackground = total ? `conic-gradient(${slices.map((item) => `${item.color} ${item.start}% ${item.end}%`).join(", ")})` : "#dfe6e1";
 
   return (
-    <div className="farol-channel-chart" aria-label="Comparativo de faturamento por canal">
-      <div className="farol-channel-chart-head"><div className="farol-lb-legend"><span><i className="realized" />Mês selecionado</span><span><i className="planned" />Média últimos 3 meses</span><span><i className="margin" />Mesmo mês ano anterior</span></div><small className="farol-revenue-last-update">Última atualização: {formatUpdatedAt(lastUpdated)}</small></div>
-      <div className="farol-channel-chart-bars">
-        {current.map((item) => {
-          const average = averages.find((averageItem) => averageItem.key === item.key)?.total ?? 0;
-          const previous = previousYear.find((previousItem) => previousItem.key === item.key)?.total ?? 0;
-          return <article key={item.key}><div className="farol-channel-chart-columns"><i className="current" title={`Mês selecionado: ${formatCurrency(item.total)}`} style={{ height: `${Math.max(item.total ? 6 : 0, (item.total / max) * 100)}%` }} /><i className="average" title={`Média últimos 3 meses: ${formatCurrency(average)}`} style={{ height: `${Math.max(average ? 6 : 0, (average / max) * 100)}%` }} /><i className="previous" title={`Ano anterior: ${formatCurrency(previous)}`} style={{ height: `${Math.max(previous ? 6 : 0, (previous / max) * 100)}%` }} /></div><strong>{item.channel}</strong></article>;
-        })}
+    <div className="farol-channel-chart" aria-label="Distribuição do faturamento por canal">
+      <div className="farol-channel-chart-head"><div><span>Distribuição do mês</span><strong>Participação por canal</strong></div><small className="farol-revenue-last-update">Última atualização: {formatUpdatedAt(lastUpdated)}</small></div>
+      <div className="farol-channel-pie-layout">
+        <div className="farol-channel-pie" role="img" aria-label={slices.map((item) => `${item.channel}: ${formatCurrency(item.total)}, ${formatPercent(item.share)}`).join(". ")} style={{ background: pieBackground }}>
+          <div><span>Total</span><strong>{formatCurrency(total)}</strong></div>
+        </div>
+        <div className="farol-channel-pie-legend">
+          {slices.map((item) => (
+            <article key={item.key} style={{ "--channel-color": item.color } as CSSProperties}>
+              <i />
+              <span>{item.channel}</span>
+              <strong>{formatCurrency(item.total)}</strong>
+              <b>{formatPercent(item.share)}</b>
+            </article>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 function GrossProfitChart({ items, lastUpdated }: { items: GrossProfitMonth[]; lastUpdated?: unknown }) {
-  const max = Math.max(...items.flatMap((item) => [item.planned, item.realized]), 1);
+  const max = Math.max(...items.flatMap((item) => [item.planned, item.realized, item.previousYear]), 1);
 
   return (
     <div className="farol-lb-chart" aria-label="Lucro bruto planejado, realizado e margem bruta por mês">
       <div className="farol-lb-legend">
         <span><i className="planned" />Planejado</span>
         <span><i className="realized" />Realizado</span>
+        <span><i className="previous" />Realizado AA</span>
         <span><i className="margin" />MB %</span>
         <small className="farol-revenue-last-update">Última atualização: {formatUpdatedAt(lastUpdated)}</small>
       </div>
-      <div className="farol-lb-bars">
+      <div className="farol-lb-bars" style={{ "--farol-lb-month-count": items.length } as CSSProperties}>
         {items.map((item) => (
           <div key={item.month} className="farol-lb-month">
             <div className="farol-lb-columns">
-              <i className="planned" style={{ height: `${Math.max(8, (item.planned / max) * 100)}%` }} />
-              <i className="realized" style={{ height: `${Math.max(8, (item.realized / max) * 100)}%` }} />
+              <i className="planned" title={`Planejado: ${formatCurrency(item.planned)}`} style={{ height: `${Math.max(8, (item.planned / max) * 100)}%` }} />
+              <i className="realized" title={`Realizado: ${formatCurrency(item.realized)}`} style={{ height: `${Math.max(8, (item.realized / max) * 100)}%` }} />
+              <i className="previous" title={`Realizado AA: ${formatCurrency(item.previousYear)}`} style={{ height: `${Math.max(8, (item.previousYear / max) * 100)}%` }} />
             </div>
             <strong>{item.label}</strong>
             <span>{formatPercent((item.realized / item.planned) * 100)}</span>
