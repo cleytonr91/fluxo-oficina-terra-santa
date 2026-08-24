@@ -1700,6 +1700,84 @@ export function subscribePartOrders(
   }, onError);
 }
 
+type PartOrderTrackingState = "active" | "completed" | "cancelled";
+
+const partOrderTrackingMarkerId = "__tracking_state_v1__";
+
+function partOrderTrackingState(order: PartOrder): PartOrderTrackingState {
+  if (order.orderStatus === "cancelado") return "cancelled";
+  if (order.schedulingCompletedAt) return "completed";
+
+  const parts = order.parts?.length
+    ? order.parts
+    : [{ partReference: order.partReference, partDescription: order.partDescription }];
+  const hasPart = parts.some((part) => Boolean(part.partReference?.trim() || part.partDescription?.trim()));
+  const normalizedPlate = String(order.plate ?? "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  const normalizedClient = String(order.clientName ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  const workshopStatus = ["solicitado_oficina", "necessidade_identificada", "aguardando_pecas"].includes(order.orderStatus);
+
+  if (workshopStatus && (!hasPart || normalizedPlate === "LIN226" || normalizedClient === "COMISSAOCLIENTES")) {
+    return "completed";
+  }
+
+  return "active";
+}
+
+export async function ensurePartOrderTracking(canMigrate: boolean) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.partOrders);
+  const markerRef = doc(ref, partOrderTrackingMarkerId);
+  const marker = await getDoc(markerRef);
+
+  if (marker.exists()) return true;
+  if (!canMigrate) return false;
+
+  const snapshot = await getDocs(ref);
+  const documents = snapshot.docs.filter((item) => item.id !== partOrderTrackingMarkerId);
+
+  for (let index = 0; index < documents.length; index += 400) {
+    const batch = writeBatch(db);
+    documents.slice(index, index + 400).forEach((item) => {
+      const order = { id: item.id, ...item.data() } as PartOrder;
+      batch.set(item.ref, { trackingState: partOrderTrackingState(order) }, { merge: true });
+    });
+    await batch.commit();
+  }
+
+  await setDoc(markerRef, {
+    documentType: "tracking-migration",
+    version: 1,
+    migratedOrders: documents.length,
+    completedAt: serverTimestamp(),
+  });
+  return true;
+}
+
+export function subscribeActivePartOrders(
+  onChange: (orders: PartOrder[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(query(
+    collection(db, collections.partOrders),
+    where("trackingState", "==", "active"),
+  ), (snapshot) => {
+    const orders = snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as PartOrder[];
+    onChange(orders.sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? ""))));
+  }, onError);
+}
+
+export async function listArchivedPartOrders() {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(query(
+    collection(db, collections.partOrders),
+    where("trackingState", "in", ["completed", "cancelled"]),
+  ));
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() }) as PartOrder)
+    .sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")));
+}
+
 export function subscribePartOrdersByStatuses(
   statuses: PartOrderStatus[],
   onChange: (orders: PartOrder[]) => void,
@@ -2002,6 +2080,7 @@ export async function savePartOrder({
     partReference: normalizedReference,
     partDescription: normalizedDescription,
     orderStatus: "solicitado_oficina",
+    trackingState: normalizedParts.length && normalizeVehicleIdentifier(vehicle.plate) !== "LIN226" ? "active" : "completed",
     ...(!existingOrder.exists() || existingOrderStatus !== "solicitado_oficina" ? { orderStatusUpdatedAt: serverTimestamp() } : {}),
     requestedBy: actionBy,
     updatedBy: actionBy,
@@ -2075,6 +2154,7 @@ export async function updatePartOrder({
   const ref = doc(collection(db, collections.partOrders), orderId);
   const existingOrder = await getDoc(ref);
   const existingOrderStatus = existingOrder.data()?.orderStatus as PartOrderStatus | undefined;
+  const existingTrackingState = existingOrder.data()?.trackingState as PartOrderTrackingState | undefined;
   const normalizedParts = parts
     .map((part, index) => ({
       id: part.id || `peca-${index + 1}`,
@@ -2102,6 +2182,7 @@ export async function updatePartOrder({
     partReference: normalizedReference,
     partDescription: normalizedDescription,
     orderStatus,
+    trackingState: orderStatus === "cancelado" ? "cancelled" : existingTrackingState === "completed" ? "completed" : "active",
     ...(!existingOrder.exists() || existingOrderStatus !== orderStatus ? { orderStatusUpdatedAt: serverTimestamp() } : {}),
     orderSource,
     orderNumber: orderNumber?.trim(),
@@ -2177,6 +2258,7 @@ export async function createStandalonePartOrder({
     partDescription: firstPart?.partDescription,
     orderKind,
     orderStatus,
+    trackingState: orderStatus === "cancelado" ? "cancelled" : "active",
     orderStatusUpdatedAt: serverTimestamp(),
     orderSource,
     orderNumber: orderNumber?.trim().toUpperCase(),
@@ -2244,6 +2326,7 @@ export async function markPartSchedulingCompleted({
 
   await setDoc(ref, withoutUndefined({
     schedulingCompletedAt: serverTimestamp(),
+    trackingState: "completed",
     schedulingCompletionReason: "Processo concluído por nova passagem do veículo",
     schedulingCompletionVehicleFlowId: newVehicleFlowId,
     schedulingCompletionDate: newAppointmentDate,

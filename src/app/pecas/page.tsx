@@ -4,7 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { invalidatePartsCatalogCache, PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
-import { createStandalonePartOrder, replaceHyundaiPartsCatalog, subscribePartOrders, subscribeVehicleFlowsByIds, updatePartOrder } from "@/services/firestore";
+import { createStandalonePartOrder, ensurePartOrderTracking, listArchivedPartOrders, replaceHyundaiPartsCatalog, subscribeActivePartOrders, subscribePartOrders, subscribeVehicleFlowsByIds, updatePartOrder } from "@/services/firestore";
 import { parseHyundaiPartsCatalog } from "@/lib/hyundai-parts-catalog";
 import type { PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
@@ -335,6 +335,9 @@ export default function PecasPage() {
     ? ""
     : new URLSearchParams(window.location.search).get("pedido") ?? "";
   const [orders, setOrders] = useState<PartOrder[]>([]);
+  const [archivedOrders, setArchivedOrders] = useState<PartOrder[]>([]);
+  const [archiveLoadState, setArchiveLoadState] = useState<"idle" | "loading" | "loaded">("idle");
+  const [trackingOptimized, setTrackingOptimized] = useState(false);
   const [orderForms, setOrderForms] = useState<Record<string, Partial<PartOrderFormFields>>>({});
   const [orderValidationErrors, setOrderValidationErrors] = useState<Record<string, PartOrderValidationErrors>>({});
   const [openSections, setOpenSections] = useState<Record<string, PartEditSection | undefined>>({});
@@ -354,16 +357,32 @@ export default function PecasPage() {
   const [catalogImporting, setCatalogImporting] = useState(false);
   const [catalogMessage, setCatalogMessage] = useState("");
 
+  async function ensureArchiveLoaded() {
+    if (!trackingOptimized || archiveLoadState !== "idle") return;
+    setArchiveLoadState("loading");
+    try {
+      setArchivedOrders(await listArchivedPartOrders());
+      setArchiveLoadState("loaded");
+    } catch (currentError) {
+      setArchiveLoadState("idle");
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar o arquivo de pedidos.");
+    }
+  }
+
   function applyStatusFilter(filter: PartsFilter) {
     window.history.replaceState(null, "", "/pecas");
     setFocusedOrderId("");
     setStatusFilter(filter);
+    if (["todos", "concluidos", "cancelado"].includes(filter)) void ensureArchiveLoaded();
   }
 
   function applySearchQuery(value: string) {
     window.history.replaceState(null, "", "/pecas");
     setFocusedOrderId("");
-    if (value.trim()) setStatusFilter("todos");
+    if (value.trim()) {
+      setStatusFilter("todos");
+      void ensureArchiveLoaded();
+    }
     setSearchQuery(value);
   }
 
@@ -395,19 +414,44 @@ export default function PecasPage() {
   }
 
   useEffect(() => {
-    const unsubscribe = subscribePartOrders((items) => {
-      setOrders(items);
-      setError("");
-    }, (currentError) => {
+    if (!profile) return undefined;
+    let disposed = false;
+    let unsubscribe: () => void = () => undefined;
+    const onError = (currentError: Error) => {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar pedidos de peças.");
+    };
+
+    void ensurePartOrderTracking(profile.role === "admin").then((optimized) => {
+      if (disposed) return;
+      setTrackingOptimized(optimized);
+      unsubscribe = (optimized ? subscribeActivePartOrders : subscribePartOrders)((items) => {
+        setOrders(items);
+        setError("");
+      }, onError);
+    }).catch(() => {
+      if (disposed) return;
+      setTrackingOptimized(false);
+      unsubscribe = subscribePartOrders((items) => {
+        setOrders(items);
+        setError("");
+      }, onError);
     });
 
-    return unsubscribe;
-  }, []);
+    return () => {
+      disposed = true;
+      unsubscribe();
+    };
+  }, [profile]);
+
+  const loadedOrders = useMemo(() => {
+    const unique = new Map<string, PartOrder>();
+    [...orders, ...archivedOrders].forEach((order) => unique.set(order.id, order));
+    return [...unique.values()];
+  }, [archivedOrders, orders]);
 
   const orderVehicleIds = useMemo(
-    () => Array.from(new Set(orders.map((order) => order.vehicleFlowId).filter(Boolean))).sort(),
-    [orders],
+    () => Array.from(new Set(loadedOrders.map((order) => order.vehicleFlowId).filter(Boolean))).sort(),
+    [loadedOrders],
   );
   const orderVehicleIdsKey = orderVehicleIds.join("|");
 
@@ -421,7 +465,7 @@ export default function PecasPage() {
 
   const mergedOrders = useMemo(() => {
     const vehiclesById = new Map(orderVehicles.map((vehicle) => [vehicle.id, vehicle]));
-    return orders.map((order) => {
+    return loadedOrders.map((order) => {
       const vehicle = vehiclesById.get(order.vehicleFlowId);
       return {
         ...order,
@@ -433,7 +477,7 @@ export default function PecasPage() {
         technicianName: order.technicianName || vehicle?.technicianName,
       };
     });
-  }, [orderVehicles, orders]);
+  }, [loadedOrders, orderVehicles]);
 
   const vehiclesById = useMemo(() => {
     const mapped = new Map<string, VehicleFlow>();
@@ -527,8 +571,8 @@ export default function PecasPage() {
     { label: "VOR", value: operationalOrders.filter((order) => order.orderVor).length, filter: "vor" as PartsFilter, state: "danger" },
     { label: "em trânsito", value: operationalOrders.filter((order) => effectiveOrderStatus(order) === "em_transito").length, filter: "em_transito" as PartsFilter, state: "" },
     { label: "disponíveis", value: availableOrders.length, filter: "disponivel" as PartsFilter, state: "" },
-    { label: "concluídos", value: completedOrders.length, filter: "concluidos" as PartsFilter, state: "good" },
-    { label: "cancelados", value: canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
+    { label: "concluídos", value: trackingOptimized && archiveLoadState !== "loaded" ? "—" : completedOrders.length, filter: "concluidos" as PartsFilter, state: "good" },
+    { label: "cancelados", value: trackingOptimized && archiveLoadState !== "loaded" ? "—" : canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
   ];
 
   function classifyMobisReceiptByQuantity(fileName: string, invoiceNumber: string, items: MobisReceiptItem[]) {
