@@ -58,9 +58,9 @@ const partOrderKindLabels: Record<NonNullable<PartOrder["orderKind"]>, string> =
   externo: "Externo",
 };
 
-const fixedConsultants = ["Cleverton", "Rosangela", "Eliane", "Luan"];
+const fixedConsultants = ["Cleverton", "Eliane", "Rosangela", "Luan"];
 
-const workshopTechnicians = ["Wesley", "Ayslan", "Gilvan", "Elimarcos", "Hernando", "Nathan", "Igo"];
+const workshopTechnicians = ["Hernando", "Elimarcos", "Wesley", "Ayslan", "Nathan", "Igo"];
 
 const walkInServices = [
   "Revisão 01",
@@ -468,6 +468,13 @@ function consultantDisplayName(name?: string) {
   return firstName(name);
 }
 
+function technicianDisplayName(name?: string) {
+  const normalized = normalizeName(name);
+  if (!normalized) return "";
+  if (normalized.includes("weslley")) return "Wesley";
+  return workshopTechnicians.find((technician) => normalized.includes(normalizeName(technician))) ?? "";
+}
+
 function priorityScore(vehicle: VehicleFlow) {
   const promised = toDate(vehicle.promisedDeliveryAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
   const waitScore = vehicle.customerWaits ? 0 : 1;
@@ -806,7 +813,7 @@ export default function FluxoPage() {
     chassi: "",
     service: "Revisão 01",
     promisedDeliveryAt: "",
-    consultant: profile?.name ?? "",
+    consultant: fixedConsultants.includes(consultantDisplayName(profile?.name)) ? consultantDisplayName(profile?.name) : "",
     technician: "",
     washType: "simples",
     note: "",
@@ -919,7 +926,8 @@ export default function FluxoPage() {
     function openWalkIn() {
       setWalkInForm((current) => ({
         ...current,
-        consultant: current.consultant || profile?.name || "",
+        consultant: current.consultant
+          || (fixedConsultants.includes(consultantDisplayName(profile?.name)) ? consultantDisplayName(profile?.name) : ""),
       }));
       setWalkInOpen(true);
     }
@@ -1053,10 +1061,11 @@ export default function FluxoPage() {
   }
 
   function openStartServiceModal(vehicle: VehicleFlow) {
+    const loggedTechnician = technicianDisplayName(profile?.name);
     setStartServiceVehicle(vehicle);
     setStartServiceForm({
       customerWaits: vehicle.customerWaits ?? false,
-      technicianName: vehicle.technicianName || "",
+      technicianName: loggedTechnician,
       promisedDeliveryAt: toDateTimeLocal(vehicle.promisedDeliveryAt) || sameDayDefault(vehicle.appointmentDate),
       note: "",
     });
@@ -1194,7 +1203,7 @@ export default function FluxoPage() {
     event.preventDefault();
     if (!startServiceVehicle) return;
 
-    if (!startServiceForm.technicianName) {
+    if (!workshopTechnicians.includes(startServiceForm.technicianName)) {
       setError("Defina o técnico antes de iniciar o serviço.");
       return;
     }
@@ -1487,6 +1496,12 @@ export default function FluxoPage() {
       if (!walkInForm.promisedDeliveryAt) {
         throw new Error("Informe a previsão de entrega para cadastrar o passante.");
       }
+      if (!fixedConsultants.includes(walkInForm.consultant)) {
+        throw new Error("Selecione o consultor responsável pelo passante.");
+      }
+      if (!workshopTechnicians.includes(walkInForm.technician)) {
+        throw new Error("Selecione o técnico responsável pelo passante.");
+      }
       const initialLane: FlowLane = isWashService(walkInForm.service) ? "aguardando_lavagem" : "aguardando_servico";
       const normalizedWashType = washTypeFromService(walkInForm.service, walkInForm.washType);
       const partsOrdered = walkInLinkedPartOrders.length > 0;
@@ -1607,7 +1622,7 @@ export default function FluxoPage() {
         chassi: "",
         service: "Revisão 01",
         promisedDeliveryAt: "",
-        consultant: profile?.name ?? "",
+        consultant: fixedConsultants.includes(consultantDisplayName(profile?.name)) ? consultantDisplayName(profile?.name) : "",
         technician: "",
         washType: "simples",
         note: "",
@@ -3728,6 +3743,11 @@ export default function FluxoPage() {
                       ...current,
                       service,
                       washType: washTypeFromService(service, current.washType),
+                      technician: isWashService(service)
+                        ? "Igo"
+                        : current.technician === "Igo"
+                          ? ""
+                          : current.technician,
                     }));
                   }}
                 >
@@ -3745,18 +3765,29 @@ export default function FluxoPage() {
               </label>
               <label className="field">
                 <span>Consultor</span>
-                <input
+                <select
                   required
                   value={walkInForm.consultant}
                   onChange={(event) => setWalkInForm((current) => ({ ...current, consultant: event.target.value }))}
-                />
+                >
+                  <option value="">Selecionar consultor</option>
+                  {fixedConsultants.map((consultant) => (
+                    <option key={consultant} value={consultant}>{consultant}</option>
+                  ))}
+                </select>
               </label>
               <label className="field">
                 <span>Técnico</span>
-                <input
+                <select
+                  required
                   value={walkInForm.technician}
                   onChange={(event) => setWalkInForm((current) => ({ ...current, technician: event.target.value }))}
-                />
+                >
+                  <option value="">Selecionar técnico</option>
+                  {workshopTechnicians.map((technician) => (
+                    <option key={technician} value={technician}>{technician}</option>
+                  ))}
+                </select>
               </label>
               <label className="field">
                 <span>Tipo da lavagem</span>
