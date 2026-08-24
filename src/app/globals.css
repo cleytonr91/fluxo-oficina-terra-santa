@@ -1088,6 +1088,60 @@
   padding: 12px;
 }
 
+.farol-consultant-view-options {
+  align-items: center;
+  background: linear-gradient(90deg, #fbfcfb 0%, #f5f8f6 100%);
+  border-bottom: 1px solid #dce4dd;
+  display: flex;
+  gap: 7px;
+  justify-content: flex-end;
+  padding: 8px 12px;
+}
+
+.farol-consultant-view-label span {
+  color: #31433a;
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.farol-consultant-view-buttons {
+  background: #e9efeb;
+  border: 1px solid #d5ded8;
+  border-radius: 9px;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+}
+
+.farol-consultant-view-buttons button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #526159;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 0.62rem;
+  font-weight: 900;
+  justify-content: center;
+  min-height: 29px;
+  padding: 4px 11px;
+  transition: background 120ms ease, box-shadow 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+
+.farol-consultant-view-buttons button:hover {
+  background: #f8faf8;
+}
+
+.farol-consultant-view-buttons button.active {
+  background: #865f12;
+  box-shadow: 0 1px 4px rgb(31 62 48 / 16%);
+  color: #fff;
+}
+
 .farol-consultant-report-card {
   background: #fbfcfb;
   border: 1px solid #dce4dd;
