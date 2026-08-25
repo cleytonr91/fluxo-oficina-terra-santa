@@ -37,7 +37,8 @@ const orderStatusLabels: Record<PartOrderStatus, string> = {
   back_order: "B.O",
   em_transito: "Em trânsito",
   recebido: "Recebido",
-  disponivel: "Disponível",
+  disponivel: "Disponível para Agendar",
+  disponivel_execucao: "Disponível para Execução",
   cancelado: "Cancelado",
 };
 

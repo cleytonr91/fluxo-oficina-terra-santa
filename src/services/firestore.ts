@@ -667,6 +667,7 @@ function publicStatusLabel(status?: PartOrderStatus) {
   if (status === "em_transito") return "A caminho da concessionária";
   if (status === "recebido") return "Peça recebida pela concessionária";
   if (status === "disponivel") return "Disponível para agendamento";
+  if (status === "disponivel_execucao") return "Disponível para execução na oficina";
   if (status === "cancelado") return "Solicitação cancelada";
   return "Pedido em análise";
 }
@@ -1706,7 +1707,7 @@ const partOrderTrackingMarkerId = "__tracking_state_v1__";
 
 function partOrderTrackingState(order: PartOrder): PartOrderTrackingState {
   if (order.orderStatus === "cancelado") return "cancelled";
-  if (order.schedulingCompletedAt) return "completed";
+  if (order.schedulingCompletedAt || order.executionCompletedAt) return "completed";
 
   const parts = order.parts?.length
     ? order.parts
@@ -2733,8 +2734,12 @@ export async function moveVehicleFlow({
   const batch = writeBatch(db);
   const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
   const flowEventRef = doc(collection(db, collections.flowEvents));
+  const partOrderRef = doc(collection(db, collections.partOrders), vehicleFlowId);
   const promisedDate = promisedDeliveryAt ? Timestamp.fromDate(new Date(promisedDeliveryAt)) : undefined;
   const startsAttendance = fromLane === "preparacao_confirmada" && toLane !== "preparacao_confirmada";
+  const completesPartExecution = toLane === "preparacao_entrega" || toLane === "entregue";
+  const partOrderSnapshot = completesPartExecution ? await getDoc(partOrderRef) : null;
+  const partOrderStatus = partOrderSnapshot?.data()?.orderStatus as PartOrderStatus | undefined;
 
   batch.set(flowRef, {
     currentLane: toLane,
@@ -2764,6 +2769,17 @@ export async function moveVehicleFlow({
     actionNote,
     createdAt: serverTimestamp(),
   });
+
+  if (completesPartExecution && partOrderStatus === "disponivel_execucao") {
+    batch.set(partOrderRef, {
+      trackingState: "completed",
+      executionCompletedAt: serverTimestamp(),
+      executionCompletionReason: "Processo concluído após movimentação do chip para preparação de entrega",
+      executionCompletionLane: toLane,
+      updatedBy: actionBy,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  }
 
   await batch.commit();
 }
@@ -2825,6 +2841,11 @@ export async function updateVehicleImmobilization({
   const batch = writeBatch(db);
   const flowRef = doc(collection(db, collections.vehiclesFlow), vehicleFlowId);
   const flowEventRef = doc(collection(db, collections.flowEvents));
+  const partOrderRef = doc(collection(db, collections.partOrders), vehicleFlowId);
+  const partOrderSnapshot = await getDoc(partOrderRef);
+  const partOrder = partOrderSnapshot.exists()
+    ? { id: partOrderSnapshot.id, ...partOrderSnapshot.data() } as PartOrder
+    : null;
   const reasonLabel = immobilizationReason === "aguardando_pecas"
     ? "Aguardando Peças"
     : "Aguardando Decisão";
@@ -2847,6 +2868,39 @@ export async function updateVehicleImmobilization({
       : "Veículo removido da lista de imobilizados",
     createdAt: serverTimestamp(),
   });
+
+  if (partOrder?.orderStatus === "disponivel") {
+    batch.set(partOrderRef, {
+      orderStatus: "disponivel_execucao",
+      updatedBy: actionBy,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+
+    const lookupId = publicPartLookupId(partOrder.plate, partOrder.customerId);
+    if (lookupId) {
+      batch.set(doc(collection(db, collections.publicPartLookups), lookupId), {
+        plate: normalizeVehicleIdentifier(partOrder.plate),
+        customerId: normalizeVehicleIdentifier(partOrder.customerId),
+        updatedAt: serverTimestamp(),
+        orders: {
+          [partOrder.id]: publicPartOrderPayload({
+            orderId: partOrder.id,
+            vehicleFlowId: partOrder.vehicleFlowId,
+            plate: partOrder.plate,
+            customerId: partOrder.customerId,
+            parts: partOrder.parts ?? [],
+            partReference: partOrder.partReference,
+            partDescription: partOrder.partDescription,
+            orderStatus: "disponivel_execucao",
+            expectedArrivalDate: partOrder.expectedArrivalDate,
+            invoiceNumber: partOrder.invoiceNumber,
+            orderNumber: partOrder.orderNumber,
+            updatedBy: actionBy,
+          }),
+        },
+      }, { merge: true });
+    }
+  }
 
   await batch.commit();
 }

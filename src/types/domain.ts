@@ -51,6 +51,7 @@ export type PartOrderStatus =
   | "em_transito"
   | "recebido"
   | "disponivel"
+  | "disponivel_execucao"
   | "cancelado";
 
 export type PartOrderSource =
@@ -431,6 +432,9 @@ export interface PartOrder {
   schedulingCompletionReason?: string;
   schedulingCompletionVehicleFlowId?: string;
   schedulingCompletionDate?: string;
+  executionCompletedAt?: FirestoreTimestamp;
+  executionCompletionReason?: string;
+  executionCompletionLane?: FlowLane;
   requestedBy?: string;
   updatedBy?: string;
   createdAt: FirestoreTimestamp;

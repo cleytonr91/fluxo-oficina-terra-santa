@@ -58,7 +58,8 @@ const statusLabels: Record<PartOrderStatus, string> = {
   back_order: "B.O",
   em_transito: "Em trânsito",
   recebido: "Recebido",
-  disponivel: "Disponível",
+  disponivel: "Disponível para Agendar",
+  disponivel_execucao: "Disponível para Execução",
   cancelado: "Cancelado",
 };
 
@@ -68,7 +69,8 @@ const statusOptions: Array<{ value: PartOrderStatus; label: string }> = [
   { value: "back_order", label: "B.O (Back Order)" },
   { value: "em_transito", label: "Em trânsito" },
   { value: "recebido", label: "Recebido" },
-  { value: "disponivel", label: "Disponível" },
+  { value: "disponivel", label: "Disponível para Agendar" },
+  { value: "disponivel_execucao", label: "Disponível para Execução" },
   { value: "cancelado", label: "Cancelado" },
 ];
 
@@ -192,7 +194,7 @@ function formatOperationalDateTime(value: unknown) {
 }
 
 function statusTone(status: PartOrderStatus) {
-  if (status === "disponivel" || status === "recebido") return "good";
+  if (status === "disponivel" || status === "disponivel_execucao" || status === "recebido") return "good";
   if (status === "cancelado") return "bad";
   if (status === "em_transito" || status === "pedido_realizado" || status === "back_order") return "warn";
   return "";
@@ -500,7 +502,7 @@ export default function PecasPage() {
 
   const completedOrderIds = useMemo(() => {
     return new Set(mergedOrders
-      .filter((order) => Boolean(order.schedulingCompletedAt) || isAutomaticallyCompletedWorkshopOrder(order))
+      .filter((order) => Boolean(order.schedulingCompletedAt) || Boolean(order.executionCompletedAt) || isAutomaticallyCompletedWorkshopOrder(order))
       .map((order) => order.id));
   }, [mergedOrders]);
 
@@ -512,9 +514,15 @@ export default function PecasPage() {
     mergedOrders.filter((order) => !completedOrderIds.has(order.id))
   ), [completedOrderIds, mergedOrders]);
 
-  const availableOrders = useMemo(() => (
+  const availableSchedulingOrders = useMemo(() => (
     operationalOrders.filter((order) => (
       effectiveOrderStatus(order) === "disponivel"
+    ))
+  ), [operationalOrders]);
+
+  const availableExecutionOrders = useMemo(() => (
+    operationalOrders.filter((order) => (
+      effectiveOrderStatus(order) === "disponivel_execucao"
     ))
   ), [operationalOrders]);
 
@@ -548,7 +556,7 @@ export default function PecasPage() {
       : statusFilter === "pendentes" ? pendingOrders
         : statusFilter === "concluidos" ? completedOrders
           : statusFilter === "vor" ? operationalOrders.filter((order) => order.orderVor)
-            : statusFilter === "disponivel" ? availableOrders
+            : statusFilter === "disponivel" ? availableSchedulingOrders
               : statusFilter === "solicitado_oficina" ? operationalOrders.filter(isWorkshopRequestedStatus)
                 : operationalOrders.filter((order) => effectiveOrderStatus(order) === statusFilter);
     const normalizedQuery = normalizeSearchText(searchQuery);
@@ -558,7 +566,7 @@ export default function PecasPage() {
       normalizeSearchText(order.plate).includes(normalizedQuery)
       || normalizeSearchText(order.clientName).includes(normalizedQuery)
     ));
-  }, [availableOrders, completedOrders, focusedOrderId, mergedOrders, operationalOrders, pendingOrders, searchQuery, statusFilter]);
+  }, [availableSchedulingOrders, completedOrders, focusedOrderId, mergedOrders, operationalOrders, pendingOrders, searchQuery, statusFilter]);
 
   const isOrderVehicleImmobilized = (order: PartOrder) => (
     vehiclesById.get(order.vehicleFlowId)?.vehicleImmobilized ?? false
@@ -570,13 +578,14 @@ export default function PecasPage() {
     { label: "B.O", value: operationalOrders.filter((order) => effectiveOrderStatus(order) === "back_order").length, filter: "back_order" as PartsFilter, state: "danger" },
     { label: "VOR", value: operationalOrders.filter((order) => order.orderVor).length, filter: "vor" as PartsFilter, state: "danger" },
     { label: "em trânsito", value: operationalOrders.filter((order) => effectiveOrderStatus(order) === "em_transito").length, filter: "em_transito" as PartsFilter, state: "" },
-    { label: "disponíveis", value: availableOrders.length, filter: "disponivel" as PartsFilter, state: "" },
+    { label: "disponíveis para agendar", value: availableSchedulingOrders.length, filter: "disponivel" as PartsFilter, state: "" },
+    { label: "disponíveis para execução", value: availableExecutionOrders.length, filter: "disponivel_execucao" as PartsFilter, state: "good" },
     { label: "concluídos", value: trackingOptimized && archiveLoadState !== "loaded" ? "—" : completedOrders.length, filter: "concluidos" as PartsFilter, state: "good" },
     { label: "cancelados", value: trackingOptimized && archiveLoadState !== "loaded" ? "—" : canceledOrders.length, filter: "cancelado" as PartsFilter, state: "danger" },
   ];
 
   function classifyMobisReceiptByQuantity(fileName: string, invoiceNumber: string, items: MobisReceiptItem[]) {
-    const openOrders = operationalOrders.filter((order) => effectiveOrderStatus(order) !== "disponivel" && effectiveOrderStatus(order) !== "cancelado");
+    const openOrders = operationalOrders.filter((order) => !["disponivel", "disponivel_execucao", "cancelado"].includes(effectiveOrderStatus(order)));
     const safe: MobisReceiptMatch[] = [];
     const doubtful: MobisReceiptMatch[] = [];
     const notFound: MobisReceiptItem[] = [];
@@ -773,7 +782,10 @@ export default function PecasPage() {
   async function saveOrder(order: PartOrder) {
     const form = orderFormValues(order);
     const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
-    const nextOrderStatus: PartOrderStatus = form.cancellationReason.trim() ? "cancelado" : form.orderStatus;
+    const requestedOrderStatus: PartOrderStatus = form.cancellationReason.trim() ? "cancelado" : form.orderStatus;
+    const nextOrderStatus: PartOrderStatus = requestedOrderStatus === "disponivel" && isOrderVehicleImmobilized(order)
+      ? "disponivel_execucao"
+      : requestedOrderStatus;
 
     const validationErrors: PartOrderValidationErrors = {};
 
@@ -908,6 +920,10 @@ export default function PecasPage() {
       setError("Para cancelar um pedido, informe o motivo do cancelamento.");
       return;
     }
+    if (standaloneForm.orderStatus === "disponivel_execucao") {
+      setError("Disponível para Execução exige um chip ativo na oficina. Use Disponível para Agendar no pedido avulso.");
+      return;
+    }
 
     setSavingStandalone(true);
     setError("");
@@ -942,6 +958,7 @@ export default function PecasPage() {
 
     const form = orderFormValues(order);
     const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
+    const availabilityStatus: PartOrderStatus = isOrderVehicleImmobilized(order) ? "disponivel_execucao" : "disponivel";
     const receiptKey = `${order.id}-${match.item.id}`;
     setApplyingReceiptId(receiptKey);
     setError("");
@@ -958,7 +975,7 @@ export default function PecasPage() {
         technicianName: order.technicianName,
         orderKind: form.orderKind || undefined,
         parts: validParts,
-        orderStatus: "disponivel",
+        orderStatus: availabilityStatus,
         orderSource: form.orderSource || "mobis",
         orderNumber: form.orderNumber || match.item.mobisOrder,
         orderVor: form.orderVor,
@@ -973,8 +990,8 @@ export default function PecasPage() {
         item.id === order.id
           ? {
               ...item,
-              orderStatus: "disponivel",
-              orderStatusUpdatedAt: effectiveOrderStatus(item) !== "disponivel" ? new Date().toISOString() : item.orderStatusUpdatedAt,
+              orderStatus: availabilityStatus,
+              orderStatusUpdatedAt: effectiveOrderStatus(item) !== availabilityStatus ? new Date().toISOString() : item.orderStatusUpdatedAt,
               orderSource: form.orderSource || "mobis",
               orderNumber: form.orderNumber || match.item.mobisOrder,
               invoiceNumber: mobisReceipt.invoiceNumber || form.invoiceNumber,
@@ -990,7 +1007,7 @@ export default function PecasPage() {
       }));
       setMobisActionFeedback({
         type: "success",
-        message: `${match.item.partReference} foi marcada como disponível para ${order.clientName || order.plate || "o pedido selecionado"}.`,
+        message: `${match.item.partReference} foi marcada como ${availabilityStatus === "disponivel_execucao" ? "disponível para execução" : "disponível para agendar"} para ${order.clientName || order.plate || "o pedido selecionado"}.`,
       });
     } catch (currentError) {
       const message = currentError instanceof Error ? currentError.message : "Não foi possível aplicar o recebimento Mobis.";
@@ -1527,7 +1544,9 @@ export default function PecasPage() {
                             ? "Concluído: registro interno"
                             : isAutomaticallyCompletedWorkshopOrder(order)
                               ? "Concluído: sem peça informada"
-                              : "Concluído após passagem"}
+                              : order.executionCompletedAt
+                                ? "Concluído após envio para entrega"
+                                : "Concluído após passagem"}
                         </small>
                       )}
                     </div>

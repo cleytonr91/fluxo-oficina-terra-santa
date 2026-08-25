@@ -40,7 +40,8 @@ const partOrderStatusLabels: Record<PartOrder["orderStatus"], string> = {
   back_order: "B.O (Back Order)",
   em_transito: "Em trânsito",
   recebido: "Recebido",
-  disponivel: "Disponível",
+  disponivel: "Disponível para Agendar",
+  disponivel_execucao: "Disponível para Execução",
   cancelado: "Cancelado",
 };
 
@@ -105,7 +106,7 @@ function partOrderItems(order: PartOrder) {
 }
 
 function partOrderTone(status: PartOrder["orderStatus"]) {
-  if (status === "disponivel" || status === "recebido") return "good";
+  if (status === "disponivel" || status === "disponivel_execucao" || status === "recebido") return "good";
   if (status === "cancelado") return "bad";
   if (status === "pedido_realizado" || status === "back_order" || status === "em_transito") return "warn";
   return "";

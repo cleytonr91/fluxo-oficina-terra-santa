@@ -16,6 +16,7 @@ const openPartOrderStatuses: PartOrderStatus[] = [
   "em_transito",
   "recebido",
   "disponivel",
+  "disponivel_execucao",
 ];
 
 const laneLabels: Record<FlowLane, string> = {
@@ -300,16 +301,15 @@ export function PreparationImport() {
       .sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`));
   }, [flowVehicles, selectedDate]);
 
-  const availableImmobilizedOrders = useMemo(() => {
+  const executionReadyOrders = useMemo(() => {
     return partOrders
       .map((order) => ({
         order,
         vehicle: flowVehicles.find((vehicle) => vehicle.id === order.vehicleFlowId),
       }))
       .filter(({ order, vehicle }) => (
-        order.orderStatus === "disponivel"
-        && vehicle?.vehicleImmobilized
-        && vehicle.status !== "cancelado"
+        order.orderStatus === "disponivel_execucao"
+        && vehicle?.status !== "cancelado"
       ))
       .sort((a, b) => String(a.order.expectedArrivalDate ?? a.order.updatedAt ?? "").localeCompare(String(b.order.expectedArrivalDate ?? b.order.updatedAt ?? "")));
   }, [flowVehicles, partOrders]);
@@ -331,7 +331,7 @@ export function PreparationImport() {
       const scheduled = appointmentsForDate.filter((item) => item.technician === technician);
       const confirmed = confirmedPreparedVehicles.filter((vehicle) => shortName(vehicle.technicianName) === technician);
       const pending = pendingPreviousVehicles.filter((vehicle) => shortName(vehicle.technicianName) === technician);
-      const availableImmobilized = availableImmobilizedOrders.filter(({ order, vehicle }) => (
+      const availableImmobilized = executionReadyOrders.filter(({ order, vehicle }) => (
         shortName(vehicle?.technicianName ?? order.technicianName) === technician
       ));
       const confirmedIds = new Set(confirmed.map((vehicle) => vehicle.id));
@@ -346,7 +346,7 @@ export function PreparationImport() {
         total: scheduledOnly.length + confirmed.length + pending.length + availableImmobilized.length,
       };
     });
-  }, [appointmentsForDate, availableImmobilizedOrders, confirmedPreparedVehicles, pendingPreviousVehicles, workshopTechnicians]);
+  }, [appointmentsForDate, confirmedPreparedVehicles, executionReadyOrders, pendingPreviousVehicles, workshopTechnicians]);
 
   const filteredAppointments = useMemo(() => {
     if (availableImmobilizedOnly) return [];
@@ -576,8 +576,8 @@ export function PreparationImport() {
             type="button"
             onClick={() => setAvailableImmobilizedOnly((value) => !value)}
           >
-            <strong>{availableImmobilizedOrders.length}</strong>
-            <span>imobilizados com peças disponíveis</span>
+            <strong>{executionReadyOrders.length}</strong>
+            <span>disponíveis para execução</span>
           </button>
           <div className="metric"><strong>{appointmentsForDate.filter((item) => item.confirmed).length}</strong><span>confirmados</span></div>
           <div className="metric"><strong>{appointmentsForDate.filter((item) => item.roadTest).length}</strong><span>testes rodagem</span></div>
@@ -585,14 +585,14 @@ export function PreparationImport() {
           <div className="metric"><strong>{duplicatedInDate.size}</strong><span>chassis duplicados</span></div>
         </div>
 
-        {(availableImmobilizedOnly || availableImmobilizedOrders.length > 0) && (
+        {(availableImmobilizedOnly || executionReadyOrders.length > 0) && (
           <section className="available-immobilized panel">
             <div className="panel-head">
-              <h2 className="panel-title">Imobilizados com peças disponíveis</h2>
-              <strong>{availableImmobilizedOrders.length}</strong>
+              <h2 className="panel-title">Veículos com peças disponíveis para execução</h2>
+              <strong>{executionReadyOrders.length}</strong>
             </div>
             <div className="panel-body available-immobilized-grid">
-              {availableImmobilizedOrders.length ? availableImmobilizedOrders.map(({ order, vehicle }) => (
+              {executionReadyOrders.length ? executionReadyOrders.map(({ order, vehicle }) => (
                 <article key={order.id} className="plan-chip immobilized-ready">
                   <strong>{vehicle?.clientName || order.clientName || "Cliente não identificado"}</strong>
                   <span>{vehicle?.plate || order.plate || "-"} · Técnico {shortName(vehicle?.technicianName ?? order.technicianName)} · Pedido {order.orderNumber || "-"}</span>
@@ -600,7 +600,7 @@ export function PreparationImport() {
                   <a className="tag parts-shortcut" href="/pecas">Ver pedido</a>
                 </article>
               )) : (
-                <p>Nenhum veículo imobilizado com peças disponíveis no momento.</p>
+                <p>Nenhum veículo com peças disponíveis para execução no momento.</p>
               )}
             </div>
           </section>
