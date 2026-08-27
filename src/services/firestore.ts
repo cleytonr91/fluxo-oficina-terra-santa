@@ -647,11 +647,22 @@ export async function savePartsSalesGoal({
 }
 
 function normalizeVehicleIdentifier(value?: string) {
-  return String(value ?? "")
+  const identifier = String(value ?? "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]/g, "")
     .toUpperCase();
+
+  if (
+    !identifier
+    || ["NULL", "UNDEFINED", "NA", "NAOINFORMADO", "SEMINFORMACAO"].includes(identifier)
+    || identifier.startsWith("SEMPLACA")
+    || identifier.startsWith("SEMCHASSI")
+  ) {
+    return "";
+  }
+
+  return identifier;
 }
 
 function publicPartLookupId(plate?: string, customerId?: string) {
@@ -1376,15 +1387,15 @@ export async function listVehicleFlowsByIds(vehicleFlowIds: string[]) {
 }
 
 export async function findVehicleFlowConflict({
-  plate,
   chassi,
   appointmentDate,
   ignoreId,
 }: VehicleFlowConflictInput) {
-  const normalizedPlate = normalizeVehicleIdentifier(plate);
   const normalizedChassi = normalizeVehicleIdentifier(chassi);
 
-  if (!normalizedPlate && !normalizedChassi) return null;
+  // Placa ausente ou reutilizada não comprova duplicidade. O chassi é a
+  // identidade definitiva do veículo e precisa coincidir nos dois registros.
+  if (!normalizedChassi) return null;
 
   const db = getFirebaseDb();
   const ref = collection(db, collections.vehiclesFlow);
@@ -1395,9 +1406,8 @@ export async function findVehicleFlowConflict({
     normalizeVehicleIdentifier(value),
   ].filter((entry): entry is string => Boolean(entry))));
   const searches = [
-    { field: "plate", values: identifierValues(plate) },
     { field: "chassi", values: identifierValues(chassi) },
-  ].filter((search) => search.values.length > 0);
+  ];
   const snapshots = await Promise.all(searches.map((search) => getDocs(query(
     ref,
     where(search.field, "in", search.values),
@@ -1411,13 +1421,9 @@ export async function findVehicleFlowConflict({
     if (vehicle.id === ignoreId || vehicle.status !== "ativo" || vehicle.currentLane === "entregue") return false;
     if (!matchesVehicleFlowDate(vehicle, appointmentDate)) return false;
 
-    const vehiclePlate = normalizeVehicleIdentifier(vehicle.plate);
     const vehicleChassi = normalizeVehicleIdentifier(vehicle.chassi);
 
-    return Boolean(
-      (normalizedChassi && vehicleChassi && normalizedChassi === vehicleChassi)
-        || (normalizedPlate && vehiclePlate && normalizedPlate === vehiclePlate),
-    );
+    return Boolean(vehicleChassi && normalizedChassi === vehicleChassi);
   }) ?? null;
 }
 
@@ -2359,7 +2365,7 @@ export async function createWalkInVehicle({
   const conflict = await findVehicleFlowConflict({ plate, chassi });
 
   if (conflict) {
-    throw new Error("Já existe um chip ativo para esta placa ou chassi no fluxo.");
+    throw new Error("Já existe um chip ativo para este chassi no fluxo.");
   }
 
   const batch = writeBatch(db);

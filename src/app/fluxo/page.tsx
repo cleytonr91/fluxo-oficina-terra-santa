@@ -85,10 +85,10 @@ function duplicateVehicleMessage(conflict: VehicleFlow) {
   return [
     "Não é possível cadastrar este passante.",
     "",
-    "Já existe um chip ativo para esta placa ou chassi no fluxo.",
+    "Já existe um chip ativo para este mesmo chassi no fluxo.",
     "",
     `Cliente: ${conflict.clientName || "-"}`,
-    `Placa: ${conflict.plate || "-"}`,
+    `Placa: ${isMissingPlate(conflict.plate) ? "-" : conflict.plate}`,
     `Chassi: ${conflict.chassi || "-"}`,
     `Etapa atual: ${laneNameById[conflict.currentLane] || conflict.currentLane || "-"}`,
     `Serviço: ${conflict.serviceLabel || "-"}`,
@@ -437,7 +437,10 @@ function firstName(name?: string) {
 }
 
 function isMissingPlate(plate?: string) {
-  return !plate?.trim() || plate.toUpperCase().startsWith("SEMPLACA");
+  const normalized = (plate ?? "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  return !normalized
+    || ["NULL", "UNDEFINED", "NA", "NAOINFORMADO", "SEMINFORMACAO"].includes(normalized)
+    || normalized.startsWith("SEMPLACA");
 }
 
 function normalizeName(name?: string) {

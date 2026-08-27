@@ -75,11 +75,26 @@ function normalize(value: unknown) {
 }
 
 function normalizeIdentifier(value: unknown) {
-  return normalize(value)
+  const identifier = normalize(value)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-zA-Z0-9]/g, "")
     .toUpperCase();
+
+  if (
+    !identifier
+    || ["NULL", "UNDEFINED", "NA", "NAOINFORMADO", "SEMINFORMACAO"].includes(identifier)
+    || identifier.startsWith("SEMPLACA")
+    || identifier.startsWith("SEMCHASSI")
+  ) {
+    return "";
+  }
+
+  return identifier;
+}
+
+function displayIdentifier(value: unknown) {
+  return normalizeIdentifier(value) ? normalize(value) : "-";
 }
 
 function valueAfterLabel(value: unknown, label: string) {
@@ -176,7 +191,9 @@ function parseAgendaRows(rows: unknown[][]) {
     const note = fieldFromRow(noteRow, "Servicos Adicionais") || fieldFromRow(noteRow, "Serviços Adicionais") || "Sem observação importada.";
     const roadTest = shouldSuggestRoadTest(service, note);
     const priority = shouldSuggestHighPriority(service, note) ? "Alta" : "Normal";
-    const plate = fieldFromRow(vehicleRow, "Placa") || `SEMPLACA-${appointments.length + 1}`;
+    const importedPlate = fieldFromRow(vehicleRow, "Placa");
+    const plate = normalizeIdentifier(importedPlate) ? importedPlate : `SEMPLACA-${appointments.length + 1}`;
+    const importedChassi = fieldFromRow(serviceRow, "Chassi");
     const eventText = fieldFromRow(serviceRow, "Evento");
     const eventId = eventText.split(" ")[0] || "";
 
@@ -185,7 +202,7 @@ function parseAgendaRows(rows: unknown[][]) {
       client: fieldFromRow(vehicleRow, "Cliente") || "Cliente sem nome",
       plate,
       model: fieldFromRow(vehicleRow, "Modelo") || "Modelo não informado",
-      chassi: fieldFromRow(serviceRow, "Chassi"),
+      chassi: normalizeIdentifier(importedChassi) ? importedChassi : "",
       eventId,
       time: dateTime.time || "--:--",
       date: dateTime.date,
@@ -210,7 +227,7 @@ function duplicateChassis(appointments: Appointment[]) {
   const counts = new Map<string, number>();
 
   appointments.forEach((item) => {
-    const key = item.chassi.trim().toUpperCase();
+    const key = normalizeIdentifier(item.chassi);
     if (!key) return;
     counts.set(key, (counts.get(key) ?? 0) + 1);
   });
@@ -224,15 +241,15 @@ function duplicateChassis(appointments: Appointment[]) {
 
 function conflictMessage(conflict: { clientName?: string; plate?: string; chassi?: string; currentLane?: string; serviceLabel?: string }) {
   return [
-    "Já existe um chip para esta placa ou chassi neste dia.",
+    "Já existe um chip para este mesmo chassi neste dia.",
     "",
     `Cliente: ${conflict.clientName || "-"}`,
-    `Placa: ${conflict.plate || "-"}`,
-    `Chassi: ${conflict.chassi || "-"}`,
+    `Placa: ${displayIdentifier(conflict.plate)}`,
+    `Chassi: ${displayIdentifier(conflict.chassi)}`,
     `Etapa atual: ${conflict.currentLane || "-"}`,
     `Serviço: ${conflict.serviceLabel || "-"}`,
     "",
-    "Cancelar evita duplicidade. Continuar deve ser usado apenas se for realmente outro atendimento.",
+    "O chassi coincide com outro chip. Cancelar evita duplicidade; continuar deve ser usado apenas se for realmente outro atendimento.",
     "",
     "Deseja continuar mesmo assim?",
   ].join("\n");
@@ -696,7 +713,7 @@ export function PreparationImport() {
             ) : (
               <div className="prep-card-grid">
                 {filteredAppointments.map((item) => {
-                  const duplicated = duplicatedInFile.has(item.chassi.trim().toUpperCase());
+                  const duplicated = duplicatedInFile.has(normalizeIdentifier(item.chassi));
                   const linkedOrders = linkedPartOrders(item);
                   const linkedParts = linkedOrders.flatMap((order) => order.parts?.length ? order.parts : [{ id: order.id, partReference: order.partReference, partDescription: order.partDescription }]);
 
