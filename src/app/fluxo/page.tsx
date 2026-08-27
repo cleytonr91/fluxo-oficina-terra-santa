@@ -604,6 +604,11 @@ function washStatusText(vehicle: VehicleFlow) {
   return "Pendente";
 }
 
+function washTagText(vehicle: VehicleFlow) {
+  if (vehicle.washType === "nao") return "Sem lavagem 👎";
+  return `${washLabels[vehicle.washType]}${vehicle.washDone ? " 👍" : ""}`;
+}
+
 function hasPendingWash(vehicle: VehicleFlow) {
   return vehicle.washType !== "nao" && !vehicle.washDone;
 }
@@ -661,8 +666,10 @@ function FlowChip({
             Teste{typeof vehicle.roadTestDone === "boolean" ? (vehicle.roadTestDone ? " 👍" : " 👎") : ""}
           </span>
         )}
+        <span className={`tag ${vehicle.washDone ? "good" : vehicle.washType === "nao" ? "bad" : ""}`}>
+          {washTagText(vehicle)}
+        </span>
         {vehicle.washingAdvanced && !vehicle.washDone && <span className="tag warn">Lavagem antecipada</span>}
-        {vehicle.washingAdvanced && vehicle.washDone && !vehicle.serviceCompleted && <span className="tag warn">Lavagem feita</span>}
         {vehicle.budgetAuthorized && <span className="tag good">ORÇ Complementar 👍</span>}
         {isActiveNoShow(vehicle) && <span className="tag bad">NO-SHOW</span>}
         {immobilized && (
