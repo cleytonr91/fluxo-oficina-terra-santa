@@ -1,52 +1,125 @@
 import { PDFDocument } from "pdf-lib";
 
-type FarolPdfInput = {
-  monthLabel: string;
+type FarolPdfReport = {
+  key: string;
+  label: string;
   element: HTMLElement | null;
 };
 
-const A4_LANDSCAPE = { width: 841.89, height: 595.28, margin: 18 };
+type FarolPdfInput = {
+  monthLabel: string;
+  reports: FarolPdfReport[];
+};
 
-export async function downloadFarolPdf({ monthLabel, element }: FarolPdfInput) {
-  if (!element) throw new Error("Não foi possível preparar a visualização do Farol para exportação.");
+const A4_LANDSCAPE = { width: 841.89, height: 595.28, margin: 12 };
+const STAGE_WIDTH = 1400;
+const RENDER_SCALE = 2;
+const COMBINED_REPORT_KEYS = new Set(["counter", "revenue", "gross-profit"]);
+
+function sanitizeClone(element: HTMLElement) {
+  element.querySelectorAll<HTMLElement>("[data-pdf-hide='true'], [data-html2canvas-ignore='true']").forEach((item) => item.remove());
+  element.querySelectorAll<HTMLElement>("[id]").forEach((item) => item.removeAttribute("id"));
+  return element;
+}
+
+function cloneReport(element: HTMLElement) {
+  return sanitizeClone(element.cloneNode(true) as HTMLElement);
+}
+
+function consultantReportUnits(element: HTMLElement) {
+  const cards = Array.from(element.querySelectorAll<HTMLElement>(".farol-consultant-report-card"));
+  if (!cards.length) return [cloneReport(element)];
+
+  return cards.map((card) => {
+    const shell = element.cloneNode(false) as HTMLElement;
+    const heading = element.querySelector<HTMLElement>(":scope > .panel-head");
+    if (heading) shell.appendChild(heading.cloneNode(true));
+
+    const report = document.createElement("div");
+    report.className = "farol-consultant-report";
+    const grid = document.createElement("div");
+    grid.className = "farol-consultant-report-grid";
+    grid.appendChild(card.cloneNode(true));
+    report.appendChild(grid);
+    shell.appendChild(report);
+    return sanitizeClone(shell);
+  });
+}
+
+function combinedReportUnit(reports: Array<FarolPdfReport & { element: HTMLElement }>) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "farol-pdf-combined-reports";
+  reports.forEach((report) => wrapper.appendChild(cloneReport(report.element)));
+  return wrapper;
+}
+
+async function nextPaint() {
+  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+}
+
+export async function downloadFarolPdf({ monthLabel, reports }: FarolPdfInput) {
+  const availableReports = reports.filter((report): report is FarolPdfReport & { element: HTMLElement } => Boolean(report.element));
+  if (!availableReports.length) throw new Error("Selecione ao menos um relatório disponível para gerar o PDF.");
 
   await document.fonts.ready;
   const { default: html2canvas } = await import("html2canvas");
-  const canvas = await html2canvas(element, {
-    backgroundColor: "#f4f7f5",
-    scale: 1,
-    useCORS: true,
-    windowWidth: element.scrollWidth,
-    windowHeight: element.scrollHeight,
-  });
-
   const pdf = await PDFDocument.create();
-  const contentWidth = A4_LANDSCAPE.width - A4_LANDSCAPE.margin * 2;
-  const contentHeight = A4_LANDSCAPE.height - A4_LANDSCAPE.margin * 2;
-  const scale = contentWidth / canvas.width;
-  const pageSliceHeight = Math.max(1, Math.floor(contentHeight / scale));
+  pdf.setTitle(`Farol Gerencial - ${monthLabel}`);
+  pdf.setSubject("Relatórios gerenciais selecionados no Farol");
+  pdf.setCreator("Farol Gerencial");
 
-  for (let sourceY = 0; sourceY < canvas.height; sourceY += pageSliceHeight) {
-    const sliceHeight = Math.min(pageSliceHeight, canvas.height - sourceY);
-    const slice = document.createElement("canvas");
-    slice.width = canvas.width;
-    slice.height = sliceHeight;
-    const context = slice.getContext("2d");
-    if (!context) throw new Error("Não foi possível preparar a imagem do Farol para exportação.");
+  const stage = document.createElement("div");
+  stage.className = "farol-pdf-stage";
+  stage.setAttribute("aria-hidden", "true");
+  document.body.appendChild(stage);
 
-    context.fillStyle = "#f4f7f5";
-    context.fillRect(0, 0, slice.width, slice.height);
-    context.drawImage(canvas, 0, sourceY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+  try {
+    const combinedReports = availableReports.filter((report) => COMBINED_REPORT_KEYS.has(report.key));
+    let combinedReportsAdded = false;
 
-    const page = pdf.addPage([A4_LANDSCAPE.width, A4_LANDSCAPE.height]);
-    const image = await pdf.embedJpg(slice.toDataURL("image/jpeg", 0.9));
-    const renderedHeight = sliceHeight * scale;
-    page.drawImage(image, {
-      x: A4_LANDSCAPE.margin,
-      y: A4_LANDSCAPE.height - A4_LANDSCAPE.margin - renderedHeight,
-      width: contentWidth,
-      height: renderedHeight,
-    });
+    for (const report of availableReports) {
+      if (COMBINED_REPORT_KEYS.has(report.key)) {
+        if (combinedReportsAdded) continue;
+        combinedReportsAdded = true;
+      }
+      const units = COMBINED_REPORT_KEYS.has(report.key)
+        ? [combinedReportUnit(combinedReports)]
+        : report.key === "consultants"
+          ? consultantReportUnits(report.element)
+          : [cloneReport(report.element)];
+
+      for (const unit of units) {
+        stage.replaceChildren(unit);
+        await nextPaint();
+
+        const canvas = await html2canvas(unit, {
+          backgroundColor: "#f4f7f5",
+          scale: RENDER_SCALE,
+          useCORS: true,
+          logging: false,
+          width: STAGE_WIDTH - 24,
+          windowWidth: STAGE_WIDTH,
+          windowHeight: Math.max(unit.scrollHeight, document.documentElement.clientHeight),
+        });
+
+        const contentWidth = A4_LANDSCAPE.width - A4_LANDSCAPE.margin * 2;
+        const contentHeight = A4_LANDSCAPE.height - A4_LANDSCAPE.margin * 2;
+        const renderScale = Math.min(contentWidth / canvas.width, contentHeight / canvas.height);
+        const renderedWidth = canvas.width * renderScale;
+        const renderedHeight = canvas.height * renderScale;
+        const page = pdf.addPage([A4_LANDSCAPE.width, A4_LANDSCAPE.height]);
+        const image = await pdf.embedPng(canvas.toDataURL("image/png"));
+
+        page.drawImage(image, {
+          x: (A4_LANDSCAPE.width - renderedWidth) / 2,
+          y: A4_LANDSCAPE.height - A4_LANDSCAPE.margin - renderedHeight,
+          width: renderedWidth,
+          height: renderedHeight,
+        });
+      }
+    }
+  } finally {
+    stage.remove();
   }
 
   const bytes = await pdf.save();
@@ -58,5 +131,5 @@ export async function downloadFarolPdf({ monthLabel, element }: FarolPdfInput) {
   document.body.appendChild(link);
   link.click();
   link.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

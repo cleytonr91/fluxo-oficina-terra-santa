@@ -300,14 +300,43 @@
 .farol-donut {
   align-items: center;
   aspect-ratio: 1;
-  background:
-    radial-gradient(circle at center, #fff 0 58%, transparent 59%),
-    conic-gradient(var(--accent) 0 var(--value), #dfe5df var(--value) 360deg);
-  border-radius: 999px;
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  position: relative;
+}
+
+.farol-donut svg,
+.farol-donut > div {
+  grid-area: 1 / 1;
+}
+
+.farol-donut svg {
+  display: block;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+  width: 100%;
+}
+
+.farol-donut circle {
+  fill: none;
+  stroke-width: 16;
+}
+
+.farol-donut-track {
+  stroke: #dfe5df;
+}
+
+.farol-donut-progress {
+  stroke-linecap: butt;
+}
+
+.farol-donut > div {
+  align-items: center;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-width: 0;
 }
 
 .farol-donut strong {
@@ -1388,6 +1417,155 @@
   width: 100%;
 }
 
+.farol-pdf-selector-modal {
+  max-width: 560px;
+}
+
+.farol-pdf-select-all,
+.farol-pdf-report-list label {
+  align-items: center;
+  cursor: pointer;
+  display: flex !important;
+  gap: 10px;
+  margin: 0 !important;
+}
+
+.farol-pdf-select-all {
+  background: #edf4ef;
+  border: 1px solid #d5e2d9;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.farol-pdf-report-list {
+  border: 1px solid #dce4dd;
+  border-radius: 9px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+  overflow: hidden;
+}
+
+.farol-pdf-report-list label {
+  border-bottom: 1px solid #e4eae5;
+  min-height: 44px;
+  padding: 9px 12px;
+}
+
+.farol-pdf-report-list label:nth-child(odd) {
+  border-right: 1px solid #e4eae5;
+}
+
+.farol-pdf-report-list label:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+.farol-pdf-select-all input,
+.farol-pdf-report-list input {
+  accent-color: #2f7d55;
+  height: 16px;
+  margin: 0;
+  width: 16px;
+}
+
+.farol-pdf-select-all span,
+.farol-pdf-report-list span {
+  color: #31433a;
+  display: inline !important;
+  font-size: 0.78rem !important;
+  font-weight: 800;
+  text-transform: none !important;
+}
+
+.farol-pdf-stage {
+  background: #f4f7f5;
+  box-sizing: border-box;
+  display: grid;
+  gap: 0;
+  left: -100000px;
+  padding: 12px;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  width: 1400px;
+  z-index: -1;
+}
+
+.farol-pdf-stage > * {
+  box-sizing: border-box;
+  margin: 0;
+  width: 100%;
+}
+
+.farol-pdf-combined-reports {
+  display: grid;
+  gap: 10px;
+}
+
+.farol-pdf-combined-reports > * {
+  margin: 0;
+}
+
+.farol-pdf-stage .farol-consultant-report-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.farol-pdf-stage .farol-consultant-service-row strong {
+  line-height: 1.2;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.farol-pdf-stage .farol-consultant-service-row {
+  grid-template-columns: 82px minmax(0, 1fr) 54px 90px 74px;
+}
+
+.farol-pdf-stage .farol-consultant-view-options,
+.farol-pdf-stage [data-pdf-hide="true"],
+.farol-pdf-stage [data-html2canvas-ignore="true"] {
+  display: none !important;
+}
+
+.farol-pdf-stage .farol-monthly-operation-scroll,
+.farol-pdf-stage .farol-productivity-table-wrap {
+  overflow: visible;
+}
+
+.farol-pdf-stage .farol-monthly-operation-months,
+.farol-pdf-stage .farol-productivity-table {
+  min-width: 0;
+}
+
+.farol-pdf-stage .farol-lb-chart,
+.farol-pdf-stage .farol-lb-grid,
+.farol-pdf-stage .farol-lb-bars {
+  overflow: visible;
+}
+
+.farol-pdf-stage .farol-lb-grid {
+  padding-bottom: 18px;
+}
+
+.farol-pdf-stage .farol-lb-month {
+  gap: 6px;
+  grid-template-rows: 150px minmax(18px, auto) minmax(18px, auto) minmax(18px, auto);
+}
+
+.farol-pdf-stage .farol-lb-columns {
+  height: 150px;
+}
+
+.farol-pdf-stage .farol-lb-month strong,
+.farol-pdf-stage .farol-lb-month span,
+.farol-pdf-stage .farol-lb-month small {
+  line-height: 1.45;
+  min-height: 18px;
+  overflow: visible;
+  padding: 1px 0;
+  text-overflow: clip;
+}
+
 .farol-report-modal-head {
   align-items: flex-start;
   display: flex;
@@ -1441,6 +1619,19 @@
   font-size: 0.86rem;
   padding: 10px;
   width: 100%;
+}
+
+.farol-report-modal .farol-pdf-select-all input[type="checkbox"],
+.farol-report-modal .farol-pdf-report-list input[type="checkbox"] {
+  flex: 0 0 16px;
+  height: 16px;
+  padding: 0;
+  width: 16px;
+}
+
+.farol-report-modal .farol-pdf-select-all span,
+.farol-report-modal .farol-pdf-report-list span {
+  margin: 0;
 }
 
 .farol-daily-input-modal {
@@ -1724,11 +1915,36 @@
 .farol-channel-pie {
   align-items: center;
   aspect-ratio: 1;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgb(21 55 42 / 8%);
-  display: flex;
-  justify-content: center;
+  display: grid;
+  place-items: center;
+  position: relative;
   width: 210px;
+}
+
+.farol-channel-pie > svg,
+.farol-channel-pie > div {
+  grid-area: 1 / 1;
+}
+
+.farol-channel-pie > svg {
+  display: block;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+  width: 100%;
+}
+
+.farol-channel-pie > svg circle {
+  fill: none;
+  stroke-width: 16;
+}
+
+.farol-channel-pie-track {
+  stroke: #dfe6e1;
+}
+
+.farol-channel-pie-slice {
+  stroke-linecap: butt;
 }
 
 .farol-channel-pie > div {
@@ -1742,6 +1958,7 @@
   justify-content: center;
   text-align: center;
   width: 58%;
+  z-index: 1;
 }
 
 .farol-channel-pie > div span {

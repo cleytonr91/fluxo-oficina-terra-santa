@@ -83,6 +83,19 @@ type BalcaoSummary = {
   todaySales: number;
 };
 
+type FarolPdfReportKey = "goals" | "daily" | "counter" | "revenue" | "gross-profit" | "channels" | "productivity" | "consultants";
+
+const farolPdfReports: Array<{ key: FarolPdfReportKey; label: string }> = [
+  { key: "goals", label: "Metas mensais e operação" },
+  { key: "daily", label: "Resultado Diário" },
+  { key: "counter", label: "Balcão de Peças" },
+  { key: "revenue", label: "Faturamento" },
+  { key: "gross-profit", label: "Lucro Bruto" },
+  { key: "channels", label: "Faturamento por Canal" },
+  { key: "productivity", label: "Produtividade e TKM de Serviços" },
+  { key: "consultants", label: "Resultados por Consultor" },
+];
+
 const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
 function monthLabel(value: string) {
@@ -599,6 +612,8 @@ export default function FarolGerencialPage() {
   const [savingServiceProductivityEntry, setSavingServiceProductivityEntry] = useState(false);
   const [dailyResultCollapsed, setDailyResultCollapsed] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfSelectorOpen, setPdfSelectorOpen] = useState(false);
+  const [selectedPdfReports, setSelectedPdfReports] = useState<FarolPdfReportKey[]>(() => farolPdfReports.map((report) => report.key));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -978,12 +993,25 @@ export default function FarolGerencialPage() {
   }
 
   async function generatePdf() {
+    if (!selectedPdfReports.length) return;
     setPdfLoading(true);
     try {
+      if (selectedPdfReports.includes("daily") && dailyResultCollapsed) {
+        setDailyResultCollapsed(false);
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      }
+      const root = farolPrintRef.current;
+      const reports = farolPdfReports
+        .filter((report) => selectedPdfReports.includes(report.key))
+        .map((report) => ({
+          ...report,
+          element: root?.querySelector<HTMLElement>(`[data-farol-pdf-report="${report.key}"]`) ?? null,
+        }));
       await downloadFarolPdf({
         monthLabel: monthLabel(selectedMonth),
-        element: farolPrintRef.current,
+        reports,
       });
+      setPdfSelectorOpen(false);
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível gerar o PDF do Farol.");
     } finally {
@@ -1006,12 +1034,12 @@ export default function FarolGerencialPage() {
           <div><span>Passados</span><strong>{formatDayCount(monthSummary.passedDays)}</strong></div>
           <div><span>Restantes</span><strong>{formatDayCount(monthSummary.remainingDays)}</strong></div>
           <div><span>Avanço do mês</span><strong>{formatPercent(monthProgress)}</strong></div>
-          <button data-html2canvas-ignore="true" className="farol-pdf-button" type="button" onClick={() => void generatePdf()} disabled={pdfLoading} aria-label={pdfLoading ? "Gerando relatório PDF" : "Gerar relatório PDF"} title={pdfLoading ? "Gerando PDF..." : "Gerar relatório PDF"}>
+          <button data-html2canvas-ignore="true" className="farol-pdf-button" type="button" onClick={() => setPdfSelectorOpen(true)} disabled={pdfLoading} aria-label={pdfLoading ? "Gerando relatório PDF" : "Gerar relatório PDF"} title={pdfLoading ? "Gerando PDF..." : "Gerar relatório PDF"}>
             <svg viewBox="0 0 32 36" aria-hidden="true"><path d="M6 2h13l7 7v25H6z" /><path d="M19 2v8h7" /><text x="16" y="27" textAnchor="middle">PDF</text></svg>
           </button>
         </section>
 
-        <section className="farol-main-grid">
+        <section className="farol-main-grid" data-farol-pdf-report="goals">
           <GoalCard title="M.O Oficina Produtiva" tone="shop" summary={shop} dailyGoal={7273} onAddObservation={() => openObservation("shop", "M.O Oficina Produtiva")} />
           <GoalCard title="Embelezamento Oficina" tone="beauty" summary={beauty} dailyGoal={1591} onAddObservation={() => openObservation("beauty", "Embelezamento Oficina")} />
           <aside className="farol-operation-panel">
@@ -1047,10 +1075,10 @@ export default function FarolGerencialPage() {
           </aside>
         </section>
 
-        <section className="panel farol-table-panel farol-daily-panel">
+        <section className="panel farol-table-panel farol-daily-panel" data-farol-pdf-report="daily">
           <div className="panel-head farol-report-head tone-month">
             <div className="farol-report-title-row"><h2 className="panel-title">Resultado Diário</h2><ReportAddButton onClick={openDailyResult} /></div>
-            <div className="farol-daily-panel-actions"><span className="tag">Resumo de Serviços</span><button type="button" className="farol-collapse-button" onClick={() => setDailyResultCollapsed((current) => !current)} aria-expanded={!dailyResultCollapsed}>{dailyResultCollapsed ? "Expandir" : "Recolher"}</button></div>
+            <div className="farol-daily-panel-actions"><span className="tag">Resumo de Serviços</span><button data-pdf-hide="true" type="button" className="farol-collapse-button" onClick={() => setDailyResultCollapsed((current) => !current)} aria-expanded={!dailyResultCollapsed}>{dailyResultCollapsed ? "Expandir" : "Recolher"}</button></div>
           </div>
           {!dailyResultCollapsed && <div className="farol-daily-result-layout">
             <DailyResultLineChart rows={financialRows} />
@@ -1072,7 +1100,7 @@ export default function FarolGerencialPage() {
           </div>}
         </section>
 
-        <section className="panel farol-table-panel">
+        <section className="panel farol-table-panel" data-farol-pdf-report="counter">
           <div className="panel-head farol-report-head tone-counter">
             <div><div className="farol-report-title-row"><h2 className="panel-title">Balcão de Peças</h2><ReportAddButton onClick={() => openObservation("balcao", "Balcão de Peças")} /></div><p className="comment">Indicadores espelhados do módulo Balcão para {monthLabel(selectedMonth)}.</p></div>
             <span className="tag">mesma base de vendas</span>
@@ -1087,15 +1115,15 @@ export default function FarolGerencialPage() {
           </div>
         </section>
 
-        <section className="panel farol-table-panel">
+        <section className="panel farol-table-panel" data-farol-pdf-report="revenue">
           <div className="panel-head farol-report-head tone-comparison">
             <div className="farol-report-title-row"><h2 className="panel-title">Faturamento</h2><ReportAddButton onClick={openRevenueEntry} /></div>
-            <label className="farol-compare-toggle"><input type="checkbox" checked={comparePreviousYear} onChange={(event) => setComparePreviousYear(event.target.checked)} /><span>Comparar ano anterior</span></label>
+            <label className="farol-compare-toggle" data-pdf-hide="true"><input type="checkbox" checked={comparePreviousYear} onChange={(event) => setComparePreviousYear(event.target.checked)} /><span>Comparar ano anterior</span></label>
           </div>
           <MonthlyOperationChart selectedMonth={selectedMonth} comparePreviousYear={comparePreviousYear} revenueEntries={revenueEntries} />
         </section>
 
-        <section className="panel farol-table-panel">
+        <section className="panel farol-table-panel" data-farol-pdf-report="gross-profit">
             <div className="panel-head farol-report-head tone-profit">
               <div className="farol-report-title-row"><h2 className="panel-title">Lucro Bruto</h2><ReportAddButton onClick={openGrossProfitEntry} /></div>
               <span className="tag">{monthLabel(selectedMonth)}</span>
@@ -1116,7 +1144,7 @@ export default function FarolGerencialPage() {
             </div>
         </section>
 
-        <section className="panel farol-table-panel">
+        <section className="panel farol-table-panel" data-farol-pdf-report="channels">
           <div className="panel-head farol-report-head tone-revenue">
             <div className="farol-report-title-row"><h2 className="panel-title">Faturamento por Canal</h2><ReportAddButton onClick={openChannelRevenueEntry} /></div>
             <span className="tag">{monthLabel(selectedMonth)} • {formatDayCount(monthSummary.passedDays)} dias úteis</span>
@@ -1145,7 +1173,7 @@ export default function FarolGerencialPage() {
           <div className="farol-channel-footer"><span>Total da loja <strong>{formatCurrency(channelRows.reduce((sum, item) => sum + item.total, 0))}</strong></span><span>Faturamento por dia útil <strong>{formatCurrency(monthSummary.passedDays ? channelRows.reduce((sum, item) => sum + item.total, 0) / monthSummary.passedDays : 0)}</strong></span></div>
         </section>
 
-        <section className="panel farol-table-panel">
+        <section className="panel farol-table-panel" data-farol-pdf-report="productivity">
           <div className="panel-head farol-report-head tone-productivity">
             <div><div className="farol-report-title-row"><h2 className="panel-title">Produtividade e TKM de Serviços</h2><ReportAddButton onClick={openServiceProductivityEntry} /></div><p className="comment">TKM usa revisões como base. Passagens são contabilizadas por O.S. distinta e permanecem separadas por função.</p></div>
             <span className="tag">{monthLabel(selectedMonth)}</span>
@@ -1175,13 +1203,28 @@ export default function FarolGerencialPage() {
           </div>
         </section>
 
-        <section className="panel farol-table-panel">
+        <section className="panel farol-table-panel" data-farol-pdf-report="consultants">
           <div className="panel-head farol-report-head tone-consultant">
             <div><div className="farol-report-title-row"><h2 className="panel-title">Resultados por Consultor</h2><ReportAddButton onClick={() => openObservation("consultant-results", "Resultados por Consultor")} /></div><p className="comment">Serviços iguais são consolidados por descrição, mesmo quando vierem de modelos diferentes.</p></div>
             <span className="tag">{monthLabel(selectedMonth)}</span>
           </div>
           <ConsultantServiceReport selectedMonth={selectedMonth} />
         </section>
+
+        {pdfSelectorOpen && (
+          <div className="farol-report-modal-backdrop" role="presentation" onClick={() => !pdfLoading && setPdfSelectorOpen(false)}>
+            <section className="farol-report-modal farol-pdf-selector-modal" role="dialog" aria-modal="true" aria-labelledby="farol-pdf-selector-title" onClick={(event) => event.stopPropagation()}>
+              <div className="farol-report-modal-head"><div><span>Exportar PDF</span><h2 id="farol-pdf-selector-title">Escolha os relatórios</h2></div><button type="button" onClick={() => setPdfSelectorOpen(false)} aria-label="Fechar" disabled={pdfLoading}>×</button></div>
+              <label className="farol-pdf-select-all"><input type="checkbox" checked={selectedPdfReports.length === farolPdfReports.length} onChange={(event) => setSelectedPdfReports(event.target.checked ? farolPdfReports.map((report) => report.key) : [])} /><span>Selecionar todos</span></label>
+              <div className="farol-pdf-report-list">
+                {farolPdfReports.map((report) => (
+                  <label key={report.key}><input type="checkbox" checked={selectedPdfReports.includes(report.key)} onChange={(event) => setSelectedPdfReports((current) => event.target.checked ? [...current, report.key] : current.filter((key) => key !== report.key))} /><span>{report.label}</span></label>
+                ))}
+              </div>
+              <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setPdfSelectorOpen(false)} disabled={pdfLoading}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void generatePdf()} disabled={pdfLoading || !selectedPdfReports.length}>{pdfLoading ? "Gerando PDF..." : `Gerar PDF (${selectedPdfReports.length})`}</button></div>
+            </section>
+          </div>
+        )}
 
         {activeObservation && (
           <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveObservation(null)}>
@@ -1432,8 +1475,12 @@ function GoalCard({
         <strong>{formatPercent(summary.percent)}</strong>
       </div>
       <div className="farol-goal-body">
-        <div className="farol-donut" style={{ "--value": `${percent * 3.6}deg`, "--accent": color } as CSSProperties}>
-          <strong>{formatPercent(summary.percent)}</strong><span>realizado</span>
+        <div className="farol-donut">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle className="farol-donut-track" cx="60" cy="60" r="51" pathLength="100" />
+            <circle className="farol-donut-progress" cx="60" cy="60" r="51" pathLength="100" stroke={color} strokeDasharray={`${percent} ${100 - percent}`} />
+          </svg>
+          <div><strong>{formatPercent(summary.percent)}</strong><span>realizado</span></div>
         </div>
         <div className="farol-money-grid">
           <div><span>Meta mês</span><strong>{formatCurrency(summary.goal)}</strong></div>
@@ -1451,7 +1498,7 @@ function GoalCard({
 function ReportAddButton({ onClick }: { onClick: () => void }) {
   const { profile } = useAuth();
   if (profile?.role !== "admin") return null;
-  return <button type="button" className="farol-report-add" onClick={onClick} aria-label="Adicionar número e comentário">+</button>;
+  return <button data-html2canvas-ignore="true" data-pdf-hide="true" type="button" className="farol-report-add" onClick={onClick} aria-label="Adicionar número e comentário">+</button>;
 }
 
 function MonthlyOperationChart({ selectedMonth, comparePreviousYear, revenueEntries }: { selectedMonth: string; comparePreviousYear: boolean; revenueEntries: FarolRevenue[] }) {
@@ -1506,20 +1553,23 @@ function MonthlyOperationChart({ selectedMonth, comparePreviousYear, revenueEntr
 function ChannelRevenueChart({ current, lastUpdated }: { current: ChannelRevenue[]; lastUpdated?: unknown }) {
   const total = current.reduce((sum, item) => sum + item.total, 0);
   const colors = ["#2f7d55", "#d9a441", "#2c6fbb", "#9a6335", "#168075"];
-  let accumulated = 0;
-  const slices = current.map((item, index) => {
-    const share = total ? (item.total / total) * 100 : 0;
-    const start = accumulated;
-    accumulated += share;
-    return { ...item, share, start, end: accumulated, color: colors[index % colors.length] };
-  });
-  const pieBackground = total ? `conic-gradient(${slices.map((item) => `${item.color} ${item.start}% ${item.end}%`).join(", ")})` : "#dfe6e1";
+  const shares = current.map((item) => total ? (item.total / total) * 100 : 0);
+  const slices = current.map((item, index) => ({
+    ...item,
+    share: shares[index],
+    start: shares.slice(0, index).reduce((sum, share) => sum + share, 0),
+    color: colors[index % colors.length],
+  }));
 
   return (
     <div className="farol-channel-chart" aria-label="Distribuição do faturamento por canal">
       <div className="farol-channel-chart-head"><div><span>Distribuição do mês</span><strong>Participação por canal</strong></div><small className="farol-revenue-last-update">Última atualização: {formatUpdatedAt(lastUpdated)}</small></div>
       <div className="farol-channel-pie-layout">
-        <div className="farol-channel-pie" role="img" aria-label={slices.map((item) => `${item.channel}: ${formatCurrency(item.total)}, ${formatPercent(item.share)}`).join(". ")} style={{ background: pieBackground }}>
+        <div className="farol-channel-pie" role="img" aria-label={slices.map((item) => `${item.channel}: ${formatCurrency(item.total)}, ${formatPercent(item.share)}`).join(". ")}>
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <circle className="farol-channel-pie-track" cx="60" cy="60" r="52" pathLength="100" />
+            {slices.map((item) => item.share > 0 && <circle key={item.key} className="farol-channel-pie-slice" cx="60" cy="60" r="52" pathLength="100" stroke={item.color} strokeDasharray={`${item.share} ${100 - item.share}`} strokeDashoffset={-item.start} />)}
+          </svg>
           <div><span>Total</span><strong>{formatCurrency(total)}</strong></div>
         </div>
         <div className="farol-channel-pie-legend">
