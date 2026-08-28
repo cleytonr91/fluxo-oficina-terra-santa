@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
-import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, markVehicleNoShow, moveVehicleFlow, requestComplementaryBudget, reuseVehicleAsWalkIn, savePartOrder, saveVehicleRoadTestForm, subscribeFlowEventsForDate, subscribePartOrdersForVehicles, subscribeVehicleFlowEvents, subscribeVehicleFlowsForDate, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
+import { cancelVehicleFlow, completeComplementaryBudget, completeVehicleDelivery, createWalkInVehicle, findVehicleFlowConflict, moveVehicleFlow, requestComplementaryBudget, reuseVehicleAsWalkIn, savePartOrder, saveVehicleRoadTestForm, subscribeFlowEventsForDate, subscribePartOrdersForVehicles, subscribeVehicleFlowEvents, subscribeVehicleFlowsForDate, updatePromisedDelivery, updateVehicleConsultant, updateVehicleCustomerWaits, updateVehicleImmobilization, updateVehiclePlate, updateVehicleService, updateVehicleTechnician, updateVehicleWashType } from "@/services/firestore";
 import type { FlowEvent, FlowLane, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, RoadTestFormData, VehicleFlow, WashType } from "@/types/domain";
 
 const laneLabels: Array<{ id: FlowLane; label: string }> = [
@@ -629,11 +629,12 @@ function hasVehicleStartedAttendance(vehicle: VehicleFlow) {
   );
 }
 
-function isActiveNoShow(vehicle: VehicleFlow) {
+function isActiveNoShow(vehicle: VehicleFlow, referenceDate = new Date()) {
+  // Derive no-show locally so every connected browser does not write the same automatic status.
   return Boolean(
-    vehicle.noShow
-    && vehicle.currentLane === "preparacao_confirmada"
+    vehicle.currentLane === "preparacao_confirmada"
     && !hasVehicleStartedAttendance(vehicle)
+    && (vehicle.noShow || isNoShowDue(vehicle, referenceDate))
   );
 }
 
@@ -993,41 +994,6 @@ export default function FluxoPage() {
     return () => window.removeEventListener("open-walk-in", openWalkIn);
   }, [profile?.name]);
 
-  useEffect(() => {
-    const candidates = vehicles.filter((vehicle) => (
-      vehicle.currentLane === "preparacao_confirmada"
-      && !vehicle.noShow
-      && !hasVehicleStartedAttendance(vehicle)
-      && isNoShowDue(vehicle, now)
-    ));
-
-    if (!candidates.length) return;
-
-    let cancelled = false;
-
-    void Promise.all(candidates.map(async (vehicle) => ({
-      id: vehicle.id,
-      marked: await markVehicleNoShow({
-        vehicleFlowId: vehicle.id,
-        actionBy: profile?.name ?? user?.email ?? user?.uid,
-      }).catch(() => false),
-    }))).then((results) => {
-      if (cancelled) return;
-      const markedIds = new Set(results.filter((result) => result.marked).map((result) => result.id));
-      if (!markedIds.size) return;
-
-      setVehicles((current) => current.map((vehicle) => (
-        markedIds.has(vehicle.id)
-          ? { ...vehicle, noShow: true, noShowAt: new Date().toISOString() }
-          : vehicle
-      )));
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [now, profile?.name, user?.email, user?.uid, vehicles]);
-
   function openReceiveModal(vehicle: VehicleFlow) {
     const loggedConsultant = consultantDisplayName(profile?.name);
     const importedConsultant = consultantDisplayName(vehicle.consultantName);
@@ -1221,7 +1187,8 @@ export default function FluxoPage() {
     try {
       const receivedAt = new Date();
       const nextLane: FlowLane = isWashOnlyVehicle(receivingVehicle) ? "aguardando_lavagem" : "aguardando_servico";
-      const receivedAppointmentTime = receivingVehicle.noShow
+      const receivingIsNoShow = isActiveNoShow(receivingVehicle, receivedAt);
+      const receivedAppointmentTime = receivingIsNoShow
         ? new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
         : undefined;
       const receiveNote = receiveForm.receiveNote || (nextLane === "aguardando_lavagem"
@@ -1252,7 +1219,7 @@ export default function FluxoPage() {
               attendanceStartedAt: receivedAt,
               attendanceStartedBy: profile?.name ?? user?.email ?? user?.uid,
               ...(receivedAppointmentTime ? { appointmentTime: receivedAppointmentTime } : {}),
-              ...(receivingVehicle.noShow ? { noShow: false, noShowAt: undefined } : {}),
+              ...(receivingIsNoShow ? { noShow: false, noShowAt: undefined } : {}),
               consultantName: receiveForm.consultantName.trim(),
               customerWaits: receiveForm.customerWaits,
               promisedDeliveryAt: receiveForm.promisedDeliveryAt,
@@ -2271,24 +2238,24 @@ export default function FluxoPage() {
       .filter((vehicle) => {
         if (vehicle.status === "cancelado") return false;
         const dateMatches = matchesNoShowDate(vehicle, flowDate);
-        return isActiveNoShow(vehicle) && dateMatches && matchesPeopleAndPlate(vehicle, consultantFilter, technicianFilter, plateFilter);
+        return isActiveNoShow(vehicle, now) && dateMatches && matchesPeopleAndPlate(vehicle, consultantFilter, technicianFilter, plateFilter);
       })
       .sort((a, b) => `${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`.localeCompare(`${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`));
-  }, [consultantFilter, flowDate, plateFilter, technicianFilter, vehicles]);
+  }, [consultantFilter, flowDate, now, plateFilter, technicianFilter, vehicles]);
 
   const immobilizedVehicles = useMemo(() => {
     return dateScopedVehicles
       .filter((vehicle) => {
         return (
           immobilizedVehicleIds.has(vehicle.id)
-          && !isActiveNoShow(vehicle)
+          && !isActiveNoShow(vehicle, now)
           && vehicle.currentLane !== "entregue"
           && vehicle.status !== "cancelado"
         );
       })
       .map((vehicle) => ({ ...vehicle, currentLane: "aguardando_servico" as FlowLane }))
       .sort((a, b) => `${a.appointmentDate ?? ""}${a.appointmentTime ?? ""}`.localeCompare(`${b.appointmentDate ?? ""}${b.appointmentTime ?? ""}`));
-  }, [dateScopedVehicles, immobilizedVehicleIds]);
+  }, [dateScopedVehicles, immobilizedVehicleIds, now]);
 
   const visibleDetailEvents = useMemo(() => (
     detailVehicle?.noShow
@@ -2322,15 +2289,15 @@ export default function FluxoPage() {
 
   const metricDate = flowDate || new Date().toISOString().slice(0, 10);
   const metricBaseVehicles = dateScopedVehicles.filter((vehicle) => !immobilizedVehicleIds.has(vehicle.id));
-  const visibleFlowVehicles = dateScopedVehicles.filter((vehicle) => !isActiveNoShow(vehicle) && !immobilizedVehicleIds.has(vehicle.id));
+  const visibleFlowVehicles = dateScopedVehicles.filter((vehicle) => !isActiveNoShow(vehicle, now) && !immobilizedVehicleIds.has(vehicle.id));
   const operationalFlowVehicles = visibleFlowVehicles.filter((vehicle) => vehicle.currentLane !== "entregue");
   const scheduledDayMetricVehicles = metricBaseVehicles.filter((vehicle) => vehicle.origin !== "passante" && vehicle.appointmentDate === metricDate);
   const walkInDayMetricVehicles = metricBaseVehicles.filter((vehicle) => vehicle.origin === "passante" && vehicle.appointmentDate === metricDate);
   const previousDayMetricVehicles = metricBaseVehicles.filter((vehicle) => isPreviousDayCarryover(vehicle, metricDate));
   const noShowFlowDayVehicles = noShowVehicles.filter((vehicle) => vehicle.appointmentDate === metricDate);
-  const scheduledDayFlowVehicles = scheduledDayMetricVehicles.filter((vehicle) => !isActiveNoShow(vehicle));
-  const walkInDayFlowVehicles = walkInDayMetricVehicles.filter((vehicle) => !isActiveNoShow(vehicle));
-  const previousDayFlowVehicles = previousDayMetricVehicles.filter((vehicle) => !isActiveNoShow(vehicle));
+  const scheduledDayFlowVehicles = scheduledDayMetricVehicles.filter((vehicle) => !isActiveNoShow(vehicle, now));
+  const walkInDayFlowVehicles = walkInDayMetricVehicles.filter((vehicle) => !isActiveNoShow(vehicle, now));
+  const previousDayFlowVehicles = previousDayMetricVehicles.filter((vehicle) => !isActiveNoShow(vehicle, now));
   const flowDayMetricVehicles = [
     ...scheduledDayFlowVehicles,
     ...walkInDayFlowVehicles,
