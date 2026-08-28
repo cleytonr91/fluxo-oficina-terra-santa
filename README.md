@@ -8,6 +8,7 @@ Sistema operacional para preparação da agenda, acompanhamento do fluxo da ofic
 - [Briefing técnico para apresentação à TI](docs/APRESENTACAO_TECNICA_TI.md)
 - [Acesso de usuários](docs/ACESSO_USUARIOS.md)
 - [Firebase e Firestore](docs/FIREBASE_FIRESTORE.md)
+- [Checklist obrigatorio de cota do Firebase](docs/CHECKLIST_COTA_FIRESTORE.md)
 - [Plano de integrações e coletas](docs/PLANO_INTEGRACOES_E_COLETAS.md)
 
 ## Tecnologias
@@ -35,3 +36,5 @@ npm run build
 ```
 
 As regras de negócio devem ser alteradas junto com o arquivo `docs/LOGICA_DO_SISTEMA.md`.
+
+Toda atualização também deve passar pelo checklist de cota do Firebase antes da publicação.

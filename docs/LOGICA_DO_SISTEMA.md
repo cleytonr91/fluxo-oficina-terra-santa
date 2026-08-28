@@ -55,7 +55,15 @@ flowchart LR
 - **Atualização em tempo real:** os módulos de fluxo, peças e funilaria acompanham alterações do Firestore. Uma movimentação salva por um operador deve aparecer para os demais sem recarregar manualmente a página.
 - **Auditoria:** as mudanças importantes registram operador, data, hora, etapa anterior, nova etapa e observação quando aplicável.
 
-### 2.1 Coleções principais
+### 2.1 Regra obrigatória de consumo
+
+Toda atualização deve ser analisada antes da publicação quanto ao impacto na cota diária do Firebase. A análise deve considerar documentos lidos, documentos gravados, listeners, transações, usuários simultâneos, reconexões e rotinas automáticas.
+
+Estados que podem ser calculados a partir de dados já carregados devem ser derivados localmente. Uma rotina automática não pode ser executada por cada navegador conectado. Quando a gravação automática for indispensável, ela deve ocorrer uma única vez no servidor e ser idempotente.
+
+O procedimento completo está em `docs/CHECKLIST_COTA_FIRESTORE.md` e faz parte da validação obrigatória de toda entrega.
+
+### 2.2 Coleções principais
 
 | Coleção | Finalidade |
 |---|---|
