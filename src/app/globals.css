@@ -1789,6 +1789,103 @@
   text-transform: none;
 }
 
+.farol-report-refresh {
+  font-size: 1rem;
+  padding-bottom: 2px;
+}
+
+.farol-report-refresh.is-loading {
+  animation: farol-refresh-spin 700ms linear infinite;
+}
+
+@keyframes farol-refresh-spin {
+  to { transform: rotate(360deg); }
+}
+
+.farol-balcao-profile-card,
+.farol-balcao-destinations-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.farol-balcao-profile-values {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
+.farol-balcao-profile-values > div {
+  min-width: 0;
+}
+
+.farol-balcao-profile-values b {
+  color: #177e77;
+  display: block;
+  font-size: 0.62rem;
+}
+
+.farol-balcao-profile-values > div:last-child b {
+  color: #174f83;
+}
+
+.farol-balcao-profile-values strong {
+  font-size: 0.76rem;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farol-balcao-profile-bar {
+  background: #dfe8e3;
+  border-radius: 999px;
+  height: 7px;
+  margin-top: auto;
+  overflow: hidden;
+}
+
+.farol-balcao-profile-bar i {
+  background: #00a7a0;
+  border-right: 3px solid #174f83;
+  display: block;
+  height: 100%;
+}
+
+.farol-balcao-destination-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.farol-balcao-destination-list > div {
+  align-items: center;
+  border-top: 1px solid #e4eae5;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  padding-top: 4px;
+}
+
+.farol-balcao-destination-list b {
+  color: #16634f;
+  font-size: 0.66rem;
+}
+
+.farol-balcao-destination-list small {
+  font-size: 0.55rem;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.farol-balcao-destination-list strong {
+  font-size: 0.64rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
 .farol-productivity-section {
   border: 1px solid #dce4dd;
   border-radius: 8px;
@@ -2217,11 +2314,14 @@
   gap: 5px 10px;
 }
 
-.farol-lb-percentages {
+.farol-lb-summary-row .farol-lb-meta-caption {
   align-items: baseline;
   display: flex;
-  flex-wrap: wrap;
-  gap: 5px 9px;
+  gap: 7px;
+}
+
+.farol-lb-summary-row .farol-lb-meta-caption b {
+  font-size: inherit;
 }
 
 .farol-lb-summary-row span,

@@ -81,6 +81,9 @@ type BalcaoSummary = {
   goal: number;
   dailyGoal: number;
   todaySales: number;
+  pf: number;
+  pj: number;
+  destinations: Array<{ state: string; total: number; pf: number; pj: number }>;
 };
 
 type FarolPdfReportKey = "goals" | "daily" | "counter" | "revenue" | "gross-profit" | "channels" | "productivity" | "consultants";
@@ -611,6 +614,8 @@ export default function FarolGerencialPage() {
   const [serviceProductivityDraft, setServiceProductivityDraft] = useState({ month: "", revisions: "", revisionSales: "", mechanicsSales: "", additionalSales: "", beautySales: "" });
   const [savingServiceProductivityEntry, setSavingServiceProductivityEntry] = useState(false);
   const [dailyResultCollapsed, setDailyResultCollapsed] = useState(false);
+  const [balcaoRefreshToken, setBalcaoRefreshToken] = useState(0);
+  const [refreshingBalcao, setRefreshingBalcao] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfSelectorOpen, setPdfSelectorOpen] = useState(false);
   const [selectedPdfReports, setSelectedPdfReports] = useState<FarolPdfReportKey[]>(() => farolPdfReports.map((report) => report.key));
@@ -647,8 +652,14 @@ export default function FarolGerencialPage() {
     setObservationValues(Object.fromEntries(items.map((item) => [item.indicatorKey, item.value ?? ""])));
   }, (currentError) => setError(currentError.message)), [selectedMonth]);
 
-  useEffect(() => subscribePartsCounterEntriesForMonth(selectedMonth, setPartsEntries, (currentError) => setError(currentError.message)), [selectedMonth]);
-  useEffect(() => subscribePartsSalesGoals(setPartsGoals, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribePartsCounterEntriesForMonth(selectedMonth, (items) => {
+    setPartsEntries(items);
+    setRefreshingBalcao(false);
+  }, (currentError) => {
+    setRefreshingBalcao(false);
+    setError(currentError.message);
+  }), [balcaoRefreshToken, selectedMonth]);
+  useEffect(() => subscribePartsSalesGoals(setPartsGoals, (currentError) => setError(currentError.message)), [balcaoRefreshToken]);
   useEffect(() => subscribeFarolDailyResultsForMonth(selectedMonth, setDailyResults, (currentError) => setError(currentError.message)), [selectedMonth]);
   useEffect(() => subscribeFarolRevenue(setRevenueEntries, (currentError) => setError(currentError.message)), []);
   useEffect(() => subscribeFarolGrossProfit(setGrossProfitEntries, (currentError) => setError(currentError.message)), []);
@@ -754,6 +765,17 @@ export default function FarolGerencialPage() {
     const projectedOrders = orders.reduce((total, entry) => total + projectedOrderTotal(entry, selectedMonth), 0);
     const today = new Date();
     const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const customerTotal = (customerType: "PF" | "PJ") => sales.filter((entry) => entry.customerType === customerType).reduce((total, entry) => total + partsEntryTotal(entry), 0);
+    const destinationMap = new Map<string, { state: string; total: number; pf: number; pj: number }>();
+    sales.forEach((entry) => {
+      const state = entry.destinationState?.trim().toUpperCase();
+      if (!state) return;
+      const entryValue = partsEntryTotal(entry);
+      const current = destinationMap.get(state) ?? { state, total: 0, pf: 0, pj: 0 };
+      current.total += entryValue;
+      current[entry.customerType.toLowerCase() as "pf" | "pj"] += entryValue;
+      destinationMap.set(state, current);
+    });
 
     return {
       sold,
@@ -764,8 +786,17 @@ export default function FarolGerencialPage() {
       goal,
       dailyGoal,
       todaySales: sales.filter((entry) => partsEntryDateKey(entry) === todayKey).reduce((total, entry) => total + partsEntryTotal(entry), 0),
+      pf: customerTotal("PF"),
+      pj: customerTotal("PJ"),
+      destinations: [...destinationMap.values()].sort((left, right) => right.total - left.total).slice(0, 3),
     };
   }, [monthSummary.businessDays, monthSummary.passedDays, partsEntries, partsGoals, selectedMonth]);
+
+  function refreshBalcaoReport() {
+    setRefreshingBalcao(true);
+    setError("");
+    setBalcaoRefreshToken((current) => current + 1);
+  }
 
   const monthProgress = monthSummary.businessDays ? (monthSummary.passedDays / monthSummary.businessDays) * 100 : 0;
   const grossProfitMonths = useMemo(() => {
@@ -780,15 +811,15 @@ export default function FarolGerencialPage() {
     return months.sort((a, b) => a.month.localeCompare(b.month));
   }, [grossProfitEntries]);
   const currentGrossProfit = grossProfitMonths.find((item) => item.month === selectedMonth) ?? { month: selectedMonth, label: monthNames[Number(selectedMonth.slice(5)) - 1].slice(0, 3), planned: 0, realized: 0, previousYear: 0, margin: 0 };
-  const projectedGrossProfit = monthSummary.passedDays > 0 ? (currentGrossProfit.realized / monthSummary.passedDays) * monthSummary.businessDays : 0;
-  const projectedGrossProfitPercent = currentGrossProfit.planned > 0 ? (projectedGrossProfit / currentGrossProfit.planned) * 100 : 0;
   const channelRevenueByMonth = useMemo(() => {
     const entries = new Map<string, Omit<FarolChannelRevenue, "id" | "updatedBy" | "updatedAt">>(Object.entries(channelRevenueBaseline));
     channelRevenueEntries.forEach((item) => entries.set(item.month, item));
     return entries;
   }, [channelRevenueEntries]);
   const currentChannelRevenue = channelRevenueByMonth.get(selectedMonth) ?? { month: selectedMonth, oficinaProdutiva: 0, acessorios: 0, embelezamento: 0, funilaria: 0, balcao: 0 };
-  const channelRows = channelDefinitions.map((item) => ({ ...item, total: currentChannelRevenue[item.key] }));
+  const channelRows = channelDefinitions
+    .map((item) => ({ ...item, total: currentChannelRevenue[item.key] }))
+    .sort((left, right) => right.total - left.total || left.channel.localeCompare(right.channel, "pt-BR"));
   const previousYearChannelRevenue = channelRevenueByMonth.get(`${Number(selectedMonth.slice(0, 4)) - 1}-${selectedMonth.slice(5)}`);
   const previousThreeChannelRevenue = [-1, -2, -3].map((offset) => {
     const [year, month] = selectedMonth.split("-").map(Number);
@@ -1102,16 +1133,26 @@ export default function FarolGerencialPage() {
 
         <section className="panel farol-table-panel" data-farol-pdf-report="counter">
           <div className="panel-head farol-report-head tone-counter">
-            <div><div className="farol-report-title-row"><h2 className="panel-title">Balcão de Peças</h2><ReportAddButton onClick={() => openObservation("balcao", "Balcão de Peças")} /></div><p className="comment">Indicadores espelhados do módulo Balcão para {monthLabel(selectedMonth)}.</p></div>
-            <span className="tag">mesma base de vendas</span>
+            <div><div className="farol-report-title-row"><h2 className="panel-title">Balcão de Peças</h2><button data-html2canvas-ignore="true" data-pdf-hide="true" type="button" className={`farol-report-add farol-report-refresh ${refreshingBalcao ? "is-loading" : ""}`} onClick={refreshBalcaoReport} disabled={refreshingBalcao} aria-label="Atualizar dados do Balcão de Peças" title="Buscar os lançamentos mais recentes da página Balcão">↻</button></div><p className="comment">Indicadores espelhados do módulo Balcão para {monthLabel(selectedMonth)}.</p></div>
+            <span className="tag">{refreshingBalcao ? "atualizando..." : "base do Balcão"}</span>
           </div>
           <div className="farol-balcao-grid">
-            <article><span>Vendas realizadas</span><strong>{formatCurrency(balcaoSummary.sold)}</strong></article>
+            <article><span>Meta</span><strong>{formatCurrency(balcaoSummary.goal)}</strong><small>{balcaoSummary.goal ? `${formatPercent((balcaoSummary.sold / balcaoSummary.goal) * 100)} atingido · ${formatCurrency(balcaoSummary.dailyGoal)}/dia` : "Sem meta cadastrada"}</small></article>
+            <article><span>Vendas realizadas</span><strong>{formatCurrency(balcaoSummary.sold)}</strong><small>Hoje: {formatCurrency(balcaoSummary.todaySales)}</small></article>
             <article><span>Vendas perdidas</span><strong className="bad-text">{formatCurrency(balcaoSummary.lost)}</strong></article>
             <article><span>Projeção de vendas</span><strong>{formatCurrency(balcaoSummary.expectation)}</strong><small>Média de {formatCurrency(balcaoSummary.salesDailyAverage)}/dia + {formatCurrency(balcaoSummary.projectedOrders)} em pedidos previstos</small></article>
-            <article><span>Meta</span><strong>{formatCurrency(balcaoSummary.goal)}</strong><small>{balcaoSummary.goal ? formatPercent((balcaoSummary.sold / balcaoSummary.goal) * 100) + " atingido" : "Sem meta cadastrada"}</small></article>
-            <article><span>Meta diária</span><strong>{formatCurrency(balcaoSummary.dailyGoal)}</strong></article>
-            <article><span>Venda do dia</span><strong>{formatCurrency(balcaoSummary.todaySales)}</strong><small>Considera a data atual</small></article>
+            <article className="farol-balcao-profile-card">
+              <span>Perfil PF e PJ</span>
+              <div className="farol-balcao-profile-values"><div><b>PF</b><strong>{formatCurrency(balcaoSummary.pf)}</strong></div><div><b>PJ</b><strong>{formatCurrency(balcaoSummary.pj)}</strong></div></div>
+              <div className="farol-balcao-profile-bar"><i style={{ width: `${balcaoSummary.pf + balcaoSummary.pj ? (balcaoSummary.pf / (balcaoSummary.pf + balcaoSummary.pj)) * 100 : 0}%` }} /></div>
+            </article>
+            <article className="farol-balcao-destinations-card">
+              <span>Destinos das vendas</span>
+              <div className="farol-balcao-destination-list">
+                {balcaoSummary.destinations.map((destination) => <div key={destination.state}><b>{destination.state}</b><small>PF {formatPercent(destination.total ? (destination.pf / destination.total) * 100 : 0)} · PJ {formatPercent(destination.total ? (destination.pj / destination.total) * 100 : 0)}</small><strong>{formatCurrency(destination.total)}</strong></div>)}
+                {!balcaoSummary.destinations.length && <small>Sem destinos informados no mês.</small>}
+              </div>
+            </article>
           </div>
         </section>
 
@@ -1131,10 +1172,10 @@ export default function FarolGerencialPage() {
             <div className="farol-lb-grid">
               <div className="farol-lb-summary-list">
                 <article className="farol-lb-summary-row">
-                  <div><span>LB realizado</span><div className="farol-lb-value-row"><strong>{formatCurrency(currentGrossProfit.realized)}</strong><div className="farol-lb-percentages"><b className={variation(currentGrossProfit.realized, currentGrossProfit.previousYear) >= 0 ? "good-text" : "bad-text"}>{formatDeltaPercent(variation(currentGrossProfit.realized, currentGrossProfit.previousYear))}</b><b className={projectedGrossProfitPercent >= 100 ? "good-text" : "bad-text"}>{formatPercent(projectedGrossProfitPercent)} projeção</b></div></div><small>{Number(selectedMonth.slice(0, 4)) - 1}: {formatCurrency(currentGrossProfit.previousYear)}</small></div>
+                  <div><span>LB realizado</span><strong>{formatCurrency(currentGrossProfit.realized)}</strong><small className="farol-lb-meta-caption">Atingimento da meta <b className={currentGrossProfit.realized >= currentGrossProfit.planned ? "good-text" : "bad-text"}>{formatPercent((currentGrossProfit.realized / currentGrossProfit.planned) * 100)}</b></small></div>
                 </article>
                 <article className="farol-lb-summary-row">
-                  <div><span>Meta LB</span><div className="farol-lb-value-row"><strong>{formatCurrency(currentGrossProfit.planned)}</strong><b className={currentGrossProfit.realized >= currentGrossProfit.planned ? "good-text" : "bad-text"}>{formatPercent((currentGrossProfit.realized / currentGrossProfit.planned) * 100)}</b></div><small>Atingimento da meta</small></div>
+                  <div><span>Meta LB</span><strong>{formatCurrency(currentGrossProfit.planned)}</strong><small>{Number(selectedMonth.slice(0, 4)) - 1}: {formatCurrency(currentGrossProfit.previousYear)}</small></div>
                 </article>
                 <article className="farol-lb-summary-row">
                   <div><span>Margem bruta</span><div className="farol-lb-value-row"><strong>LB sobre receita líquida</strong><b className="good-text">{currentGrossProfit.margin.toFixed(1).replace(".", ",")}%</b></div><small>Margem realizada no período</small></div>
