@@ -341,6 +341,15 @@ function formatDateTime(value: unknown) {
   }).format(date);
 }
 
+function formatTimeOnly(value: unknown) {
+  const date = toDate(value);
+  if (!date) return "-";
+  return new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function formatActionSignature(actionBy: string | undefined, value: unknown, fallback = "Operador") {
   const operator = actionBy || fallback;
   const date = toDate(value);
@@ -481,20 +490,22 @@ function technicianDisplayName(name?: string) {
 
 function priorityScore(vehicle: VehicleFlow) {
   const promised = toDate(vehicle.promisedDeliveryAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  const received = toDate(vehicle.attendanceStartedAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
   const waitScore = vehicle.customerWaits ? 0 : 1;
   const priority = vehicle.priority === "alta" ? 0 : 1;
-  return `${waitScore}-${promised}-${priority}-${vehicle.consultantName ?? ""}`;
+  return `${waitScore}-${promised}-${received}-${priority}-${vehicle.consultantName ?? ""}`;
 }
 
 function washPriorityScore(vehicle: VehicleFlow, selectedDate?: string) {
   const previousDayScore = isPreviousDayVehicle(vehicle, selectedDate) ? 0 : 1;
   const originScore = vehicle.origin === "agendado" ? 0 : 1;
   const promised = toDate(vehicle.promisedDeliveryAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  const received = toDate(vehicle.attendanceStartedAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
   const waitScore = vehicle.customerWaits ? 0 : 1;
   const priority = vehicle.priority === "alta" ? 0 : 1;
   const washDurationScore = vehicle.washType === "simples" ? 0 : 1;
 
-  return `${previousDayScore}-${originScore}-${waitScore}-${promised}-${priority}-${washDurationScore}-${vehicle.consultantName ?? ""}`;
+  return `${previousDayScore}-${originScore}-${waitScore}-${promised}-${received}-${priority}-${washDurationScore}-${vehicle.consultantName ?? ""}`;
 }
 
 function sortLaneVehicles(lane: FlowLane, vehicles: VehicleFlow[], selectedDate?: string) {
@@ -717,7 +728,11 @@ function FlowChip({
       <div className="chip-compact-details">
         <div><span>Consultor:</span> {consultantDisplayName(vehicle.consultantName)}</div>
         <div><span>Técnico:</span> {firstName(vehicle.technicianName)}</div>
-        {vehicle.appointmentTime && <div><span>Agenda:</span> {vehicle.appointmentTime}</div>}
+        {vehicle.currentLane === "preparacao_confirmada" ? (
+          vehicle.appointmentTime && <div><span>Agenda:</span> {vehicle.appointmentTime}</div>
+        ) : (
+          <div><span>Recebido:</span> {formatTimeOnly(vehicle.attendanceStartedAt)}</div>
+        )}
       </div>
 
       {immobilized ? (
@@ -1177,6 +1192,7 @@ export default function FluxoPage() {
     setError("");
 
     try {
+      const receivedAt = new Date();
       const nextLane: FlowLane = isWashOnlyVehicle(receivingVehicle) ? "aguardando_lavagem" : "aguardando_servico";
       const receivedAppointmentTime = receivingVehicle.noShow
         ? new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
@@ -1206,6 +1222,8 @@ export default function FluxoPage() {
           ? {
               ...vehicle,
               currentLane: nextLane,
+              attendanceStartedAt: receivedAt,
+              attendanceStartedBy: profile?.name ?? user?.email ?? user?.uid,
               ...(receivedAppointmentTime ? { appointmentTime: receivedAppointmentTime } : {}),
               ...(receivingVehicle.noShow ? { noShow: false, noShowAt: undefined } : {}),
               consultantName: receiveForm.consultantName.trim(),
