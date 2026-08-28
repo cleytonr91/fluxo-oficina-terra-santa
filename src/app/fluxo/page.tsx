@@ -427,6 +427,12 @@ function flowErrorMessage(error: unknown) {
   return message || "Não foi possível acompanhar o fluxo em tempo real.";
 }
 
+function isFirebaseQuotaError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const normalized = message.toLowerCase();
+  return normalized.includes("quota exceeded") || normalized.includes("resource-exhausted");
+}
+
 function partAvailabilityIcon(value?: PartAvailability) {
   if (value === "sim") return "👍";
   if (value === "nao") return "👎";
@@ -871,6 +877,7 @@ export default function FluxoPage() {
     note: "",
   });
   const [movingId, setMovingId] = useState("");
+  const [flowQuotaBlocked, setFlowQuotaBlocked] = useState(false);
   const partOrderVehicleKey = vehicles.map((vehicle) => vehicle.id).sort().join("|");
 
   useEffect(() => {
@@ -886,6 +893,10 @@ export default function FluxoPage() {
       setLastSyncAt(new Date());
       setLoading(false);
     }, (currentError) => {
+      if (isFirebaseQuotaError(currentError)) {
+        setFlowQuotaBlocked(true);
+        setMovingId("");
+      }
       setError(flowErrorMessage(currentError));
       setLoading(false);
     });
@@ -1123,6 +1134,11 @@ export default function FluxoPage() {
     actionNote: string,
     extra: Pick<VehicleFlow, "serviceCompleted" | "washingAdvanced" | "washDone" | "budgetAuthorized"> = {},
   ) {
+    if (flowQuotaBlocked) {
+      setError(flowErrorMessage("resource-exhausted"));
+      return;
+    }
+
     setMovingId(vehicle.id);
     setError("");
 
@@ -1177,6 +1193,12 @@ export default function FluxoPage() {
   async function submitReceive(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!receivingVehicle) return;
+
+    if (flowQuotaBlocked) {
+      setMovingId("");
+      setError(flowErrorMessage("resource-exhausted"));
+      return;
+    }
 
     if (!receiveForm.consultantName.trim()) {
       setError("Informe o consultor que recebeu o cliente.");
@@ -2886,11 +2908,17 @@ export default function FluxoPage() {
               />
             </label>
 
+            {flowQuotaBlocked && (
+              <div className="flow-modal-alert" role="alert">
+                O Firebase atingiu a cota diária. Esta movimentação não pode ser registrada agora; feche e atualize a página depois da renovação da cota.
+              </div>
+            )}
+
             <div className="modal-actions">
               <button type="button" className="ghost-btn" onClick={() => setReceivingVehicle(null)}>
                 Cancelar
               </button>
-              <button type="submit" className="primary-btn" disabled={movingId === receivingVehicle.id}>
+              <button type="submit" className="primary-btn" disabled={flowQuotaBlocked || movingId === receivingVehicle.id}>
                 {movingId === receivingVehicle.id
                   ? "Movendo..."
                   : isWashOnlyVehicle(receivingVehicle)
