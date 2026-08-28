@@ -486,9 +486,24 @@ function priorityScore(vehicle: VehicleFlow) {
   return `${waitScore}-${promised}-${priority}-${vehicle.consultantName ?? ""}`;
 }
 
-function sortLaneVehicles(lane: FlowLane, vehicles: VehicleFlow[]) {
+function washPriorityScore(vehicle: VehicleFlow, selectedDate?: string) {
+  const previousDayScore = isPreviousDayVehicle(vehicle, selectedDate) ? 0 : 1;
+  const originScore = vehicle.origin === "agendado" ? 0 : 1;
+  const promised = toDate(vehicle.promisedDeliveryAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  const waitScore = vehicle.customerWaits ? 0 : 1;
+  const priority = vehicle.priority === "alta" ? 0 : 1;
+  const washDurationScore = vehicle.washType === "simples" ? 0 : 1;
+
+  return `${previousDayScore}-${originScore}-${waitScore}-${promised}-${priority}-${washDurationScore}-${vehicle.consultantName ?? ""}`;
+}
+
+function sortLaneVehicles(lane: FlowLane, vehicles: VehicleFlow[], selectedDate?: string) {
   if (lane !== "aguardando_servico" && lane !== "aguardando_lavagem") return vehicles;
-  return [...vehicles].sort((a, b) => priorityScore(a).localeCompare(priorityScore(b)));
+  const score = lane === "aguardando_lavagem"
+    ? (vehicle: VehicleFlow) => washPriorityScore(vehicle, selectedDate)
+    : priorityScore;
+
+  return [...vehicles].sort((a, b) => score(a).localeCompare(score(b)));
 }
 
 function timeProgress(vehicle: VehicleFlow, now: Date) {
@@ -2576,7 +2591,7 @@ export default function FluxoPage() {
         ) : (
         <section className="flow-board">
           {laneLabels.map((lane) => {
-            const laneVehicles = sortLaneVehicles(lane.id, filteredVehicles.filter((vehicle) => vehicle.currentLane === lane.id));
+            const laneVehicles = sortLaneVehicles(lane.id, filteredVehicles.filter((vehicle) => vehicle.currentLane === lane.id), flowDate);
             const pendingBudgetVehicles = laneVehicles.filter((vehicle) => vehicle.budgetStatus !== "realizado");
             const completedBudgetVehicles = laneVehicles.filter((vehicle) => vehicle.budgetStatus === "realizado");
 
