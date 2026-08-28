@@ -2445,6 +2445,8 @@ export async function createWalkInVehicle({
     customerWaits: false,
     washType: normalizedWashType,
     promisedDeliveryAt: promisedDate,
+    attendanceStartedAt: serverTimestamp(),
+    attendanceStartedBy: createdBy,
     serviceCompleted: washOnlyService,
     washingAdvanced: false,
     washDone: false,

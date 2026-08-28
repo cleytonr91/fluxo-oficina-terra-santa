@@ -488,9 +488,14 @@ function technicianDisplayName(name?: string) {
   return workshopTechnicians.find((technician) => normalized.includes(normalizeName(technician))) ?? "";
 }
 
+function vehicleReceivedAt(vehicle: VehicleFlow) {
+  return toDate(vehicle.attendanceStartedAt)
+    ?? (vehicle.origin === "passante" ? toDate(vehicle.createdAt) : null);
+}
+
 function priorityScore(vehicle: VehicleFlow) {
   const promised = toDate(vehicle.promisedDeliveryAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-  const received = toDate(vehicle.attendanceStartedAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  const received = vehicleReceivedAt(vehicle)?.getTime() ?? Number.MAX_SAFE_INTEGER;
   const waitScore = vehicle.customerWaits ? 0 : 1;
   const priority = vehicle.priority === "alta" ? 0 : 1;
   return `${waitScore}-${promised}-${received}-${priority}-${vehicle.consultantName ?? ""}`;
@@ -500,7 +505,7 @@ function washPriorityScore(vehicle: VehicleFlow, selectedDate?: string) {
   const previousDayScore = isPreviousDayVehicle(vehicle, selectedDate) ? 0 : 1;
   const originScore = vehicle.origin === "agendado" ? 0 : 1;
   const promised = toDate(vehicle.promisedDeliveryAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-  const received = toDate(vehicle.attendanceStartedAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  const received = vehicleReceivedAt(vehicle)?.getTime() ?? Number.MAX_SAFE_INTEGER;
   const waitScore = vehicle.customerWaits ? 0 : 1;
   const priority = vehicle.priority === "alta" ? 0 : 1;
   const washDurationScore = vehicle.washType === "simples" ? 0 : 1;
@@ -521,7 +526,7 @@ function timeProgress(vehicle: VehicleFlow, now: Date) {
   const promised = toDate(vehicle.promisedDeliveryAt);
   if (!promised || vehicle.currentLane === "entregue") return null;
 
-  const attendanceStart = toDate(vehicle.attendanceStartedAt);
+  const attendanceStart = vehicleReceivedAt(vehicle);
   const appointment = appointmentDateTime(vehicle);
   const dayStart = vehicle.appointmentDate ? new Date(`${vehicle.appointmentDate}T07:00:00`) : null;
   const start = attendanceStart && attendanceStart < promised
@@ -731,7 +736,7 @@ function FlowChip({
         {vehicle.currentLane === "preparacao_confirmada" ? (
           vehicle.appointmentTime && <div><span>Agenda:</span> {vehicle.appointmentTime}</div>
         ) : (
-          <div><span>Recebido:</span> {formatTimeOnly(vehicle.attendanceStartedAt)}</div>
+          <div><span>Recebido:</span> {formatTimeOnly(vehicleReceivedAt(vehicle))}</div>
         )}
       </div>
 
@@ -1534,6 +1539,9 @@ export default function FluxoPage() {
 
     try {
       const selectedDate = flowDate || new Date().toISOString().slice(0, 10);
+      const receivedAt = new Date();
+      const receivedTime = receivedAt.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const receivedBy = profile?.name ?? user?.email ?? user?.uid;
       if (!walkInForm.service.trim()) {
         throw new Error("Informe o tipo de serviço para cadastrar o passante.");
       }
@@ -1585,8 +1593,8 @@ export default function FluxoPage() {
           washType: normalizedWashType,
           partsOrdered,
           appointmentDate: selectedDate,
-          appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-          createdBy: profile?.name ?? user?.email ?? user?.uid,
+          appointmentTime: receivedTime,
+          createdBy: receivedBy,
         });
       } else {
         await createWalkInVehicle({
@@ -1594,8 +1602,8 @@ export default function FluxoPage() {
           washType: normalizedWashType,
           partsOrdered,
           appointmentDate: selectedDate,
-          appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-          createdBy: profile?.name ?? user?.email ?? user?.uid,
+          appointmentTime: receivedTime,
+          createdBy: receivedBy,
         });
       }
 
@@ -1606,7 +1614,9 @@ export default function FluxoPage() {
           origin: "passante",
           currentLane: initialLane,
           appointmentDate: selectedDate,
-          appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          appointmentTime: receivedTime,
+          attendanceStartedAt: receivedAt,
+          attendanceStartedBy: receivedBy,
           clientName: walkInForm.client,
           phone: walkInForm.phone,
           plate: walkInForm.plate,
@@ -1635,7 +1645,9 @@ export default function FluxoPage() {
           origin: "passante",
           currentLane: initialLane,
           appointmentDate: selectedDate,
-          appointmentTime: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          appointmentTime: receivedTime,
+          attendanceStartedAt: receivedAt,
+          attendanceStartedBy: receivedBy,
           clientName: walkInForm.client,
           phone: walkInForm.phone,
           plate: walkInForm.plate,
