@@ -312,6 +312,57 @@ export type FarolDailyResult = {
   updatedAt?: unknown;
 };
 
+export type FarolOperationalDayType = "holiday" | "closed" | "full" | "half";
+
+export type FarolOperationalDay = {
+  date: string;
+  type: FarolOperationalDayType;
+  label?: string;
+};
+
+export type FarolMonthlyPlan = {
+  id: string;
+  month: string;
+  shopGoal: number;
+  beautyGoal: number;
+  status: "partial" | "closed";
+  operationalDays: FarolOperationalDay[];
+  updatedBy?: string;
+  updatedAt?: unknown;
+};
+
+export function subscribeFarolMonthlyPlans(
+  onData: (items: FarolMonthlyPlan[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(collection(db, collections.farolMonthlyPlans), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolMonthlyPlan[]);
+  }, (error) => onError?.(error));
+}
+
+export async function saveFarolMonthlyPlan({
+  month,
+  shopGoal,
+  beautyGoal,
+  status,
+  operationalDays,
+  updatedBy,
+}: Omit<FarolMonthlyPlan, "id" | "updatedAt">) {
+  const db = getFirebaseDb();
+  await setDoc(doc(db, collections.farolMonthlyPlans, month), withoutUndefined({
+    month,
+    shopGoal: Math.max(0, Number(shopGoal) || 0),
+    beautyGoal: Math.max(0, Number(beautyGoal) || 0),
+    status,
+    operationalDays: operationalDays
+      .filter((item) => item.date.startsWith(`${month}-`))
+      .map((item) => withoutUndefined({ date: item.date, type: item.type, label: item.label?.trim() })),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
 export function subscribeFarolDailyResults(
   onData: (items: FarolDailyResult[]) => void,
   onError?: (error: Error) => void,

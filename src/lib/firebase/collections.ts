@@ -24,6 +24,7 @@ export const collections = {
   farolGrossProfit: "farolGrossProfit",
   farolChannelRevenue: "farolChannelRevenue",
   farolServiceProductivity: "farolServiceProductivity",
+  farolMonthlyPlans: "farolMonthlyPlans",
 } as const;
 
 export type CollectionName = (typeof collections)[keyof typeof collections];

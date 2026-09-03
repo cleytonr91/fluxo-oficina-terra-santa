@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { downloadFarolPdf } from "@/lib/farol-pdf";
 import { historicalSalesResults } from "@/lib/balcao-indicators";
-import { listVehicleFlowsForMonth, saveFarolChannelRevenue, saveFarolDailyResult, saveFarolGrossProfit, saveFarolObservation, saveFarolRevenue, saveFarolServiceProductivity, subscribeFarolChannelRevenue, subscribeFarolDailyResultsForMonth, subscribeFarolGrossProfit, subscribeFarolObservationsForMonth, subscribeFarolRevenue, subscribeFarolServiceProductivity, subscribePartsCounterEntriesForMonth, subscribePartsSalesGoals, type FarolChannelRevenue, type FarolDailyResult, type FarolGrossProfit, type FarolObservation, type FarolRevenue, type FarolServiceProductivity } from "@/services/firestore";
+import { listVehicleFlowsForMonth, saveFarolChannelRevenue, saveFarolDailyResult, saveFarolGrossProfit, saveFarolMonthlyPlan, saveFarolObservation, saveFarolRevenue, saveFarolServiceProductivity, subscribeFarolChannelRevenue, subscribeFarolDailyResultsForMonth, subscribeFarolGrossProfit, subscribeFarolMonthlyPlans, subscribeFarolObservationsForMonth, subscribeFarolRevenue, subscribeFarolServiceProductivity, subscribePartsCounterEntriesForMonth, subscribePartsSalesGoals, type FarolChannelRevenue, type FarolDailyResult, type FarolGrossProfit, type FarolMonthlyPlan, type FarolObservation, type FarolOperationalDay, type FarolOperationalDayType, type FarolRevenue, type FarolServiceProductivity } from "@/services/firestore";
 import type { PartsCounterEntry, PartsSalesGoal, VehicleFlow } from "@/types/domain";
 
 
@@ -20,6 +20,7 @@ type DailyResult = {
   beautyDone: number | null;
   beautyPreviousYear?: number | null;
   special?: "today" | "holiday" | "future";
+  operationalLabel?: string;
 };
 
 type ChannelRevenue = {
@@ -87,6 +88,7 @@ type BalcaoSummary = {
 };
 
 type FarolPdfReportKey = "goals" | "daily" | "counter" | "revenue" | "gross-profit" | "channels" | "productivity" | "consultants";
+type FarolDataStatus = "Parcial" | "Fechado" | "Sem fechamento" | "Sem base";
 
 const farolPdfReports: Array<{ key: FarolPdfReportKey; label: string }> = [
   { key: "goals", label: "Metas mensais e operação" },
@@ -134,7 +136,19 @@ function businessDayWeight(date: Date) {
   return weekDay === 6 ? 0.5 : 1;
 }
 
-function buildMonthSummary(selectedMonth: string, today: Date) {
+function localDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function operationalDayWeight(date: Date, operationalDays: FarolOperationalDay[]) {
+  const exception = operationalDays.find((item) => item.date === localDateKey(date));
+  if (exception?.type === "holiday" || exception?.type === "closed") return 0;
+  if (exception?.type === "half") return 0.5;
+  if (exception?.type === "full") return 1;
+  return businessDayWeight(date);
+}
+
+function buildMonthSummary(selectedMonth: string, today: Date, operationalDays: FarolOperationalDay[] = []) {
   const [year, month] = selectedMonth.split("-").map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
   const selectedOrder = year * 12 + month;
@@ -143,7 +157,7 @@ function buildMonthSummary(selectedMonth: string, today: Date) {
   let passedDays = 0;
 
   for (let day = 1; day <= daysInMonth; day += 1) {
-    const weight = businessDayWeight(new Date(year, month - 1, day));
+    const weight = operationalDayWeight(new Date(year, month - 1, day), operationalDays);
     businessDays += weight;
     if (selectedOrder < currentOrder || (selectedOrder === currentOrder && day <= today.getDate())) passedDays += weight;
   }
@@ -451,17 +465,13 @@ function formatDeltaPercent(value: number) {
   return `${signal}${value.toFixed(1).replace(".", ",")}%`;
 }
 
-function buildFinancialRows(selectedMonth: string, shopMonthlyGoal: number, beautyMonthlyGoal: number, today: Date, enteredResults: FarolDailyResult[]) {
+function buildFinancialRows(selectedMonth: string, shopMonthlyGoal: number, beautyMonthlyGoal: number, today: Date, enteredResults: FarolDailyResult[], operationalDays: FarolOperationalDay[] = []) {
   const resultByDay = new Map(enteredResults.filter((item) => item.month === selectedMonth).map((item) => [item.day, item]));
-  if (selectedMonth === "2026-07") return july2026FinancialRows.map((row) => {
-    const day = Number(row.day.slice(0, 2));
-    const entered = resultByDay.get(day);
-    return entered ? { ...row, shopDone: entered.revision + entered.generalMechanics + entered.alignmentBalancing, revisionCount: entered.revisionCount, beautyDone: entered.beauty } : row;
-  });
+  const julyLegacyByDay = selectedMonth === "2026-07" ? new Map(july2026FinancialRows.map((row) => [Number(row.day.slice(0, 2)), row])) : new Map<number, DailyResult>();
 
   const [year, month] = selectedMonth.split("-").map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
-  const businessDays = buildMonthSummary(selectedMonth, today).businessDays;
+  const businessDays = buildMonthSummary(selectedMonth, today, operationalDays).businessDays;
   const previousYearKey = `${year - 1}-${String(month).padStart(2, "0")}`;
   const previousYearResults = dailyPreviousYearResults[previousYearKey] ?? {};
   const shopFullDayGoal = businessDays ? shopMonthlyGoal / businessDays : 0;
@@ -470,25 +480,28 @@ function buildFinancialRows(selectedMonth: string, shopMonthlyGoal: number, beau
 
   for (let day = 1; day <= daysInMonth; day += 1) {
     const date = new Date(year, month - 1, day);
-    const weight = businessDayWeight(date);
-    if (!weight) continue;
+    const exception = operationalDays.find((item) => item.date === localDateKey(date));
+    const weight = operationalDayWeight(date, operationalDays);
+    if (!weight && !exception) continue;
 
     const dateOrder = new Date(year, month - 1, day).getTime();
     const todayOrder = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-    const special: DailyResult["special"] = dateOrder === todayOrder ? "today" : dateOrder > todayOrder ? "future" : undefined;
+    const special: DailyResult["special"] = exception?.type === "holiday" || exception?.type === "closed" ? "holiday" : dateOrder === todayOrder ? "today" : dateOrder > todayOrder ? "future" : undefined;
     const previousYearResult = previousYearResults[day];
     const entered = resultByDay.get(day);
+    const legacy = julyLegacyByDay.get(day);
     rows.push({
       weekDay: date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "").toUpperCase(),
       day: `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}`,
       shopGoal: shopFullDayGoal * weight,
-      shopDone: entered ? entered.revision + entered.generalMechanics + entered.alignmentBalancing : null,
-      revisionCount: entered?.revisionCount ?? null,
+      shopDone: entered ? entered.revision + entered.generalMechanics + entered.alignmentBalancing : legacy?.shopDone ?? null,
+      revisionCount: entered?.revisionCount ?? legacy?.revisionCount ?? null,
       shopPreviousYear: previousYearResult?.shop ?? null,
       beautyGoal: beautyFullDayGoal * weight,
-      beautyDone: entered ? entered.beauty : null,
+      beautyDone: entered ? entered.beauty : legacy?.beautyDone ?? null,
       beautyPreviousYear: previousYearResult?.beauty ?? null,
       special,
+      operationalLabel: exception?.label || (exception?.type === "holiday" ? "Feriado" : exception?.type === "closed" ? "Sem operação" : undefined),
     });
   }
 
@@ -539,6 +552,20 @@ function monthFromDate(value: VehicleFlow["appointmentDate"] | VehicleFlow["deli
   if (typeof value === "string") return value.slice(0, 7);
   const date = timestampDate(value);
   return date ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}` : "";
+}
+
+function appointmentDateTime(vehicle: VehicleFlow) {
+  if (!vehicle.appointmentDate || !vehicle.appointmentTime) return null;
+  const normalizedTime = vehicle.appointmentTime.slice(0, 5).padStart(5, "0");
+  const date = new Date(`${vehicle.appointmentDate}T${normalizedTime}:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isRealNoShow(vehicle: VehicleFlow, referenceDate: Date) {
+  if (vehicle.status === "cancelado" || vehicle.attendanceStartedAt || vehicle.deliveredAt) return false;
+  const appointment = appointmentDateTime(vehicle);
+  if (!appointment) return false;
+  return referenceDate.getTime() - appointment.getTime() > 60 * 60 * 1000;
 }
 
 const productivityPeople = {
@@ -592,6 +619,7 @@ export default function FarolGerencialPage() {
   const [grossProfitEntries, setGrossProfitEntries] = useState<FarolGrossProfit[]>([]);
   const [channelRevenueEntries, setChannelRevenueEntries] = useState<FarolChannelRevenue[]>([]);
   const [serviceProductivityEntries, setServiceProductivityEntries] = useState<FarolServiceProductivity[]>([]);
+  const [monthlyPlans, setMonthlyPlans] = useState<FarolMonthlyPlan[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
   const [comparePreviousYear, setComparePreviousYear] = useState(true);
   const [observations, setObservations] = useState<Record<string, string>>({});
@@ -615,6 +643,9 @@ export default function FarolGerencialPage() {
   const [activeServiceProductivityEntry, setActiveServiceProductivityEntry] = useState(false);
   const [serviceProductivityDraft, setServiceProductivityDraft] = useState({ month: "", revisions: "", revisionSales: "", mechanicsSales: "", additionalSales: "", beautySales: "" });
   const [savingServiceProductivityEntry, setSavingServiceProductivityEntry] = useState(false);
+  const [activeMonthlyPlan, setActiveMonthlyPlan] = useState(false);
+  const [monthlyPlanDraft, setMonthlyPlanDraft] = useState<{ month: string; shopGoal: string; beautyGoal: string; status: "partial" | "closed"; operationalDays: FarolOperationalDay[] }>({ month: "", shopGoal: "", beautyGoal: "", status: "partial", operationalDays: [] });
+  const [savingMonthlyPlan, setSavingMonthlyPlan] = useState(false);
   const [dailyResultCollapsed, setDailyResultCollapsed] = useState(false);
   const [balcaoRefreshToken, setBalcaoRefreshToken] = useState(0);
   const [refreshingBalcao, setRefreshingBalcao] = useState(false);
@@ -667,12 +698,17 @@ export default function FarolGerencialPage() {
   useEffect(() => subscribeFarolGrossProfit(setGrossProfitEntries, (currentError) => setError(currentError.message)), []);
   useEffect(() => subscribeFarolChannelRevenue(setChannelRevenueEntries, (currentError) => setError(currentError.message)), []);
   useEffect(() => subscribeFarolServiceProductivity(setServiceProductivityEntries, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribeFarolMonthlyPlans(setMonthlyPlans, (currentError) => setError(currentError.message)), []);
 
-  const monthSummary = useMemo(() => buildMonthSummary(selectedMonth, new Date()), [selectedMonth]);
-  const financialRows = useMemo(() => buildFinancialRows(selectedMonth, 160000, 35000, new Date(), dailyResults), [dailyResults, selectedMonth]);
+  const selectedMonthlyPlan = monthlyPlans.find((item) => item.month === selectedMonth);
+  const shopMonthlyGoal = selectedMonthlyPlan?.shopGoal ?? 160000;
+  const beautyMonthlyGoal = selectedMonthlyPlan?.beautyGoal ?? 35000;
+  const operationalDays = selectedMonthlyPlan?.operationalDays ?? [];
+  const monthSummary = useMemo(() => buildMonthSummary(selectedMonth, new Date(), operationalDays), [operationalDays, selectedMonth]);
+  const financialRows = useMemo(() => buildFinancialRows(selectedMonth, shopMonthlyGoal, beautyMonthlyGoal, new Date(), dailyResults, operationalDays), [beautyMonthlyGoal, dailyResults, operationalDays, selectedMonth, shopMonthlyGoal]);
   const dailyRowsByHalf = useMemo(() => [financialRows.slice(0, 13), financialRows.slice(13)], [financialRows]);
-  const shop = useMemo(() => areaSummary(160000, sumRows(financialRows, "shopDone"), monthSummary.passedDays, monthSummary.businessDays), [financialRows, monthSummary]);
-  const beauty = useMemo(() => areaSummary(35000, sumRows(financialRows, "beautyDone"), monthSummary.passedDays, monthSummary.businessDays), [financialRows, monthSummary]);
+  const shop = useMemo(() => areaSummary(shopMonthlyGoal, sumRows(financialRows, "shopDone"), monthSummary.passedDays, monthSummary.businessDays), [financialRows, monthSummary, shopMonthlyGoal]);
+  const beauty = useMemo(() => areaSummary(beautyMonthlyGoal, sumRows(financialRows, "beautyDone"), monthSummary.passedDays, monthSummary.businessDays), [beautyMonthlyGoal, financialRows, monthSummary]);
   const productivityMetrics = useMemo<ProductivityMetric[]>(() => {
     const entries = dailyResults.filter((item) => item.month === selectedMonth);
     const manualEntry = serviceProductivityEntries.find((item) => item.month === selectedMonth);
@@ -731,7 +767,8 @@ export default function FarolGerencialPage() {
     const typeCount = (type: "revision" | "repair" | "diagnosis") => appointments.filter((vehicle) => serviceTypeForFlow(vehicle) === type).length;
     const budgetVehicles = periodVehicles.filter((vehicle) => vehicle.budgetStatus);
     const approvedBudgets = budgetVehicles.filter((vehicle) => vehicle.budgetAuthorized).length;
-    const realNoShows = appointments.filter((vehicle) => !vehicle.attendanceStartedAt && !vehicle.deliveredAt && vehicle.status !== "cancelado").length;
+    const referenceDate = new Date();
+    const realNoShows = appointments.filter((vehicle) => isRealNoShow(vehicle, referenceDate)).length;
     const percentage = (value: number, base: number) => base ? formatPercent((value / base) * 100) : "0%";
 
     return [
@@ -801,6 +838,10 @@ export default function FarolGerencialPage() {
   }
 
   const monthProgress = monthSummary.businessDays ? (monthSummary.passedDays / monthSummary.businessDays) * 100 : 0;
+  const configuredStatus: FarolDataStatus = !selectedMonthlyPlan ? "Sem base" : selectedMonthlyPlan.status === "closed" ? "Fechado" : "Parcial";
+  const dailyStatus: FarolDataStatus = !dailyResults.length && selectedMonth !== "2026-07" ? "Sem base" : selectedMonthlyPlan?.status === "closed" ? "Fechado" : "Parcial";
+  const operationStatus: FarolDataStatus = !vehicles.length ? "Sem base" : selectedMonthlyPlan?.status === "closed" ? "Fechado" : selectedMonth < monthKey(new Date()) ? "Sem fechamento" : "Parcial";
+  const reportStatus = (hasData: boolean): FarolDataStatus => !hasData ? "Sem base" : selectedMonthlyPlan?.status === "closed" ? "Fechado" : selectedMonth < monthKey(new Date()) ? "Sem fechamento" : "Parcial";
   const grossProfitMonths = useMemo(() => {
     const entryByMonth = new Map(grossProfitEntries.map((item) => [item.month, item]));
     const months = grossProfitTrend.map((item) => {
@@ -862,6 +903,60 @@ export default function FarolGerencialPage() {
     setActiveObservation({ key, label });
     setObservationValueDraft(observationValues[key] ?? "");
     setObservationCommentDraft(observations[key] ?? "");
+  }
+
+  function openMonthlyPlanEditor() {
+    if (!canEditReport()) return;
+    const existing = monthlyPlans.find((item) => item.month === selectedMonth);
+    setMonthlyPlanDraft({
+      month: selectedMonth,
+      shopGoal: String(existing?.shopGoal ?? shopMonthlyGoal),
+      beautyGoal: String(existing?.beautyGoal ?? beautyMonthlyGoal),
+      status: existing?.status ?? "partial",
+      operationalDays: existing?.operationalDays ?? [],
+    });
+    setActiveMonthlyPlan(true);
+  }
+
+  function addOperationalDay() {
+    const [year, month] = monthlyPlanDraft.month.split("-").map(Number);
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const usedDates = new Set(monthlyPlanDraft.operationalDays.map((item) => item.date));
+    const availableDay = Array.from({ length: daysInMonth }, (_, index) => index + 1)
+      .find((day) => !usedDates.has(`${monthlyPlanDraft.month}-${String(day).padStart(2, "0")}`));
+    if (!availableDay) return;
+    setMonthlyPlanDraft((current) => ({
+      ...current,
+      operationalDays: [...current.operationalDays, { date: `${current.month}-${String(availableDay).padStart(2, "0")}`, type: "holiday", label: "" }],
+    }));
+  }
+
+  function updateOperationalDay(index: number, patch: Partial<FarolOperationalDay>) {
+    setMonthlyPlanDraft((current) => ({
+      ...current,
+      operationalDays: current.operationalDays.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item),
+    }));
+  }
+
+  async function saveMonthlyPlan() {
+    if (!canEditReport() || !monthlyPlanDraft.month) return;
+    setSavingMonthlyPlan(true);
+    try {
+      await saveFarolMonthlyPlan({
+        month: monthlyPlanDraft.month,
+        shopGoal: parseCurrencyInput(monthlyPlanDraft.shopGoal),
+        beautyGoal: parseCurrencyInput(monthlyPlanDraft.beautyGoal),
+        status: monthlyPlanDraft.status,
+        operationalDays: monthlyPlanDraft.operationalDays,
+        updatedBy: profile?.name,
+      });
+      setSelectedMonth(monthlyPlanDraft.month);
+      setActiveMonthlyPlan(false);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar as metas e o calendário.");
+    } finally {
+      setSavingMonthlyPlan(false);
+    }
   }
 
   function openDailyResult() {
@@ -1067,18 +1162,19 @@ export default function FarolGerencialPage() {
           <div><span>Passados</span><strong>{formatDayCount(monthSummary.passedDays)}</strong></div>
           <div><span>Restantes</span><strong>{formatDayCount(monthSummary.remainingDays)}</strong></div>
           <div><span>Avanço do mês</span><strong>{formatPercent(monthProgress)}</strong></div>
+          {canManageReports && <button data-html2canvas-ignore="true" data-pdf-hide="true" className="farol-plan-button" type="button" onClick={openMonthlyPlanEditor} aria-label="Configurar metas e calendário" title="Configurar metas e calendário operacional">⚙</button>}
           <button data-html2canvas-ignore="true" className="farol-pdf-button" type="button" onClick={() => setPdfSelectorOpen(true)} disabled={pdfLoading} aria-label={pdfLoading ? "Gerando relatório PDF" : "Gerar relatório PDF"} title={pdfLoading ? "Gerando PDF..." : "Gerar relatório PDF"}>
             <svg viewBox="0 0 32 36" aria-hidden="true"><path d="M6 2h13l7 7v25H6z" /><path d="M19 2v8h7" /><text x="16" y="27" textAnchor="middle">PDF</text></svg>
           </button>
         </section>
 
         <section className="farol-main-grid" data-farol-pdf-report="goals">
-          <GoalCard title="M.O Oficina Produtiva" tone="shop" summary={shop} dailyGoal={7273} onAddObservation={() => openObservation("shop", "M.O Oficina Produtiva")} />
-          <GoalCard title="Embelezamento Oficina" tone="beauty" summary={beauty} dailyGoal={1591} onAddObservation={() => openObservation("beauty", "Embelezamento Oficina")} />
+          <GoalCard title="M.O Oficina Produtiva" tone="shop" summary={shop} dailyGoal={monthSummary.businessDays ? shopMonthlyGoal / monthSummary.businessDays : 0} status={configuredStatus} onConfigure={openMonthlyPlanEditor} />
+          <GoalCard title="Embelezamento Oficina" tone="beauty" summary={beauty} dailyGoal={monthSummary.businessDays ? beautyMonthlyGoal / monthSummary.businessDays : 0} status={configuredStatus} onConfigure={openMonthlyPlanEditor} />
           <aside className="farol-operation-panel">
             <div className="panel-head farol-report-head tone-operation">
               <div><div className="farol-report-title-row"><h2 className="panel-title">Operação do período</h2><ReportAddButton onClick={() => openObservation("operation", "Operação do período")} /></div><p className="comment">Dados do fluxo interno.</p></div>
-              <span className="tag good">{loading ? "..." : "fluxo interno"}</span>
+              <DataStatusTag status={loading ? "Parcial" : operationStatus} />
             </div>
             <div className="farol-operation-groups">
               <article className="farol-operation-group">
@@ -1111,7 +1207,7 @@ export default function FarolGerencialPage() {
         <section className="panel farol-table-panel farol-daily-panel" data-farol-pdf-report="daily">
           <div className="panel-head farol-report-head tone-month">
             <div className="farol-report-title-row"><h2 className="panel-title">Resultado Diário</h2><ReportAddButton onClick={openDailyResult} /></div>
-            <div className="farol-daily-panel-actions"><span className="tag">Resumo de Serviços</span><button data-pdf-hide="true" type="button" className="farol-collapse-button" onClick={() => setDailyResultCollapsed((current) => !current)} aria-expanded={!dailyResultCollapsed}>{dailyResultCollapsed ? "Expandir" : "Recolher"}</button></div>
+            <div className="farol-daily-panel-actions"><DataStatusTag status={dailyStatus} /><button data-pdf-hide="true" type="button" className="farol-collapse-button" onClick={() => setDailyResultCollapsed((current) => !current)} aria-expanded={!dailyResultCollapsed}>{dailyResultCollapsed ? "Expandir" : "Recolher"}</button></div>
           </div>
           {!dailyResultCollapsed && <div className="farol-daily-result-layout">
             <DailyResultLineChart rows={financialRows} />
@@ -1120,7 +1216,7 @@ export default function FarolGerencialPage() {
                 <div className="farol-daily-row" key={`${selectedMonth}-row-${rowIndex}`}>
                   {dailyRow.map((row) => (
                     <article key={row.day} className={`farol-day-card ${row.special ? `row-${row.special}` : ""}`}>
-                      <div className="farol-day-head"><strong>{row.day}</strong><i aria-hidden="true">|</i><span>{row.weekDay}</span>{row.revisionCount !== null && row.revisionCount !== undefined && <><i aria-hidden="true">|</i><b>REV {row.revisionCount}</b></>}</div>
+                      <div className="farol-day-head"><strong>{row.day}</strong><i aria-hidden="true">|</i><span>{row.weekDay}</span>{row.operationalLabel ? <><i aria-hidden="true">|</i><b title={row.operationalLabel}>{row.operationalLabel}</b></> : row.revisionCount !== null && row.revisionCount !== undefined && <><i aria-hidden="true">|</i><b>REV {row.revisionCount}</b></>}</div>
                       <div className="farol-day-lines">
                         <div><span>OP</span><strong className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-text" : row.shopDone === null ? "" : "bad-text"}>{formatCurrency(row.shopDone)}</strong><em>M {formatCurrency(row.shopGoal)}</em><small>AA {formatCurrency(row.shopPreviousYear ?? null)}</small></div>
                         <div><span>EMB</span><strong className={row.beautyDone !== null && row.beautyDone >= row.beautyGoal ? "good-text" : row.beautyDone === null ? "" : "bad-text"}>{formatCurrency(row.beautyDone)}</strong><em>M {formatCurrency(row.beautyGoal)}</em><small>AA {formatCurrency(row.beautyPreviousYear ?? null)}</small></div>
@@ -1136,7 +1232,7 @@ export default function FarolGerencialPage() {
         <section className="panel farol-table-panel" data-farol-pdf-report="counter">
           <div className="panel-head farol-report-head tone-counter">
             <div><div className="farol-report-title-row"><h2 className="panel-title">Balcão de Peças</h2><button data-html2canvas-ignore="true" data-pdf-hide="true" type="button" className={`farol-report-add farol-report-refresh ${refreshingBalcao ? "is-loading" : ""}`} onClick={refreshBalcaoReport} disabled={refreshingBalcao} aria-label="Atualizar dados do Balcão de Peças" title="Buscar os lançamentos mais recentes da página Balcão">↻</button></div><p className="comment">Indicadores espelhados do módulo Balcão para {monthLabel(selectedMonth)}.</p></div>
-            <span className="tag">{refreshingBalcao ? "atualizando..." : "base do Balcão"}</span>
+            {refreshingBalcao ? <span className="tag">atualizando...</span> : <DataStatusTag status={reportStatus(Boolean(balcaoSummary.goal || balcaoSummary.sold || partsEntries.length))} />}
           </div>
           <div className="farol-balcao-grid">
             <article><span>Meta</span><strong>{formatCurrency(balcaoSummary.goal)}</strong><small>{balcaoSummary.goal ? `${formatPercent((balcaoSummary.sold / balcaoSummary.goal) * 100)} atingido · ${formatCurrency(balcaoSummary.dailyGoal)}/dia` : "Sem meta cadastrada"}</small></article>
@@ -1160,7 +1256,7 @@ export default function FarolGerencialPage() {
 
         <section className="panel farol-table-panel" data-farol-pdf-report="revenue">
           <div className="panel-head farol-report-head tone-comparison">
-            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento</h2><ReportAddButton onClick={openRevenueEntry} /></div>
+            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento</h2><ReportAddButton onClick={openRevenueEntry} /><DataStatusTag status={reportStatus(revenueEntries.some((item) => item.month === selectedMonth) || monthlyTrend.some((item) => item.month === selectedMonth))} /></div>
             <label className="farol-compare-toggle" data-pdf-hide="true"><input type="checkbox" checked={comparePreviousYear} onChange={(event) => setComparePreviousYear(event.target.checked)} /><span>Comparar ano anterior</span></label>
           </div>
           <MonthlyOperationChart selectedMonth={selectedMonth} comparePreviousYear={comparePreviousYear} revenueEntries={revenueEntries} />
@@ -1168,7 +1264,7 @@ export default function FarolGerencialPage() {
 
         <section className="panel farol-table-panel" data-farol-pdf-report="gross-profit">
             <div className="panel-head farol-report-head tone-profit">
-              <div className="farol-report-title-row"><h2 className="panel-title">Lucro Bruto</h2><ReportAddButton onClick={openGrossProfitEntry} /></div>
+              <div className="farol-report-title-row"><h2 className="panel-title">Lucro Bruto</h2><ReportAddButton onClick={openGrossProfitEntry} /><DataStatusTag status={reportStatus(Boolean(currentGrossProfit.realized || currentGrossProfit.planned))} /></div>
               <span className="tag">{monthLabel(selectedMonth)}</span>
             </div>
             <div className="farol-lb-grid">
@@ -1189,7 +1285,7 @@ export default function FarolGerencialPage() {
 
         <section className="panel farol-table-panel" data-farol-pdf-report="channels">
           <div className="panel-head farol-report-head tone-revenue">
-            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento por Canal</h2><ReportAddButton onClick={openChannelRevenueEntry} /></div>
+            <div className="farol-report-title-row"><h2 className="panel-title">Faturamento por Canal</h2><ReportAddButton onClick={openChannelRevenueEntry} /><DataStatusTag status={reportStatus(channelRows.some((item) => item.total > 0))} /></div>
             <span className="tag">{monthLabel(selectedMonth)} • {formatDayCount(monthSummary.passedDays)} dias úteis</span>
           </div>
           <ChannelRevenueChart current={channelRows} lastUpdated={selectedChannelUpdate} />
@@ -1218,7 +1314,7 @@ export default function FarolGerencialPage() {
 
         <section className="panel farol-table-panel" data-farol-pdf-report="productivity">
           <div className="panel-head farol-report-head tone-productivity">
-            <div><div className="farol-report-title-row"><h2 className="panel-title">Produtividade e TKM de Serviços</h2><ReportAddButton onClick={openServiceProductivityEntry} /></div><p className="comment">TKM usa revisões como base. Passagens são contabilizadas por O.S. distinta e permanecem separadas por função.</p></div>
+            <div><div className="farol-report-title-row"><h2 className="panel-title">Produtividade e TKM de Serviços</h2><ReportAddButton onClick={openServiceProductivityEntry} /><DataStatusTag status={reportStatus(productivityMetrics.some((item) => item.current > 0))} /></div><p className="comment">TKM usa revisões como base. Passagens são contabilizadas por O.S. distinta e permanecem separadas por função.</p></div>
             <span className="tag">{monthLabel(selectedMonth)}</span>
           </div>
           <div className="farol-productivity-grid farol-productivity-focus">
@@ -1248,7 +1344,7 @@ export default function FarolGerencialPage() {
 
         <section className="panel farol-table-panel" data-farol-pdf-report="consultants">
           <div className="panel-head farol-report-head tone-consultant">
-            <div><div className="farol-report-title-row"><h2 className="panel-title">Resultados por Consultor</h2><ReportAddButton onClick={() => openObservation("consultant-results", "Resultados por Consultor")} /></div><p className="comment">Serviços iguais são consolidados por descrição, mesmo quando vierem de modelos diferentes.</p></div>
+            <div><div className="farol-report-title-row"><h2 className="panel-title">Resultados por Consultor</h2><ReportAddButton onClick={() => openObservation("consultant-results", "Resultados por Consultor")} /><DataStatusTag status={reportStatus(Boolean(consultantServicePerformance[selectedMonth]?.length))} /></div><p className="comment">Serviços iguais são consolidados por descrição, mesmo quando vierem de modelos diferentes.</p></div>
             <span className="tag">{monthLabel(selectedMonth)}</span>
           </div>
           <ConsultantServiceReport selectedMonth={selectedMonth} />
@@ -1340,6 +1436,37 @@ export default function FarolGerencialPage() {
               </div>
               <div className="farol-revenue-total-preview"><span>Oficina produtiva / total de serviços</span><strong>{formatCurrency(parseCurrencyInput(serviceProductivityDraft.revisionSales) + parseCurrencyInput(serviceProductivityDraft.mechanicsSales) + parseCurrencyInput(serviceProductivityDraft.additionalSales))} / {formatCurrency(parseCurrencyInput(serviceProductivityDraft.revisionSales) + parseCurrencyInput(serviceProductivityDraft.mechanicsSales) + parseCurrencyInput(serviceProductivityDraft.additionalSales) + parseCurrencyInput(serviceProductivityDraft.beautySales))}</strong></div>
               <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveServiceProductivityEntry(false)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveServiceProductivityEntry()} disabled={!serviceProductivityDraft.month || savingServiceProductivityEntry}>{savingServiceProductivityEntry ? "Salvando..." : "Salvar produtividade"}</button></div>
+            </section>
+          </div>
+        )}
+
+        {activeMonthlyPlan && (
+          <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveMonthlyPlan(false)}>
+            <section className="farol-report-modal farol-monthly-plan-modal" role="dialog" aria-modal="true" aria-labelledby="farol-monthly-plan-title" onClick={(event) => event.stopPropagation()}>
+              <div className="farol-report-modal-head"><div><span>Fase 1 · Base dos indicadores</span><h2 id="farol-monthly-plan-title">Metas e calendário operacional</h2></div><button type="button" onClick={() => setActiveMonthlyPlan(false)} aria-label="Fechar">×</button></div>
+              <div className="farol-monthly-plan-grid">
+                <label><span>Mês de competência</span><input type="month" value={monthlyPlanDraft.month} onChange={(event) => {
+                  const month = event.target.value;
+                  const existing = monthlyPlans.find((item) => item.month === month);
+                  setMonthlyPlanDraft({ month, shopGoal: String(existing?.shopGoal ?? 160000), beautyGoal: String(existing?.beautyGoal ?? 35000), status: existing?.status ?? "partial", operationalDays: existing?.operationalDays ?? [] });
+                }} /></label>
+                <label><span>Situação do mês</span><select value={monthlyPlanDraft.status} onChange={(event) => setMonthlyPlanDraft((current) => ({ ...current, status: event.target.value as "partial" | "closed" }))}><option value="partial">Parcial / em andamento</option><option value="closed">Fechado</option></select></label>
+                <label><span>Meta M.O Oficina Produtiva</span><input inputMode="decimal" value={monthlyPlanDraft.shopGoal} onChange={(event) => setMonthlyPlanDraft((current) => ({ ...current, shopGoal: event.target.value }))} placeholder="R$ 160.000,00" /></label>
+                <label><span>Meta Embelezamento</span><input inputMode="decimal" value={monthlyPlanDraft.beautyGoal} onChange={(event) => setMonthlyPlanDraft((current) => ({ ...current, beautyGoal: event.target.value }))} placeholder="R$ 35.000,00" /></label>
+              </div>
+              <div className="farol-operational-calendar-head"><div><strong>Exceções do calendário</strong><small>Sábado vale meio dia por padrão. Cadastre somente feriados, dias fechados ou jornadas diferentes.</small></div><button type="button" className="ghost-btn" onClick={addOperationalDay}>+ Adicionar dia</button></div>
+              <div className="farol-operational-days">
+                {monthlyPlanDraft.operationalDays.map((item, index) => <div key={`${item.date}-${index}`} className="farol-operational-day-row">
+                  <input aria-label="Data" type="date" min={`${monthlyPlanDraft.month}-01`} max={`${monthlyPlanDraft.month}-${String(new Date(Number(monthlyPlanDraft.month.slice(0, 4)), Number(monthlyPlanDraft.month.slice(5)), 0).getDate()).padStart(2, "0")}`} value={item.date} onChange={(event) => updateOperationalDay(index, { date: event.target.value })} />
+                  <select aria-label="Tipo do dia" value={item.type} onChange={(event) => updateOperationalDay(index, { type: event.target.value as FarolOperationalDayType })}><option value="holiday">Feriado</option><option value="closed">Sem operação</option><option value="half">Meio expediente</option><option value="full">Expediente completo</option></select>
+                  <input aria-label="Descrição" value={item.label ?? ""} onChange={(event) => updateOperationalDay(index, { label: event.target.value })} placeholder="Descrição opcional" />
+                  <button type="button" onClick={() => setMonthlyPlanDraft((current) => ({ ...current, operationalDays: current.operationalDays.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remover exceção">×</button>
+                </div>)}
+                {!monthlyPlanDraft.operationalDays.length && <p>Nenhuma exceção cadastrada para este mês.</p>}
+              </div>
+              <div className="farol-plan-preview"><span>Dias úteis ponderados</span><strong>{formatDayCount(buildMonthSummary(monthlyPlanDraft.month, new Date(), monthlyPlanDraft.operationalDays).businessDays)}</strong><span>Meta diária OP</span><strong>{formatCurrency(parseCurrencyInput(monthlyPlanDraft.shopGoal) / Math.max(1, buildMonthSummary(monthlyPlanDraft.month, new Date(), monthlyPlanDraft.operationalDays).businessDays))}</strong><span>Meta diária EMB</span><strong>{formatCurrency(parseCurrencyInput(monthlyPlanDraft.beautyGoal) / Math.max(1, buildMonthSummary(monthlyPlanDraft.month, new Date(), monthlyPlanDraft.operationalDays).businessDays))}</strong></div>
+              <p className="farol-plan-existing-goals">As metas de Balcão e Lucro Bruto continuam sendo configuradas nos botões + dos respectivos relatórios.</p>
+              <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveMonthlyPlan(false)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveMonthlyPlan()} disabled={!monthlyPlanDraft.month || savingMonthlyPlan}>{savingMonthlyPlan ? "Salvando..." : "Salvar configuração"}</button></div>
             </section>
           </div>
         )}
@@ -1500,13 +1627,15 @@ function GoalCard({
   tone,
   summary,
   dailyGoal,
-  onAddObservation,
+  status,
+  onConfigure,
 }: {
   title: string;
   tone: "shop" | "beauty";
   summary: ReturnType<typeof areaSummary>;
   dailyGoal: number;
-  onAddObservation: () => void;
+  status: FarolDataStatus;
+  onConfigure: () => void;
 }) {
   const color = tone === "shop" ? "#65ad42" : "#3472c7";
   const percent = Math.min(100, summary.percent);
@@ -1514,8 +1643,8 @@ function GoalCard({
   return (
     <article className={`farol-goal-card ${tone}`}>
       <div className="farol-goal-head">
-        <div><span>Meta mensal</span><div className="farol-report-title-row"><h2>{title}</h2><ReportAddButton onClick={onAddObservation} /></div></div>
-        <strong>{formatPercent(summary.percent)}</strong>
+        <div><span>Meta mensal</span><div className="farol-report-title-row"><h2>{title}</h2><ReportAddButton onClick={onConfigure} /></div></div>
+        <div className="farol-goal-status"><DataStatusTag status={status} /><strong>{formatPercent(summary.percent)}</strong></div>
       </div>
       <div className="farol-goal-body">
         <div className="farol-donut">
@@ -1536,6 +1665,11 @@ function GoalCard({
       </div>
     </article>
   );
+}
+
+function DataStatusTag({ status }: { status: FarolDataStatus }) {
+  const tone = status === "Fechado" ? "closed" : status === "Parcial" ? "partial" : status === "Sem fechamento" ? "warning" : "empty";
+  return <span className={`farol-data-status ${tone}`}>{status}</span>;
 }
 
 function ReportAddButton({ onClick }: { onClick: () => void }) {

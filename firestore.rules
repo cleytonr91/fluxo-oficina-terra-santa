@@ -146,6 +146,11 @@ service cloud.firestore {
       allow write: if hasRole(['admin']);
     }
 
+    match /farolMonthlyPlans/{document} {
+      allow read: if activeUser();
+      allow write: if hasRole(['admin']);
+    }
+
     match /partsCatalog/{document} {
       allow read: if operations();
       allow write: if hasRole(['admin']);

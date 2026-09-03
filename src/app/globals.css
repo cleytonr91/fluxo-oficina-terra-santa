@@ -148,6 +148,22 @@
   width: 44px;
 }
 
+.farol-plan-button {
+  align-self: center;
+  background: #eef5f0;
+  border: 1px solid #cbd9cf;
+  border-radius: 8px;
+  color: #285d46;
+  cursor: pointer;
+  font-size: 1.15rem;
+  height: 44px;
+  width: 44px;
+}
+
+.farol-plan-button:hover {
+  background: #e1eee5;
+}
+
 .farol-pdf-button:hover {
   background: #f7faf7;
   border-color: #b9cec0;
@@ -289,6 +305,37 @@
   font-size: 2rem;
   line-height: 1;
 }
+
+.farol-goal-status {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.farol-data-status {
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  border-radius: 999px;
+  color: inherit;
+  display: inline-flex;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  padding: 4px 7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.farol-daily-panel-actions .farol-data-status,
+.farol-operation-panel .farol-data-status {
+  border-color: transparent;
+}
+
+.farol-data-status.closed { background: #dff2e6; color: #17633f; }
+.farol-data-status.partial { background: #fff0bd; color: #755600; }
+.farol-data-status.warning { background: #ffe1c3; color: #9a4e00; }
+.farol-data-status.empty { background: #e8ece9; color: #68746e; }
 
 .farol-goal-body {
   display: grid;
@@ -1611,7 +1658,8 @@
 }
 
 .farol-report-modal input,
-.farol-report-modal textarea {
+.farol-report-modal textarea,
+.farol-report-modal select {
   border: 1px solid #ccd8cf;
   border-radius: 7px;
   color: #263746;
@@ -1620,6 +1668,76 @@
   padding: 10px;
   width: 100%;
 }
+
+.farol-monthly-plan-modal {
+  max-height: calc(100vh - 36px);
+  max-width: 760px;
+  overflow-y: auto;
+}
+
+.farol-monthly-plan-grid {
+  display: grid;
+  gap: 0 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.farol-operational-calendar-head {
+  align-items: flex-end;
+  border-top: 1px solid #e1e8e3;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding-top: 14px;
+}
+
+.farol-operational-calendar-head strong,
+.farol-operational-calendar-head small {
+  display: block;
+}
+
+.farol-operational-calendar-head strong { color: #28443a; font-size: 0.86rem; }
+.farol-operational-calendar-head small { color: #65746d; font-size: 0.7rem; margin-top: 3px; }
+.farol-operational-calendar-head .ghost-btn { cursor: pointer; padding: 7px 10px; }
+
+.farol-operational-days {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.farol-operational-days > p {
+  background: #f5f7f5;
+  color: #6d7772;
+  font-size: 0.75rem;
+  margin: 0;
+  padding: 12px;
+  text-align: center;
+}
+
+.farol-operational-day-row {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 145px 170px minmax(0, 1fr) 32px;
+}
+
+.farol-operational-day-row input,
+.farol-operational-day-row select { min-width: 0; padding: 8px; }
+.farol-operational-day-row button { background: #fff0ee; border: 1px solid #f0c8c2; border-radius: 7px; color: #ad352a; cursor: pointer; }
+
+.farol-plan-preview {
+  background: #eef6f1;
+  border: 1px solid #d3e3d8;
+  border-radius: 8px;
+  display: grid;
+  gap: 5px 12px;
+  grid-template-columns: repeat(3, auto 1fr);
+  margin-top: 14px;
+  padding: 10px 12px;
+}
+
+.farol-plan-preview span { color: #66756e; font-size: 0.64rem; font-weight: 800; text-transform: uppercase; }
+.farol-plan-preview strong { color: #1e6042; font-size: 0.8rem; }
+.farol-plan-existing-goals { color: #6b7872; font-size: 0.7rem; margin: 10px 0 0; }
 
 .farol-report-modal .farol-pdf-select-all input[type="checkbox"],
 .farol-report-modal .farol-pdf-report-list input[type="checkbox"] {
