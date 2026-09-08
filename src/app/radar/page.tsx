@@ -377,6 +377,47 @@ const serviceReportSnapshots: Record<string, { revisions: number; revisionSales:
 };
 
 const consultantServicePerformance: Record<string, ConsultantServicePerformance[]> = {
+  "2026-09": [
+    {
+      id: "295",
+      name: "Eliane Ribeiro",
+      revisions: 14,
+      revisionSales: 6266.97,
+      additionalSales: 2538,
+      beautySales: 2130,
+      details: [
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 5, amount: 1138 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 4, amount: 1120 },
+        { category: "Adicionais", tmo: "PFT-HMB", service: "Substituição das pastilhas de freio traseiras", quantity: 1, amount: 280 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 5, amount: 750 },
+        { category: "Embelezamento", tmo: "EST03", service: "Lavagem dos bancos", quantity: 1, amount: 480 },
+        { category: "Embelezamento", tmo: "EST05", service: "Lavagem dos bancos e hidratação", quantity: 2, amount: 550 },
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 1, amount: 350 },
+      ],
+    },
+    {
+      id: "1395",
+      name: "Rosangela Soares",
+      revisions: 21,
+      revisionSales: 9618.54,
+      additionalSales: 4473.5,
+      beautySales: 3660.01,
+      details: [
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 7, amount: 1511 },
+        { category: "Adicionais", tmo: "FF-HMB", service: "Substituição e limpeza do fluido de freio", quantity: 2, amount: 500 },
+        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 8, amount: 1440 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 3, amount: 300 },
+        { category: "Adicionais", tmo: "LIE-HMB", service: "Limpeza de injeção eletrônica", quantity: 1, amount: 400 },
+        { category: "Adicionais", tmo: "PFD-HMB", service: "Substituição das pastilhas de freio dianteiras", quantity: 1, amount: 142.5 },
+        { category: "Adicionais", tmo: "SC-HMB", service: "Substituição das correias", quantity: 1, amount: 180 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 12, amount: 2180 },
+        { category: "Embelezamento", tmo: "EST03", service: "Lavagem dos bancos", quantity: 1, amount: 300 },
+        { category: "Embelezamento", tmo: "EST05", service: "Lavagem dos bancos e hidratação", quantity: 3, amount: 900 },
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 4, amount: 280 },
+        { category: "Embelezamento", tmo: "REQ", service: "Requisição - mão de obra gratuita", quantity: 1, amount: 0.01 },
+      ],
+    },
+  ],
   "2026-08": [
     {
       id: "295",
