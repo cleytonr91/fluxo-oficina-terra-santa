@@ -329,6 +329,30 @@ const grossProfitTrend: GrossProfitMonth[] = [
 ];
 
 const serviceReportSnapshots: Record<string, { revisions: number; revisionSales: number; mechanicsSales: number; additionalSales: number; beautySales: number; productiveShop: number; totalServices: number; tkmServices?: number; tkmAdditional?: number; tkmBeauty?: number }> = {
+  "2025-01": {
+    revisions: 266, revisionSales: 84293, mechanicsSales: 20941, additionalSales: 15014, beautySales: 48205,
+    productiveShop: 120248, totalServices: 246289, tkmServices: 555, tkmAdditional: 56, tkmBeauty: 181,
+  },
+  "2025-02": {
+    revisions: 232, revisionSales: 73848, mechanicsSales: 24044, additionalSales: 21057, beautySales: 41404,
+    productiveShop: 118949, totalServices: 211996, tkmServices: 588, tkmAdditional: 91, tkmBeauty: 178,
+  },
+  "2025-03": {
+    revisions: 206, revisionSales: 66688, mechanicsSales: 37197, additionalSales: 16789, beautySales: 32805,
+    productiveShop: 120674, totalServices: 198679, tkmServices: 564, tkmAdditional: 82, tkmBeauty: 159,
+  },
+  "2025-04": {
+    revisions: 219, revisionSales: 67012, mechanicsSales: 30156, additionalSales: 34658, beautySales: 44823,
+    productiveShop: 131826, totalServices: 234404, tkmServices: 669, tkmAdditional: 158, tkmBeauty: 205,
+  },
+  "2025-05": {
+    revisions: 252, revisionSales: 79327, mechanicsSales: 46622, additionalSales: 27316, beautySales: 42603,
+    productiveShop: 153265, totalServices: 267668, tkmServices: 592, tkmAdditional: 108, tkmBeauty: 169,
+  },
+  "2025-06": {
+    revisions: 219, revisionSales: 71532, mechanicsSales: 28561, additionalSales: 18961, beautySales: 23401,
+    productiveShop: 119054, totalServices: 209716, tkmServices: 520, tkmAdditional: 87, tkmBeauty: 107,
+  },
   "2025-07": {
     revisions: 263,
     revisionSales: 87968,
@@ -364,6 +388,22 @@ const serviceReportSnapshots: Record<string, { revisions: number; revisionSales:
     tkmServices: 651,
     tkmAdditional: 218,
     tkmBeauty: 123,
+  },
+  "2025-09": {
+    revisions: 240, revisionSales: 75715, mechanicsSales: 32140, additionalSales: 49681, beautySales: 38040,
+    productiveShop: 157536, totalServices: 251028, tkmServices: 681, tkmAdditional: 207, tkmBeauty: 159,
+  },
+  "2025-10": {
+    revisions: 248, revisionSales: 82469, mechanicsSales: 37451, additionalSales: 55935, beautySales: 35050,
+    productiveShop: 175855, totalServices: 259425, tkmServices: 699, tkmAdditional: 226, tkmBeauty: 141,
+  },
+  "2025-11": {
+    revisions: 228, revisionSales: 73881, mechanicsSales: 19570, additionalSales: 46598, beautySales: 34390,
+    productiveShop: 140049, totalServices: 210764, tkmServices: 679, tkmAdditional: 204, tkmBeauty: 151,
+  },
+  "2025-12": {
+    revisions: 294, revisionSales: 97198, mechanicsSales: 19455, additionalSales: 58297, beautySales: 39338,
+    productiveShop: 174950, totalServices: 259545, tkmServices: 663, tkmAdditional: 198, tkmBeauty: 134,
   },
   "2026-08": {
     revisions: 71,
