@@ -4102,6 +4102,47 @@ textarea {
   gap: 10px;
 }
 
+.budget-return-actions {
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.budget-return-primary-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.budget-advance-wash-btn {
+  gap: 7px;
+}
+
+.budget-advance-wash-icon {
+  color: var(--blue);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+@media (max-width: 420px) {
+  .budget-return-actions {
+    align-items: stretch;
+  }
+
+  .budget-advance-wash-btn {
+    width: 100%;
+  }
+
+  .budget-return-primary-actions {
+    width: 100%;
+  }
+
+  .budget-return-primary-actions > button {
+    flex: 1;
+  }
+}
+
 .flow-modal-alert {
   padding: 10px 12px;
   border: 1px solid #d95d4f;

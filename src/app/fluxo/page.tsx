@@ -3504,23 +3504,6 @@ export default function FluxoPage() {
               <div className="detail"><span>Previsão atual</span>{formatDateTime(budgetReturnVehicle.promisedDeliveryAt)}</div>
             </div>
 
-            {hasPendingWash(budgetReturnVehicle) && (
-              <button
-                type="button"
-                className="ghost-btn"
-                disabled={movingId === budgetReturnVehicle.id}
-                onClick={() => {
-                  moveToLane(budgetReturnVehicle, "lavagem", "Lavagem antecipada iniciada durante orçamento complementar", {
-                    serviceCompleted: false,
-                    washingAdvanced: true,
-                    washDone: false,
-                  }).then(() => setBudgetReturnVehicle(null));
-                }}
-              >
-                Adiantar lavagem
-              </button>
-            )}
-
             <label className="field">
               <span>Orçamento autorizado?</span>
               <select
@@ -3559,13 +3542,32 @@ export default function FluxoPage() {
               />
             </label>
 
-            <div className="modal-actions">
-              <button type="button" className="ghost-btn" onClick={() => setBudgetReturnVehicle(null)}>
-                Cancelar
-              </button>
-              <button type="submit" className="primary-btn" disabled={movingId === budgetReturnVehicle.id}>
-                {movingId === budgetReturnVehicle.id ? "Movendo..." : "Confirmar decisão"}
-              </button>
+            <div className="modal-actions budget-return-actions">
+              {hasPendingWash(budgetReturnVehicle) && (
+                <button
+                  type="button"
+                  className="ghost-btn budget-advance-wash-btn"
+                  disabled={movingId === budgetReturnVehicle.id}
+                  onClick={() => {
+                    moveToLane(budgetReturnVehicle, "lavagem", "Lavagem antecipada iniciada durante orçamento complementar", {
+                      serviceCompleted: false,
+                      washingAdvanced: true,
+                      washDone: false,
+                    }).then(() => setBudgetReturnVehicle(null));
+                  }}
+                >
+                  <span className="budget-advance-wash-icon" aria-hidden="true">↪</span>
+                  Adiantar lavagem
+                </button>
+              )}
+              <div className="budget-return-primary-actions">
+                <button type="button" className="ghost-btn" onClick={() => setBudgetReturnVehicle(null)}>
+                  Cancelar
+                </button>
+                <button type="submit" className="primary-btn" disabled={movingId === budgetReturnVehicle.id}>
+                  {movingId === budgetReturnVehicle.id ? "Movendo..." : "Confirmar decisão"}
+                </button>
+              </div>
             </div>
           </form>
         </div>
