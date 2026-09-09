@@ -4390,6 +4390,25 @@ textarea {
   overflow-y: auto;
 }
 
+.flow-detail-modal .ghost-btn:not(.danger-btn),
+.flow-detail-modal .primary-btn {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+
+.flow-detail-modal .ghost-btn:not(.danger-btn):hover,
+.flow-detail-modal .primary-btn:hover {
+  border-color: #002f63;
+  background: #002f63;
+}
+
+.flow-detail-modal .ghost-btn:not(.danger-btn):disabled,
+.flow-detail-modal .primary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .road-test-entry-box {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
