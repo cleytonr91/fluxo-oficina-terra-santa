@@ -5905,6 +5905,10 @@ textarea {
   min-width: 0;
 }
 
+.immobilization-grid.has-reason {
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1.3fr);
+}
+
 @media (max-width: 620px) {
   .modal-backdrop {
     align-items: start;
@@ -5951,6 +5955,10 @@ textarea {
 
   .promise-update-grid,
   .correction-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .immobilization-grid.has-reason {
     grid-template-columns: 1fr;
   }
 

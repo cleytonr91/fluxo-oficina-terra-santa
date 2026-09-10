@@ -3089,7 +3089,7 @@ export default function FluxoPage() {
 
             <section className="history-box">
               <h3>Veículo imobilizado</h3>
-              <div className="correction-grid">
+              <div className={`correction-grid immobilization-grid${immobilizationForm.vehicleImmobilized ? " has-reason" : ""}`}>
                 <label className="field">
                   <span>Imobilizado?</span>
                   <select
@@ -3122,17 +3122,18 @@ export default function FluxoPage() {
                     </select>
                   </label>
                 )}
+                {canManageImmobilization && (
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    disabled={movingId === detailVehicle.id || (immobilizationForm.vehicleImmobilized && !immobilizationForm.immobilizationReason)}
+                    onClick={submitImmobilizationUpdate}
+                  >
+                    {movingId === detailVehicle.id ? "Salvando..." : "Salvar imobilização"}
+                  </button>
+                )}
               </div>
-              {canManageImmobilization ? (
-                <button
-                  type="button"
-                  className="ghost-btn"
-                  disabled={movingId === detailVehicle.id || (immobilizationForm.vehicleImmobilized && !immobilizationForm.immobilizationReason)}
-                  onClick={submitImmobilizationUpdate}
-                >
-                  {movingId === detailVehicle.id ? "Salvando..." : "Salvar imobilização"}
-                </button>
-              ) : (
+              {!canManageImmobilization && (
                 <p>Somente chefe de oficina, gerente ou administrador pode alterar esta informação.</p>
               )}
             </section>
