@@ -15,6 +15,7 @@ type DailyResult = {
   shopGoal: number;
   shopDone: number | null;
   revisionCount?: number | null;
+  revisionPreviousYear?: number | null;
   shopPreviousYear?: number | null;
   beautyGoal: number;
   beautyDone: number | null;
@@ -252,7 +253,7 @@ const july2026FinancialRows: DailyResult[] = [
   { weekDay: "SEX", day: "31/jul", shopGoal: 6667, shopDone: 6209, revisionCount: 10, beautyGoal: 1458, beautyDone: 1370 },
 ];
 
-const dailyPreviousYearResults: Record<string, Record<number, { shop: number; beauty: number }>> = {
+const dailyPreviousYearResults: Record<string, Record<number, { shop: number; beauty: number; revisions?: number }>> = {
   "2025-08": {
     1: { shop: 5522, beauty: 480 },
     2: { shop: 1404, beauty: 0 },
@@ -280,6 +281,22 @@ const dailyPreviousYearResults: Record<string, Record<number, { shop: number; be
     28: { shop: 5928, beauty: 1340 },
     29: { shop: 6056, beauty: 2130 },
     30: { shop: 3084, beauty: 3350 },
+  },
+  "2025-09": {
+    1: { shop: 3660, beauty: 180, revisions: 5 },
+    2: { shop: 6909, beauty: 1140, revisions: 12 },
+    3: { shop: 8125, beauty: 2110, revisions: 13 },
+    4: { shop: 6566, beauty: 480, revisions: 10 },
+    5: { shop: 6752, beauty: 890, revisions: 10 },
+    6: { shop: 1464, beauty: 800, revisions: 3 },
+    8: { shop: 6392, beauty: 1510, revisions: 10 },
+    9: { shop: 8951, beauty: 1680, revisions: 15 },
+    10: { shop: 8493, beauty: 2590, revisions: 13 },
+    11: { shop: 4200, beauty: 3480, revisions: 8 },
+    12: { shop: 4666, beauty: 510, revisions: 5 },
+    13: { shop: 1087, beauty: 60, revisions: 3 },
+    15: { shop: 7775, beauty: 1860, revisions: 13 },
+    16: { shop: 8771, beauty: 150, revisions: 14 },
   },
 };
 
@@ -577,6 +594,7 @@ function buildFinancialRows(selectedMonth: string, shopMonthlyGoal: number, beau
       shopGoal: shopFullDayGoal * weight,
       shopDone: entered ? entered.revision + entered.generalMechanics + entered.alignmentBalancing : legacy?.shopDone ?? null,
       revisionCount: entered?.revisionCount ?? legacy?.revisionCount ?? null,
+      revisionPreviousYear: previousYearResult?.revisions ?? null,
       shopPreviousYear: previousYearResult?.shop ?? null,
       beautyGoal: beautyFullDayGoal * weight,
       beautyDone: entered ? entered.beauty : legacy?.beautyDone ?? null,
@@ -1299,7 +1317,7 @@ export default function FarolGerencialPage() {
                     <article key={row.day} className={`farol-day-card ${row.special ? `row-${row.special}` : ""}`}>
                       <div className="farol-day-head"><strong>{row.day}</strong><i aria-hidden="true">|</i><span>{row.weekDay}</span>{row.operationalLabel ? <><i aria-hidden="true">|</i><b title={row.operationalLabel}>{row.operationalLabel}</b></> : row.revisionCount !== null && row.revisionCount !== undefined && <><i aria-hidden="true">|</i><b>REV {row.revisionCount}</b></>}</div>
                       <div className="farol-day-lines">
-                        <div><span>OP</span><strong className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-text" : row.shopDone === null ? "" : "bad-text"}>{formatCurrency(row.shopDone)}</strong><em>M {formatCurrency(row.shopGoal)}</em><small>AA {formatCurrency(row.shopPreviousYear ?? null)}</small></div>
+                        <div><span>OP</span><strong className={row.shopDone !== null && row.shopDone >= row.shopGoal ? "good-text" : row.shopDone === null ? "" : "bad-text"}>{formatCurrency(row.shopDone)}</strong><em>M {formatCurrency(row.shopGoal)}</em><small title={row.revisionPreviousYear ? `${row.revisionPreviousYear} revisões no ano anterior` : undefined}>AA {formatCurrency(row.shopPreviousYear ?? null)}</small></div>
                         <div><span>EMB</span><strong className={row.beautyDone !== null && row.beautyDone >= row.beautyGoal ? "good-text" : row.beautyDone === null ? "" : "bad-text"}>{formatCurrency(row.beautyDone)}</strong><em>M {formatCurrency(row.beautyGoal)}</em><small>AA {formatCurrency(row.beautyPreviousYear ?? null)}</small></div>
                       </div>
                     </article>
