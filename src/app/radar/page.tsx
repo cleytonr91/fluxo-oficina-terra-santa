@@ -820,7 +820,8 @@ export default function FarolGerencialPage() {
     const previousTotalServices = previousSnapshot ? ("totalServices" in previousSnapshot ? previousSnapshot.totalServices : previousProductiveShop + previousSnapshot.beautySales) : 0;
     const previousTkmBeauty = previousSnapshot ? ("tkmBeauty" in previousSnapshot ? previousSnapshot.tkmBeauty ?? (previousSnapshot.revisions ? previousSnapshot.beautySales / previousSnapshot.revisions : 0) : (previousSnapshot.revisions ? previousSnapshot.beautySales / previousSnapshot.revisions : 0)) : 0;
     const previousTkmAdditional = previousSnapshot ? ("tkmAdditional" in previousSnapshot ? previousSnapshot.tkmAdditional ?? (previousSnapshot.revisions ? previousSnapshot.additionalSales / previousSnapshot.revisions : 0) : (previousSnapshot.revisions ? previousSnapshot.additionalSales / previousSnapshot.revisions : 0)) : 0;
-    const previousTkmServices = previousSnapshot ? ("tkmServices" in previousSnapshot ? previousSnapshot.tkmServices ?? (previousSnapshot.revisions ? previousTotalServices / previousSnapshot.revisions : 0) : (previousSnapshot.revisions ? previousTotalServices / previousSnapshot.revisions : 0)) : 0;
+    const previousTkmServiceSales = previousSnapshot ? previousSnapshot.revisionSales + previousSnapshot.additionalSales + previousSnapshot.beautySales : 0;
+    const previousTkmServices = previousSnapshot ? ("tkmServices" in previousSnapshot ? previousSnapshot.tkmServices ?? (previousSnapshot.revisions ? previousTkmServiceSales / previousSnapshot.revisions : 0) : (previousSnapshot.revisions ? previousTkmServiceSales / previousSnapshot.revisions : 0)) : 0;
     if (!useDailyResults && !snapshot) return [
       { label: "Vendas de revisão", current: 0, lastYear: previousSnapshot?.revisionSales ?? 0, type: "currency", note: "Valor da categoria Revisão." },
       { label: "Revisões", current: 0, lastYear: previousSnapshot?.revisions ?? 0, type: "number", note: "Quantidade lida da categoria Revisão." },
@@ -830,7 +831,7 @@ export default function FarolGerencialPage() {
       { label: "TKM serv. adicionais", current: 0, lastYear: previousTkmAdditional, type: "currency", note: "Alinhamento e balanceamento divididos por revisões." },
       { label: "Oficina produtiva", current: 0, lastYear: previousProductiveShop, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
       { label: "Fat. total serviços", current: 0, lastYear: previousTotalServices, type: "currency", note: "Faturamento total de serviços." },
-      { label: "TKM serviços", current: 0, lastYear: previousTkmServices, type: "currency", note: "TKM geral de serviços." },
+      { label: "TKM serviços", current: 0, lastYear: previousTkmServices, type: "currency", note: "M.O de revisão, serviços adicionais e embelezamento divididos por revisões." },
     ];
 
     const revisions = useDailyResults ? entries.reduce((total, item) => total + item.revisionCount, 0) : snapshot!.revisions;
@@ -840,9 +841,10 @@ export default function FarolGerencialPage() {
     const beautySales = useDailyResults ? entries.reduce((total, item) => total + item.beauty, 0) : snapshot!.beautySales;
     const productiveShop = manualEntry || useDailyResults ? revisionSales + mechanicsSales + additionalSales : ("productiveShop" in snapshot! ? snapshot!.productiveShop : revisionSales + mechanicsSales + additionalSales);
     const totalServices = manualEntry || useDailyResults ? productiveShop + beautySales : ("totalServices" in snapshot! ? snapshot!.totalServices : productiveShop + beautySales);
+    const tkmServiceSales = revisionSales + additionalSales + beautySales;
     const perRevision = (value: number) => revisions ? value / revisions : 0;
     const legacySnapshot = snapshot && "tkmServices" in snapshot ? snapshot : undefined;
-    const tkmServices = manualEntry || useDailyResults ? perRevision(totalServices) : legacySnapshot?.tkmServices ?? perRevision(totalServices);
+    const tkmServices = manualEntry || useDailyResults ? perRevision(tkmServiceSales) : legacySnapshot?.tkmServices ?? perRevision(tkmServiceSales);
     const tkmAdditional = manualEntry || useDailyResults ? perRevision(additionalSales) : legacySnapshot?.tkmAdditional ?? perRevision(additionalSales);
     const tkmBeauty = manualEntry || useDailyResults ? perRevision(beautySales) : legacySnapshot?.tkmBeauty ?? perRevision(beautySales);
     return [
@@ -854,7 +856,7 @@ export default function FarolGerencialPage() {
       { label: "TKM embelezamento", current: tkmBeauty, lastYear: previousTkmBeauty, type: "currency", note: "Embelezamento dividido por revisões." },
       { label: "Oficina produtiva", current: productiveShop, lastYear: previousProductiveShop, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
       { label: "Fat. total serviços", current: totalServices, lastYear: previousTotalServices, type: "currency", note: "Faturamento total de serviços." },
-      { label: "TKM serviços", current: tkmServices, lastYear: previousTkmServices, type: "currency", note: "TKM geral de serviços." },
+      { label: "TKM serviços", current: tkmServices, lastYear: previousTkmServices, type: "currency", note: "M.O de revisão, serviços adicionais e embelezamento divididos por revisões." },
     ];
   }, [dailyResults, selectedMonth, serviceProductivityEntries]);
 
