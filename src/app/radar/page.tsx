@@ -30,6 +30,16 @@ type ChannelRevenue = {
   total: number;
 };
 
+type OpenServiceOrderCategory = "Revisão" | "Garantia" | "Funilaria" | "Acessórios" | "Embelezamento" | "Interna" | "Outros";
+
+type OpenServiceOrder = {
+  code: string;
+  description: string;
+  nature: "I" | "E" | "G";
+  category: OpenServiceOrderCategory;
+  total: number;
+};
+
 type ProductivityMetric = {
   label: string;
   current: number;
@@ -88,12 +98,13 @@ type BalcaoSummary = {
   destinations: Array<{ state: string; total: number; pf: number; pj: number }>;
 };
 
-type FarolPdfReportKey = "goals" | "daily" | "counter" | "revenue" | "gross-profit" | "channels" | "productivity" | "consultants" | "service-ranking";
+type FarolPdfReportKey = "goals" | "daily" | "open-orders" | "counter" | "revenue" | "gross-profit" | "channels" | "productivity" | "consultants" | "service-ranking";
 type FarolDataStatus = "Parcial" | "Fechado" | "Sem fechamento" | "Sem base";
 
 const farolPdfReports: Array<{ key: FarolPdfReportKey; label: string }> = [
   { key: "goals", label: "Metas mensais e operação" },
   { key: "daily", label: "Resultado Diário" },
+  { key: "open-orders", label: "O.S Abertas" },
   { key: "counter", label: "Balcão de Peças" },
   { key: "revenue", label: "Faturamento" },
   { key: "gross-profit", label: "Lucro Bruto" },
@@ -308,6 +319,31 @@ const channelDefinitions: Array<Omit<ChannelRevenue, "total">> = [
   { channel: "Funilaria", key: "funilaria" },
   { channel: "Balcão", key: "balcao" },
 ];
+
+const openServiceOrderSnapshots: Record<string, OpenServiceOrder[]> = {
+  "2026-09": [
+    { code: "A2", description: "Acessório showroom", nature: "E", category: "Acessórios", total: 14555.01 },
+    { code: "AC", description: "Acessórios cortesia", nature: "E", category: "Acessórios", total: 24199.68 },
+    { code: "DC", description: "Débito cortesia", nature: "I", category: "Interna", total: 14005.99 },
+    { code: "DI", description: "Débito interno", nature: "I", category: "Interna", total: 24586.61 },
+    { code: "DS", description: "Débito seminovos", nature: "I", category: "Interna", total: 0 },
+    { code: "E1", description: "Revisão de entrega", nature: "I", category: "Interna", total: 200 },
+    { code: "EC", description: "Embelezamento cortesia", nature: "E", category: "Interna", total: 34579.56 },
+    { code: "EN", description: "Embelezamento novos", nature: "E", category: "Embelezamento", total: 60 },
+    { code: "EO", description: "Embelezamento oficina", nature: "E", category: "Embelezamento", total: 5425.39 },
+    { code: "ES", description: "Embelezamento seminovos", nature: "E", category: "Embelezamento", total: 200 },
+    { code: "S2", description: "Funilaria e pintura", nature: "E", category: "Funilaria", total: 59737.1 },
+    { code: "V2", description: "Garantia", nature: "G", category: "Garantia", total: 29464.24 },
+    { code: "V3", description: "1ª revisão gratuita de 10.000 km", nature: "G", category: "Revisão", total: 1336.23 },
+    { code: "V4", description: "2ª revisão gratuita de 20.000 km", nature: "G", category: "Revisão", total: 150.73 },
+    { code: "V5", description: "Revisão periódica HMB", nature: "E", category: "Revisão", total: 56189.22 },
+    { code: "V6", description: "Expresso", nature: "E", category: "Outros", total: 8496.79 },
+    { code: "V7", description: "Recall", nature: "G", category: "Garantia", total: 931.53 },
+    { code: "V8", description: "Campanha", nature: "G", category: "Garantia", total: 1985.61 },
+  ],
+};
+
+const openServiceOrderCategories: OpenServiceOrderCategory[] = ["Revisão", "Garantia", "Funilaria", "Acessórios", "Embelezamento", "Interna", "Outros"];
 
 const channelRevenueBaseline: Record<string, Omit<FarolChannelRevenue, "id" | "updatedBy" | "updatedAt">> = {
   "2026-08": { month: "2026-08", oficinaProdutiva: 132012.77, acessorios: 0, embelezamento: 12592.67, funilaria: 15400, balcao: 22275.12 },
@@ -1340,6 +1376,14 @@ export default function FarolGerencialPage() {
           </div>}
         </section>
 
+        <section className="panel farol-table-panel" data-farol-pdf-report="open-orders">
+          <div className="panel-head farol-report-head tone-productivity">
+            <div><div className="farol-report-title-row"><h2 className="panel-title">O.S Abertas</h2><DataStatusTag status={reportStatus(Boolean(openServiceOrderSnapshots[selectedMonth]?.length))} /></div><p className="comment">Valores das ordens de serviço abertas, agrupados pelas categorias selecionadas.</p></div>
+            <span className="tag">{monthLabel(selectedMonth)}</span>
+          </div>
+          <OpenServiceOrdersReport selectedMonth={selectedMonth} />
+        </section>
+
         <section className="panel farol-table-panel" data-farol-pdf-report="counter">
           <div className="panel-head farol-report-head tone-counter">
             <div><div className="farol-report-title-row"><h2 className="panel-title">Balcão de Peças</h2><button data-html2canvas-ignore="true" data-pdf-hide="true" type="button" className={`farol-report-add farol-report-refresh ${refreshingBalcao ? "is-loading" : ""}`} onClick={refreshBalcaoReport} disabled={refreshingBalcao} aria-label="Atualizar dados do Balcão de Peças" title="Buscar os lançamentos mais recentes da página Balcão">↻</button></div><p className="comment">Indicadores espelhados do módulo Balcão para {monthLabel(selectedMonth)}.</p></div>
@@ -1626,6 +1670,52 @@ function ProductivityTable({ title, rows, emptyText }: { title: string; rows: Pr
         </div>
       ) : <p className="farol-productivity-empty">{emptyText}</p>}
     </div>
+  );
+}
+
+function OpenServiceOrdersReport({ selectedMonth }: { selectedMonth: string }) {
+  const rows = openServiceOrderSnapshots[selectedMonth] ?? [];
+  const [selectedCategories, setSelectedCategories] = useState<OpenServiceOrderCategory[]>(openServiceOrderCategories);
+  const total = rows.reduce((sum, row) => sum + row.total, 0);
+  const filteredRows = rows.filter((row) => selectedCategories.includes(row.category)).sort((left, right) => openServiceOrderCategories.indexOf(left.category) - openServiceOrderCategories.indexOf(right.category) || left.code.localeCompare(right.code, "pt-BR"));
+  const selectedTotal = filteredRows.reduce((sum, row) => sum + row.total, 0);
+  const categoryTotal = (category: OpenServiceOrderCategory) => rows.filter((row) => row.category === category).reduce((sum, row) => sum + row.total, 0);
+
+  if (!rows.length) return <p className="farol-productivity-empty">Ainda não há dados de O.S abertas para este mês.</p>;
+
+  return (
+    <>
+      <div className="farol-consultant-view-options" role="group" aria-label="Filtrar O.S abertas por categoria" data-pdf-hide="true" style={{ flexWrap: "wrap" }}>
+        <div className="farol-consultant-view-label"><span>Exibir categorias:</span></div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <label className="farol-compare-toggle"><input type="checkbox" checked={selectedCategories.length === openServiceOrderCategories.length} onChange={(event) => setSelectedCategories(event.target.checked ? openServiceOrderCategories : [])} /><span>Todas</span></label>
+          {openServiceOrderCategories.map((category) => <label key={category} className="farol-compare-toggle"><input type="checkbox" checked={selectedCategories.includes(category)} onChange={(event) => setSelectedCategories((current) => event.target.checked ? [...current, category] : current.filter((item) => item !== category))} /><span>{category}</span></label>)}
+        </div>
+      </div>
+      <div className="farol-productivity-grid farol-productivity-focus">
+        {[
+          { label: "Total selecionado", value: selectedTotal, note: `${filteredRows.length} de ${rows.length} tipos` },
+          ...selectedCategories.map((category) => ({ label: category, value: categoryTotal(category), note: `${formatPercent(total ? (categoryTotal(category) / total) * 100 : 0)} do total geral` })),
+        ].map((item) => (
+          <article key={item.label} className="farol-productivity-card farol-productivity-focus-card">
+            <span>{item.label}</span>
+            <div className="farol-productivity-result-row"><strong>{formatCurrency(item.value)}</strong><small>{item.note}</small></div>
+          </article>
+        ))}
+      </div>
+      <div className="farol-productivity-sections" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
+        <div className="farol-productivity-section">
+          <div className="farol-productivity-section-head"><h3>Valores por categoria</h3><span>{formatCurrency(selectedTotal)}</span></div>
+          <div className="farol-productivity-table-wrap">
+            <table className="farol-productivity-table">
+              <thead><tr><th>Categoria</th><th>Tipo</th><th>Descrição</th><th>Valor total</th></tr></thead>
+              <tbody>{filteredRows.map((row) => <tr key={row.code}><th scope="row">{row.category}</th><td>{row.code}</td><td>{row.description}</td><td><strong>{formatCurrency(row.total)}</strong></td></tr>)}</tbody>
+            </table>
+            {!filteredRows.length && <p className="farol-productivity-empty">Selecione ao menos uma categoria para visualizar as O.S abertas.</p>}
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
