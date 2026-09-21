@@ -1376,14 +1376,6 @@ export default function FarolGerencialPage() {
           </div>}
         </section>
 
-        <section className="panel farol-table-panel" data-farol-pdf-report="open-orders">
-          <div className="panel-head farol-report-head tone-productivity">
-            <div><div className="farol-report-title-row"><h2 className="panel-title">O.S Abertas</h2><DataStatusTag status={reportStatus(Boolean(openServiceOrderSnapshots[selectedMonth]?.length))} /></div><p className="comment">Valores das ordens de serviço abertas, agrupados pelas categorias selecionadas.</p></div>
-            <span className="tag">{monthLabel(selectedMonth)}</span>
-          </div>
-          <OpenServiceOrdersReport selectedMonth={selectedMonth} />
-        </section>
-
         <section className="panel farol-table-panel" data-farol-pdf-report="counter">
           <div className="panel-head farol-report-head tone-counter">
             <div><div className="farol-report-title-row"><h2 className="panel-title">Balcão de Peças</h2><button data-html2canvas-ignore="true" data-pdf-hide="true" type="button" className={`farol-report-add farol-report-refresh ${refreshingBalcao ? "is-loading" : ""}`} onClick={refreshBalcaoReport} disabled={refreshingBalcao} aria-label="Atualizar dados do Balcão de Peças" title="Buscar os lançamentos mais recentes da página Balcão">↻</button></div><p className="comment">Indicadores espelhados do módulo Balcão para {monthLabel(selectedMonth)}.</p></div>
@@ -1465,6 +1457,14 @@ export default function FarolGerencialPage() {
             })}
           </div>
           <div className="farol-channel-footer"><span>Total da loja <strong>{formatCurrency(channelRows.reduce((sum, item) => sum + item.total, 0))}</strong></span><span>Faturamento por dia útil <strong>{formatCurrency(monthSummary.passedDays ? channelRows.reduce((sum, item) => sum + item.total, 0) / monthSummary.passedDays : 0)}</strong></span></div>
+        </section>
+
+        <section className="panel farol-table-panel" data-farol-pdf-report="open-orders">
+          <div className="panel-head farol-report-head tone-productivity">
+            <div><div className="farol-report-title-row"><h2 className="panel-title">O.S Abertas</h2><DataStatusTag status={reportStatus(Boolean(openServiceOrderSnapshots[selectedMonth]?.length))} /></div><p className="comment">Valores das ordens de serviço abertas, agrupados pelas categorias selecionadas.</p></div>
+            <span className="tag">{monthLabel(selectedMonth)}</span>
+          </div>
+          <OpenServiceOrdersReport selectedMonth={selectedMonth} />
         </section>
 
         <section className="panel farol-table-panel" data-farol-pdf-report="productivity">
