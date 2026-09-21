@@ -88,7 +88,7 @@ type BalcaoSummary = {
   destinations: Array<{ state: string; total: number; pf: number; pj: number }>;
 };
 
-type FarolPdfReportKey = "goals" | "daily" | "counter" | "revenue" | "gross-profit" | "channels" | "productivity" | "consultants";
+type FarolPdfReportKey = "goals" | "daily" | "counter" | "revenue" | "gross-profit" | "channels" | "productivity" | "consultants" | "service-ranking";
 type FarolDataStatus = "Parcial" | "Fechado" | "Sem fechamento" | "Sem base";
 
 const farolPdfReports: Array<{ key: FarolPdfReportKey; label: string }> = [
@@ -100,6 +100,7 @@ const farolPdfReports: Array<{ key: FarolPdfReportKey; label: string }> = [
   { key: "channels", label: "Faturamento por Canal" },
   { key: "productivity", label: "Produtividade e TKM de Serviços" },
   { key: "consultants", label: "Resultados por Consultor" },
+  { key: "service-ranking", label: "Ranking de Serviços" },
 ];
 
 const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
@@ -1457,6 +1458,14 @@ export default function FarolGerencialPage() {
           <ConsultantServiceReport selectedMonth={selectedMonth} />
         </section>
 
+        <section className="panel farol-table-panel" data-farol-pdf-report="service-ranking">
+          <div className="panel-head farol-report-head tone-consultant">
+            <div><div className="farol-report-title-row"><h2 className="panel-title">Ranking de Serviços</h2><DataStatusTag status={reportStatus(Boolean(consultantServicePerformance[selectedMonth]?.length))} /></div><p className="comment">Soma os serviços de Eliane e Rosangela, consolidando cada TMO em um único resultado.</p></div>
+            <span className="tag">{monthLabel(selectedMonth)}</span>
+          </div>
+          <ServiceRankingReport selectedMonth={selectedMonth} />
+        </section>
+
         {pdfSelectorOpen && (
           <div className="farol-report-modal-backdrop" role="presentation" onClick={() => !pdfLoading && setPdfSelectorOpen(false)}>
             <section className="farol-report-modal farol-pdf-selector-modal" role="dialog" aria-modal="true" aria-labelledby="farol-pdf-selector-title" onClick={(event) => event.stopPropagation()}>
@@ -1654,6 +1663,55 @@ function ConsultantServiceReport({ selectedMonth }: { selectedMonth: string }) {
             </div>
           </article>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function ServiceRankingReport({ selectedMonth }: { selectedMonth: string }) {
+  const [sortBy, setSortBy] = useState<"alphabetical" | "quantity" | "tkm">("alphabetical");
+  const consultants = (consultantServicePerformance[selectedMonth] ?? []).filter((consultant) => consultant.id === "295" || consultant.id === "1395");
+  const revisions = consultants.reduce((total, consultant) => total + consultant.revisions, 0);
+  const revisionSales = consultants.reduce((total, consultant) => total + consultant.revisionSales, 0);
+  const additionalSales = consultants.reduce((total, consultant) => total + consultant.additionalSales, 0);
+  const beautySales = consultants.reduce((total, consultant) => total + consultant.beautySales, 0);
+  const tkm = (value: number, quantity: number) => quantity ? value / quantity : 0;
+  const consolidatedServices = Array.from(consultants.flatMap((consultant) => consultant.details).reduce((services, service) => {
+    const key = `${service.category}-${service.tmo}`;
+    const current = services.get(key);
+    services.set(key, current ? { ...current, quantity: current.quantity + service.quantity, amount: current.amount + service.amount } : { ...service });
+    return services;
+  }, new Map<string, ConsultantServiceDetail>()).values()).sort((left, right) => {
+    if (sortBy === "quantity") return right.quantity - left.quantity || right.amount - left.amount;
+    if (sortBy === "tkm") return tkm(right.amount, right.quantity) - tkm(left.amount, left.quantity) || right.quantity - left.quantity;
+    return left.service.localeCompare(right.service, "pt-BR", { sensitivity: "base" }) || left.tmo.localeCompare(right.tmo, "pt-BR");
+  });
+
+  if (!consultants.length) return <p className="farol-productivity-empty">Ainda não há resultados de Eliane e Rosangela para este mês.</p>;
+
+  return (
+    <div className="farol-consultant-report">
+      <div className="farol-consultant-view-options" role="group" aria-label="Ordenar ranking de serviços">
+        <div className="farol-consultant-view-label"><span>Ordenar serviços:</span></div>
+        <div className="farol-consultant-view-buttons">
+          <button type="button" aria-pressed={sortBy === "alphabetical"} className={sortBy === "alphabetical" ? "active" : ""} onClick={() => setSortBy("alphabetical")}>A–Z</button>
+          <button type="button" aria-pressed={sortBy === "quantity"} className={sortBy === "quantity" ? "active" : ""} onClick={() => setSortBy("quantity")} title="Ordena pela quantidade vendida">+ Vendidos</button>
+          <button type="button" aria-pressed={sortBy === "tkm"} className={sortBy === "tkm" ? "active" : ""} onClick={() => setSortBy("tkm")}>TKM</button>
+        </div>
+      </div>
+      <div className="farol-consultant-report-grid" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
+        <article className="farol-consultant-report-card">
+          <header><div><span>Eliane + Rosangela</span><h3>Ranking consolidado</h3></div><strong>{revisions} revisões</strong></header>
+          <div className="farol-consultant-summary">
+            <div><span>Revisões</span><strong>{formatCurrency(revisionSales)}</strong><small>{revisions} recebidas</small></div>
+            <div><span>Serviços adicionais</span><strong>{formatCurrency(additionalSales)}</strong><small>TKM {formatCurrency(tkm(additionalSales, revisions))}</small></div>
+            <div><span>Embelezamento</span><strong>{formatCurrency(beautySales)}</strong><small>TKM {formatCurrency(tkm(beautySales, revisions))}</small></div>
+          </div>
+          <div className="farol-consultant-services">
+            <div className="farol-consultant-services-head"><span>Ranking de serviços</span><div><small>Quant.</small><small>Vendas</small><small>TKM</small></div></div>
+            {consolidatedServices.map((service) => <div key={`${service.category}-${service.tmo}`} className="farol-consultant-service-row"><span className={service.category === "Adicionais" ? "is-additional" : "is-beauty"}>{service.tmo}</span><strong>{service.service}</strong><b>{service.quantity}</b><em>{formatCurrency(service.amount)}</em><i>{formatCurrency(tkm(service.amount, service.quantity))}</i></div>)}
+          </div>
+        </article>
       </div>
     </div>
   );
