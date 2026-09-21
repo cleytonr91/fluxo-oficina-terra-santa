@@ -1877,9 +1877,9 @@ function GrossProfitChart({ items, lastUpdated }: { items: GrossProfitMonth[]; l
   return (
     <div className="farol-lb-chart" aria-label="Lucro bruto planejado, realizado e margem bruta por mês">
       <div className="farol-lb-legend">
+        <span><i className="previous" />Realizado AA</span>
         <span><i className="planned" />Planejado</span>
         <span><i className="realized" />Realizado</span>
-        <span><i className="previous" />Realizado AA</span>
         <span><i className="margin" />MB %</span>
         <small className="farol-revenue-last-update">Última atualização: {formatUpdatedAt(lastUpdated)}</small>
       </div>
@@ -1887,9 +1887,9 @@ function GrossProfitChart({ items, lastUpdated }: { items: GrossProfitMonth[]; l
         {items.map((item) => (
           <div key={item.month} className="farol-lb-month">
             <div className="farol-lb-columns">
+              <i className="previous" title={`Realizado AA: ${formatCurrency(item.previousYear)}`} style={{ height: `${Math.max(8, (item.previousYear / max) * 100)}%` }} />
               <i className="planned" title={`Planejado: ${formatCurrency(item.planned)}`} style={{ height: `${Math.max(8, (item.planned / max) * 100)}%` }} />
               <i className="realized" title={`Realizado: ${formatCurrency(item.realized)}`} style={{ height: `${Math.max(8, (item.realized / max) * 100)}%` }} />
-              <i className="previous" title={`Realizado AA: ${formatCurrency(item.previousYear)}`} style={{ height: `${Math.max(8, (item.previousYear / max) * 100)}%` }} />
             </div>
             <strong>{item.label}</strong>
             <span>{formatPercent((item.realized / item.planned) * 100)}</span>
