@@ -38,6 +38,7 @@ type OpenServiceOrder = {
   nature: "I" | "E" | "G";
   category: OpenServiceOrderCategory;
   total: number;
+  quantity: number;
 };
 
 type ProductivityMetric = {
@@ -322,24 +323,24 @@ const channelDefinitions: Array<Omit<ChannelRevenue, "total">> = [
 
 const openServiceOrderSnapshots: Record<string, OpenServiceOrder[]> = {
   "2026-09": [
-    { code: "A2", description: "Acessório showroom", nature: "E", category: "Acessórios", total: 14555.01 },
-    { code: "AC", description: "Acessórios cortesia", nature: "E", category: "Acessórios", total: 24199.68 },
-    { code: "DC", description: "Débito cortesia", nature: "I", category: "Interna", total: 14005.99 },
-    { code: "DI", description: "Débito interno", nature: "I", category: "Interna", total: 24586.61 },
-    { code: "DS", description: "Débito seminovos", nature: "I", category: "Interna", total: 0 },
-    { code: "E1", description: "Revisão de entrega", nature: "I", category: "Interna", total: 200 },
-    { code: "EC", description: "Embelezamento cortesia", nature: "E", category: "Interna", total: 34579.56 },
-    { code: "EN", description: "Embelezamento novos", nature: "E", category: "Embelezamento", total: 60 },
-    { code: "EO", description: "Embelezamento oficina", nature: "E", category: "Embelezamento", total: 5425.39 },
-    { code: "ES", description: "Embelezamento seminovos", nature: "E", category: "Embelezamento", total: 200 },
-    { code: "S2", description: "Funilaria e pintura", nature: "E", category: "Funilaria", total: 59737.1 },
-    { code: "V2", description: "Garantia", nature: "G", category: "Garantia", total: 29464.24 },
-    { code: "V3", description: "1ª revisão gratuita de 10.000 km", nature: "G", category: "Revisão", total: 1336.23 },
-    { code: "V4", description: "2ª revisão gratuita de 20.000 km", nature: "G", category: "Revisão", total: 150.73 },
-    { code: "V5", description: "Revisão periódica HMB", nature: "E", category: "Revisão", total: 56189.22 },
-    { code: "V6", description: "Expresso", nature: "E", category: "Outros", total: 8496.79 },
-    { code: "V7", description: "Recall", nature: "G", category: "Garantia", total: 931.53 },
-    { code: "V8", description: "Campanha", nature: "G", category: "Garantia", total: 1985.61 },
+    { code: "A2", description: "Acessório showroom", nature: "E", category: "Acessórios", total: 7425, quantity: 2 },
+    { code: "AC", description: "Acessórios cortesia", nature: "E", category: "Acessórios", total: 24199.68, quantity: 19 },
+    { code: "DC", description: "Débito cortesia", nature: "I", category: "Interna", total: 14217.55, quantity: 31 },
+    { code: "DI", description: "Débito interno", nature: "I", category: "Interna", total: 24679.11, quantity: 26 },
+    { code: "DS", description: "Débito seminovos", nature: "I", category: "Interna", total: 0, quantity: 2 },
+    { code: "E1", description: "Revisão de entrega", nature: "I", category: "Interna", total: 200, quantity: 2 },
+    { code: "EC", description: "Embelezamento cortesia", nature: "E", category: "Interna", total: 34779.56, quantity: 112 },
+    { code: "EN", description: "Embelezamento novos", nature: "E", category: "Embelezamento", total: 1000, quantity: 1 },
+    { code: "EO", description: "Embelezamento oficina", nature: "E", category: "Embelezamento", total: 2050, quantity: 19 },
+    { code: "ES", description: "Embelezamento seminovos", nature: "E", category: "Embelezamento", total: 200, quantity: 1 },
+    { code: "S2", description: "Funilaria e pintura", nature: "E", category: "Funilaria", total: 60937.1, quantity: 12 },
+    { code: "V2", description: "Garantia", nature: "G", category: "Garantia", total: 19873.57, quantity: 20 },
+    { code: "V3", description: "1ª revisão gratuita de 10.000 km", nature: "G", category: "Revisão", total: 1908.9, quantity: 15 },
+    { code: "V4", description: "2ª revisão gratuita de 20.000 km", nature: "G", category: "Revisão", total: 150.73, quantity: 12 },
+    { code: "V5", description: "Revisão periódica HMB", nature: "E", category: "Revisão", total: 43054.28, quantity: 144 },
+    { code: "V6", description: "Expresso", nature: "E", category: "Outros", total: 7157.93, quantity: 111 },
+    { code: "V7", description: "Recall", nature: "G", category: "Garantia", total: 1032.94, quantity: 60 },
+    { code: "V8", description: "Campanha", nature: "G", category: "Garantia", total: 2341.69, quantity: 15 },
   ],
 };
 
@@ -497,25 +498,26 @@ const consultantServicePerformance: Record<string, ConsultantServicePerformance[
     {
       id: "1395",
       name: "Rosangela Soares",
-      revisions: 68,
+      revisions: 88,
       revisionSales: 26948.58,
-      additionalSales: 13248.98,
-      beautySales: 12212.98,
+      additionalSales: 17683.98,
+      beautySales: 15883.71,
       details: [
-        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 21, amount: 4425.48 },
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 27, amount: 5512.48 },
+        { category: "Adicionais", tmo: "DIE-HMB", service: "Descarbonização", quantity: 1, amount: 400 },
         { category: "Adicionais", tmo: "FF-HMB", service: "Substituição e limpeza do fluido de freio", quantity: 5, amount: 1273 },
-        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 24, amount: 3540 },
-        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 16, amount: 1459 },
-        { category: "Adicionais", tmo: "LIE-HMB", service: "Limpeza de injeção eletrônica", quantity: 3, amount: 1300 },
+        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 33, amount: 4550 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 23, amount: 2159 },
+        { category: "Adicionais", tmo: "LIE-HMB", service: "Limpeza de injeção eletrônica", quantity: 4, amount: 1750 },
         { category: "Adicionais", tmo: "LL-HMB", service: "Limpeza e lubrificação das lonas de freio", quantity: 1, amount: 280 },
         { category: "Adicionais", tmo: "PFD-HMB", service: "Substituição das pastilhas de freio dianteiras", quantity: 2, amount: 392.5 },
-        { category: "Adicionais", tmo: "SC-HMB", service: "Substituição das correias", quantity: 2, amount: 379 },
-        { category: "Adicionais", tmo: "SV-HMB", service: "Substituição das velas", quantity: 1, amount: 200 },
+        { category: "Adicionais", tmo: "SC-HMB", service: "Substituição das correias", quantity: 3, amount: 578 },
+        { category: "Adicionais", tmo: "SV-HMB", service: "Substituição das velas", quantity: 4, amount: 789 },
         { category: "Embelezamento", tmo: "CC-HMB-PTPBG35", service: "Película térmica para-brisa G35", quantity: 1, amount: 450 },
-        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 41, amount: 6270 },
-        { category: "Embelezamento", tmo: "EST03", service: "Lavagem dos bancos", quantity: 2, amount: 750 },
-        { category: "Embelezamento", tmo: "EST05", service: "Lavagem dos bancos e hidratação", quantity: 8, amount: 2410 },
-        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 15, amount: 1182.97 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 56, amount: 8440.12 },
+        { category: "Embelezamento", tmo: "EST03", service: "Lavagem dos bancos", quantity: 3, amount: 1074.38 },
+        { category: "Embelezamento", tmo: "EST05", service: "Lavagem dos bancos e hidratação", quantity: 11, amount: 3360 },
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 17, amount: 1409.2 },
         { category: "Embelezamento", tmo: "EST19", service: "Proteção de pintura", quantity: 2, amount: 1150 },
         { category: "Embelezamento", tmo: "REQ", service: "Requisição - mão de obra gratuita", quantity: 1, amount: 0.01 },
       ],
@@ -1679,7 +1681,9 @@ function OpenServiceOrdersReport({ selectedMonth }: { selectedMonth: string }) {
   const total = rows.reduce((sum, row) => sum + row.total, 0);
   const filteredRows = rows.filter((row) => selectedCategories.includes(row.category)).sort((left, right) => openServiceOrderCategories.indexOf(left.category) - openServiceOrderCategories.indexOf(right.category) || left.code.localeCompare(right.code, "pt-BR"));
   const selectedTotal = filteredRows.reduce((sum, row) => sum + row.total, 0);
+  const selectedQuantity = filteredRows.reduce((sum, row) => sum + row.quantity, 0);
   const categoryTotal = (category: OpenServiceOrderCategory) => rows.filter((row) => row.category === category).reduce((sum, row) => sum + row.total, 0);
+  const categoryQuantity = (category: OpenServiceOrderCategory) => rows.filter((row) => row.category === category).reduce((sum, row) => sum + row.quantity, 0);
 
   if (!rows.length) return <p className="farol-productivity-empty">Ainda não há dados de O.S abertas para este mês.</p>;
 
@@ -1694,8 +1698,8 @@ function OpenServiceOrdersReport({ selectedMonth }: { selectedMonth: string }) {
       </div>
       <div className="farol-productivity-grid farol-productivity-focus">
         {[
-          { label: "Total selecionado", value: selectedTotal, note: `${filteredRows.length} de ${rows.length} tipos` },
-          ...selectedCategories.map((category) => ({ label: category, value: categoryTotal(category), note: `${formatPercent(total ? (categoryTotal(category) / total) * 100 : 0)} do total geral` })),
+          { label: "Total selecionado", value: selectedTotal, note: `${selectedQuantity} O.S. em ${filteredRows.length} de ${rows.length} tipos` },
+          ...selectedCategories.map((category) => ({ label: category, value: categoryTotal(category), note: `${categoryQuantity(category)} O.S. • ${formatPercent(total ? (categoryTotal(category) / total) * 100 : 0)} do valor total` })),
         ].map((item) => (
           <article key={item.label} className="farol-productivity-card farol-productivity-focus-card">
             <span>{item.label}</span>
@@ -1705,11 +1709,11 @@ function OpenServiceOrdersReport({ selectedMonth }: { selectedMonth: string }) {
       </div>
       <div className="farol-productivity-sections" style={{ gridTemplateColumns: "minmax(0, 1fr)" }}>
         <div className="farol-productivity-section">
-          <div className="farol-productivity-section-head"><h3>Valores por categoria</h3><span>{formatCurrency(selectedTotal)}</span></div>
+          <div className="farol-productivity-section-head"><h3>Valores por categoria</h3><span>{selectedQuantity} O.S. • {formatCurrency(selectedTotal)}</span></div>
           <div className="farol-productivity-table-wrap">
             <table className="farol-productivity-table">
-              <thead><tr><th>Categoria</th><th>Tipo</th><th>Descrição</th><th>Valor total</th></tr></thead>
-              <tbody>{filteredRows.map((row) => <tr key={row.code}><th scope="row">{row.category}</th><td>{row.code}</td><td>{row.description}</td><td><strong>{formatCurrency(row.total)}</strong></td></tr>)}</tbody>
+              <thead><tr><th>Categoria</th><th>Tipo</th><th>Descrição</th><th>Qtd. acumulada</th><th>Valor total</th></tr></thead>
+              <tbody>{filteredRows.map((row) => <tr key={row.code}><th scope="row">{row.category}</th><td>{row.code}</td><td>{row.description}</td><td><strong>{row.quantity.toLocaleString("pt-BR")}</strong></td><td><strong>{formatCurrency(row.total)}</strong></td></tr>)}</tbody>
             </table>
             {!filteredRows.length && <p className="farol-productivity-empty">Selecione ao menos uma categoria para visualizar as O.S abertas.</p>}
           </div>
