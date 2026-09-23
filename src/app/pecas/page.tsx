@@ -4,7 +4,7 @@ import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
 import { invalidatePartsCatalogCache, PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
-import { createStandalonePartOrder, ensurePartOrderTracking, listArchivedPartOrders, replaceHyundaiPartsCatalog, subscribeActivePartOrders, subscribePartOrders, subscribeVehicleFlowsByIds, updatePartOrder } from "@/services/firestore";
+import { createStandalonePartOrder, ensurePartOrderTracking, listArchivedPartOrders, replaceHyundaiPartsCatalog, subscribeActivePartOrders, subscribeVehicleFlowsByIds, updatePartOrder } from "@/services/firestore";
 import { parseHyundaiPartsCatalog } from "@/lib/hyundai-parts-catalog";
 import type { PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
@@ -416,34 +416,35 @@ export default function PecasPage() {
   }
 
   useEffect(() => {
-    if (!profile) return undefined;
+    if (!profile?.id) return undefined;
     let disposed = false;
     let unsubscribe: () => void = () => undefined;
     const onError = (currentError: Error) => {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar pedidos de peças.");
     };
 
-    void ensurePartOrderTracking(profile.role === "admin").then((optimized) => {
+    // Opening this page must never migrate orders or fall back to an unfiltered listener.
+    void ensurePartOrderTracking(false).then((optimized) => {
       if (disposed) return;
+      if (!optimized) {
+        throw new Error("A consulta de pedidos precisa de manutenção. Solicite ao administrador a conclusão da organização dos pedidos.");
+      }
       setTrackingOptimized(optimized);
-      unsubscribe = (optimized ? subscribeActivePartOrders : subscribePartOrders)((items) => {
+      unsubscribe = subscribeActivePartOrders((items) => {
         setOrders(items);
         setError("");
       }, onError);
-    }).catch(() => {
+    }).catch((currentError: unknown) => {
       if (disposed) return;
       setTrackingOptimized(false);
-      unsubscribe = subscribePartOrders((items) => {
-        setOrders(items);
-        setError("");
-      }, onError);
+      onError(currentError instanceof Error ? currentError : new Error("Não foi possível carregar pedidos de peças. Tente novamente mais tarde."));
     });
 
     return () => {
       disposed = true;
       unsubscribe();
     };
-  }, [profile]);
+  }, [profile?.id]);
 
   const loadedOrders = useMemo(() => {
     const unique = new Map<string, PartOrder>();
