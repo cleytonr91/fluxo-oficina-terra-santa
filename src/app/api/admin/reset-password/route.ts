@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getFirebaseAdminAuth, getFirebaseAdminDb } from "@/lib/firebase/admin";
+import { LIMITED_OPERATION } from "@/lib/limited-operation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (LIMITED_OPERATION) return NextResponse.json({ error: "Administração temporariamente suspensa." }, { status: 503 });
   try {
     const authorization = request.headers.get("authorization");
     if (!authorization?.startsWith("Bearer ")) return NextResponse.json({ error: "Não autorizado." }, { status: 401 });

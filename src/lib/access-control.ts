@@ -1,4 +1,5 @@
 import type { UserRole } from "@/types/domain";
+import { LIMITED_OPERATION, isOperationalPathEnabled } from "@/lib/limited-operation";
 
 export const roleOptions: Array<{ value: UserRole; label: string }> = [
   { value: "admin", label: "Administrador" },
@@ -41,17 +42,19 @@ export const pageOptions = [
 ] as const;
 
 export function allowedPathsForRole(role?: UserRole, customPaths?: string[]) {
-  return customPaths ?? (role ? rolePaths[role] ?? [] : []);
+  return (customPaths ?? (role ? rolePaths[role] ?? [] : [])).filter(isOperationalPathEnabled);
 }
 
 export function canAccessPath(role: UserRole | undefined, pathname: string, customPaths?: string[]) {
   if (!role) return false;
   if (pathname === "/") return role === "admin" || role === "gerente";
+  if (LIMITED_OPERATION && pathname === "/operacao-limitada") return true;
+  if (!isOperationalPathEnabled(pathname)) return false;
   return allowedPathsForRole(role, customPaths).some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 
 export function defaultPathForRole(role?: UserRole, customPaths?: string[]) {
-  return allowedPathsForRole(role, customPaths)[0] ?? "/login";
+  return allowedPathsForRole(role, customPaths)[0] ?? (role && LIMITED_OPERATION ? "/operacao-limitada" : "/login");
 }
 
 export function roleLabel(role?: UserRole) {

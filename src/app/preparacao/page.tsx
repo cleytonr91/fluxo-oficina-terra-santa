@@ -5,8 +5,8 @@ import { PreparationImport } from "@/components/preparation-import";
 export default function PreparacaoPage() {
   return (
     <ProtectedPage
-      title="Preparação do Dia Seguinte"
-      subtitle="Importar agenda, conferir serviços e preparar a atuação da oficina antes da recepção."
+      title="Preparação"
+      subtitle="Agenda e inclusão de veículos no fluxo."
     >
       <PreparationImport />
     </ProtectedPage>

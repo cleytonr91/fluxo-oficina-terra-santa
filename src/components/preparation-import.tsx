@@ -1,6 +1,8 @@
 "use client";
 
-import { ChangeEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LIMITED_OPERATION } from "@/lib/limited-operation";
+import { saveBasicPreparedVehicle } from "@/services/basic-preparation";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
 import { findVehicleFlowConflict, savePreparedVehicle, subscribePartOrdersByStatuses, subscribeVehicleFlowsByIds, subscribeVehicleFlowsForPreparation } from "@/services/firestore";
@@ -266,13 +268,15 @@ export function PreparationImport() {
   const [preparationVehicles, setPreparationVehicles] = useState<VehicleFlow[]>([]);
   const [orderVehicles, setOrderVehicles] = useState<VehicleFlow[]>([]);
   const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
+  const savingLock = useRef(false);
 
   useEffect(() => {
-    if (!selectedDate) return undefined;
+    if (LIMITED_OPERATION || !selectedDate) return undefined;
     return subscribeVehicleFlowsForPreparation(selectedDate, setPreparationVehicles);
   }, [selectedDate]);
 
   useEffect(() => {
+    if (LIMITED_OPERATION) return;
     return subscribePartOrdersByStatuses(openPartOrderStatuses, setPartOrders, () => undefined);
   }, []);
 
@@ -283,6 +287,7 @@ export function PreparationImport() {
   const partOrderVehicleIdsKey = partOrderVehicleIds.join("|");
 
   useEffect(() => {
+    if (LIMITED_OPERATION) return;
     return subscribeVehicleFlowsByIds(partOrderVehicleIds, setOrderVehicles, () => undefined);
   }, [partOrderVehicleIdsKey]);
 
@@ -441,21 +446,36 @@ export function PreparationImport() {
   }
 
   async function confirmAppointment(item: Appointment) {
+    if (savingLock.current || item.confirmed) return;
     if (!dateConfirmed || !selectedDate) {
       window.alert("Confirme a data que será preparada antes de confirmar o veículo.");
       return;
     }
 
-    if (item.technician === "Definir") {
+    if (!LIMITED_OPERATION && item.technician === "Definir") {
       window.alert("Defina o técnico antes de confirmar a preparação.");
       return;
     }
 
+    savingLock.current = true;
     setSavingId(item.id);
     localStorage.setItem("prepSession", state.fileName || "agenda-importada");
     localStorage.setItem("selectedFlowDate", selectedDate);
 
     try {
+      if (LIMITED_OPERATION) {
+        await saveBasicPreparedVehicle({
+          id: item.id, client: item.client, plate: normalizeIdentifier(item.plate),
+          chassi: normalizeIdentifier(item.chassi), model: item.model,
+          eventId: item.eventId, phone: item.phone, service: item.service,
+          consultant: item.consultant, technician: item.technician === "Definir" ? "" : item.technician,
+          appointmentDate: item.date || selectedDate, appointmentTime: item.time,
+          importedNote: item.note, sourceFileName: state.fileName,
+          importedBy: profile?.name ?? user?.email ?? user?.uid ?? "",
+        });
+        updateAppointment(item.id, { confirmed: true });
+        return;
+      }
       const conflict = await findVehicleFlowConflict({
         plate: item.plate,
         chassi: item.chassi,
@@ -498,9 +518,34 @@ export function PreparationImport() {
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "Não foi possível confirmar a preparação no Firestore.");
     } finally {
+      savingLock.current = false;
       setSavingId("");
     }
   }
+
+  if (LIMITED_OPERATION) return (
+    <main className="page-wrap stack">
+      <section className="panel">
+        <div className="panel-head"><h2 className="panel-title">Adicionar veículos ao fluxo</h2></div>
+        <div className="panel-body stack">
+          <label className="field"><span>Agenda (.xls ou .xlsx)</span><input type="file" accept=".xls,.xlsx" disabled={Boolean(savingId)} onChange={handleFile} /></label>
+          {state.error && <p role="alert" className="import-error">{state.error}</p>}
+          <label className="field"><span>Data da preparação</span><input type="date" value={selectedDate} disabled={Boolean(savingId)} onChange={(event) => { setSelectedDate(event.target.value); setDateConfirmed(false); }} /></label>
+          <button type="button" className="primary-btn fit-btn" disabled={!selectedDate || Boolean(savingId)} onClick={() => setDateConfirmed(true)}>{dateConfirmed ? "Data confirmada" : "Confirmar data"}</button>
+          <strong>{appointmentsForDate.length} agendamento(s) no arquivo para esta data</strong>
+        </div>
+      </section>
+      {appointmentsForDate.map((item) => (
+        <section className="panel" key={item.id}>
+          <div className="panel-body toolbar-grid">
+            <div><strong>{item.client}</strong><p>{item.model} · {displayIdentifier(item.plate)} · {item.time}</p><p>{item.service} · {item.consultant}</p></div>
+            <label className="field"><span>Técnico</span><select value={item.technician} disabled={item.confirmed || Boolean(savingId)} onChange={(event) => updateAppointment(item.id, { technician: event.target.value })}>{technicians.map((name) => <option key={name}>{name}</option>)}</select></label>
+            <button type="button" className="primary-btn" disabled={!dateConfirmed || item.confirmed || Boolean(savingId)} onClick={() => confirmAppointment(item)}>{item.confirmed ? "Adicionado ao fluxo" : savingId === item.id ? "Adicionando..." : "Adicionar ao fluxo"}</button>
+          </div>
+        </section>
+      ))}
+    </main>
+  );
 
   return (
     <main className="prep-page">
