@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getFirebaseAdminAuth, getFirebaseAdminDb } from "@/lib/firebase/admin";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     const authorization = request.headers.get("authorization");
@@ -14,6 +17,7 @@ export async function POST(request: Request) {
     await getFirebaseAdminDb().collection("users").doc(userId).set({ mustChangePassword: true, updatedAt: new Date() }, { merge: true });
     return NextResponse.json({ ok: true });
   } catch (error) {
+    console.error("[admin/reset-password] failed", error);
     return NextResponse.json({ error: error instanceof Error ? error.message : "Não foi possível resetar a senha." }, { status: 500 });
   }
 }

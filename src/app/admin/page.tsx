@@ -44,7 +44,13 @@ export default function AdminPage() {
       const token = await getFirebaseAuth().currentUser?.getIdToken();
       if (!token) throw new Error("Sua sessão expirou. Entre novamente.");
       const response = await fetch("/api/admin/reset-password", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ userId: user.id }) });
-      const result = await response.json();
+      const responseText = await response.text();
+      let result: { error?: string } = {};
+      try {
+        result = responseText ? JSON.parse(responseText) as { error?: string } : {};
+      } catch {
+        throw new Error("O servidor não conseguiu processar o reset. Tente novamente em alguns instantes.");
+      }
       if (!response.ok) throw new Error(result.error ?? "Não foi possível resetar a senha.");
       setMessage(`Senha de ${user.name} redefinida para 123456. No próximo acesso, o usuário deverá criar uma nova senha.`);
     } catch (currentError) {
