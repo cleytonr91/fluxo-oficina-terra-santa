@@ -9,6 +9,19 @@ function load(file, mocks={}) {
   return mod.exports;
 }
 const domain=load('src/lib/basic-flow.ts');
+test('scheduled column only includes today, without hiding vehicles already in service',()=>{
+ const today='2026-09-25';
+ for(const date of ['2026-09-24','2026-09-26','',undefined]) {
+  assert.equal(domain.isCurrentDayAppointment({currentLane:'preparacao_confirmada',appointmentDate:date},today),false);
+ }
+ assert.equal(domain.isCurrentDayAppointment({currentLane:'preparacao_confirmada',appointmentDate:today},today),true);
+ assert.equal(domain.isCurrentDayAppointment({currentLane:'preparacao_confirmada',appointmentDate:'2026-09-24',noShow:true},today),false);
+ for(const lane of ['aguardando_servico','em_servico','lavagem','preparacao_entrega']) {
+  assert.equal(domain.isCurrentDayAppointment({currentLane:lane,appointmentDate:'2026-09-24'},today),true);
+ }
+ assert.equal(domain.localDay(new Date('2026-09-26T02:59:00Z')),today);
+ assert.equal(domain.localDay(new Date('2026-09-26T03:00:00Z')),'2026-09-26');
+});
 function setup(saved={status:'ativo',currentLane:'aguardando_servico',washType:'simples'}) {
   const writes=[],listeners=[];let reads=0;
   const service=load('src/services/basic-flow.ts',{

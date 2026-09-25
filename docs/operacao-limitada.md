@@ -32,6 +32,8 @@ Nenhum dado existente e apagado. Nao alterar o plano do Firebase.
 
 ## Impacto na cota
 
+Agendamento do Dia: exibe somente preparacao_confirmada com appointmentDate igual a hoje em America/Sao_Paulo, inclusive no subconjunto No-show. Sem data, anteriores e futuros nao entram nessa coluna nem nos contadores derivados. Veiculos ja recebidos nas outras etapas permanecem visiveis. Filtro local, sem exclusao/gravacao e sem alterar as duas consultas; nao reduz a carga inicial de ativos. A virada do dia usa o relogio local ja existente (ate um minuto), sem nova consulta.
+
 Restauracao visual (2026-09-25): reutiliza AppHeader e classes originais do quadro/chips. Contadores, pesquisa, filtros e barras de prazo usam apenas os dados em memoria. O relogio e a atualizacao visual dos prazos nao consultam o banco. Permanecem os mesmos dois listeners; nenhum servico, regra ou gravacao foi alterado nesta restauracao. O indicador de entregas usa deliveredAt, sem buscar eventos para inferir conclusoes. Acoes suspensas nao aparecem no cabecalho.
 
 - Abrir/importar arquivo/selecionar data na Preparacao: zero leituras de dados operacionais e zero gravacoes, fora a validacao normal do perfil no login.

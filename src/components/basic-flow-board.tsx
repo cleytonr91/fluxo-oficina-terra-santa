@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/context/auth-context";
-import { basicConsultants, basicLanes, basicTargets, basicTechnicians, canOperateBasic, localDay } from "@/lib/basic-flow";
+import { basicConsultants, basicLanes, basicTargets, basicTechnicians, canOperateBasic, isCurrentDayAppointment, localDay } from "@/lib/basic-flow";
 import { BasicMoveInput, moveBasicVehicle, subscribeBasicFlow } from "@/services/basic-flow";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
 import styles from "./basic-flow-board.module.css";
@@ -57,7 +57,9 @@ export function BasicFlowBoard() {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
     return () => window.clearInterval(timer);
   }, []);
+  const today = localDay(now);
   const filtered = vehicles.filter(v => {
+    if (!isCurrentDayAppointment(v, today)) return false;
     if (v.status === "ativo" && v.appointmentDate && v.appointmentDate > day) return false;
     if (consultant && v.consultantName !== consultant) return false;
     if (technicianFilter && v.technicianName !== technicianFilter) return false;
