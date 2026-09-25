@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "flowEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "vehicleFlowId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "appointments",
       "queryScope": "COLLECTION",
       "fields": [

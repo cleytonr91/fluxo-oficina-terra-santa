@@ -53,7 +53,7 @@ export async function moveBasicVehicle(input: BasicMoveInput) {
       if (!input.technician.trim()) throw new Error("Selecione o técnico responsável.");
       patch.technicianName = input.technician;
     }
-    if (input.to === "orcamento_complementar") patch.budgetStatus = "aguardando";
+    if (input.to === "orcamento_complementar" && input.from !== "lavagem") patch.budgetStatus = "aguardando";
     if (input.from === "orcamento_complementar") {
       if (!input.note.trim()) throw new Error("Registre a decisão do orçamento na observação.");
       Object.assign(patch, { budgetAuthorized: input.to === "aguardando_servico", budgetStatus: "realizado" });
@@ -63,7 +63,7 @@ export async function moveBasicVehicle(input: BasicMoveInput) {
       }
     }
     if (input.from === "em_servico" && input.to !== "orcamento_complementar") patch.serviceCompleted = true;
-    if (input.from === "lavagem") Object.assign(patch, { washDone: true, washingAdvanced: false });
+    if (input.from === "lavagem") Object.assign(patch, { washDone: true, washingAdvanced: false, advancedWashReturnLane: null });
     if (input.to === "entregue") {
       if (!current.technicianName) throw new Error("O chip precisa de técnico responsável antes da entrega.");
       Object.assign(patch, { status: "entregue", deliveredAt: serverTimestamp(), deliveredOnTime: input.onTime, hasPendingIssue: input.pending, futureNote: input.note });

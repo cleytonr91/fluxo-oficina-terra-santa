@@ -20,14 +20,15 @@ function normalize(value: string) {
     .trim();
 }
 
-async function getCatalog() {
+async function getCatalog(loader = loadHyundaiPartsCatalog) {
   if (catalogCache) return catalogCache;
-  catalogRequest ??= loadHyundaiPartsCatalog().then((items) => items.map((item) => ({
+  catalogRequest ??= loader().then((items) => items.map((item) => ({
     ...item,
     referenceSearch: normalize(item.reference),
     descriptionSearch: normalize(item.description),
   })));
-  catalogCache = await catalogRequest;
+  try { catalogCache = await catalogRequest; }
+  catch (error) { catalogRequest = null; throw error; }
   return catalogCache;
 }
 
@@ -41,23 +42,29 @@ export function PartCatalogFields({
   reference,
   description,
   onChange,
+  loadCatalog,
 }: {
   index: number;
   reference: string;
   description: string;
   onChange: (value: { partReference?: string; partDescription?: string; salePrice?: number }) => void;
+  loadCatalog?: () => Promise<HyundaiPartCatalogItem[]>;
 }) {
   const [catalog, setCatalog] = useState<SearchableCatalogItem[]>(catalogCache ?? []);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [catalogError, setCatalogError] = useState("");
   const query = useDeferredValue(normalize(searchText));
 
   async function ensureCatalog() {
     if (catalog.length || loading) return;
     setLoading(true);
     try {
-      setCatalog(await getCatalog());
+      setCatalogError("");
+      setCatalog(await getCatalog(loadCatalog));
+    } catch (error) {
+      setCatalogError(error instanceof Error ? error.message : "Catálogo indisponível. Preencha manualmente.");
     } finally {
       setLoading(false);
     }
@@ -112,7 +119,7 @@ export function PartCatalogFields({
 
       {open && query.length >= 2 && (
         <div className="catalog-suggestions" role="listbox" aria-label="Itens Hyundai encontrados">
-          {loading ? (
+          {catalogError ? <span className="catalog-message" role="alert">{catalogError}</span> : loading ? (
             <span className="catalog-message">Carregando catálogo...</span>
           ) : suggestions.length ? suggestions.map((item) => (
             <button key={item.reference} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => choose(item)}>

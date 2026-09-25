@@ -24,11 +24,13 @@ const {AppHeader}=load('src/components/app-header.tsx',{
 for(const modal of [false,true]){
  let state=0;const values=['2026-09-25',vehicles,'',true,true,'','',modal?vehicles[0]:null,modal?form:null,false,'','','todos',new Date('2026-09-25T13:00:00-03:00'),new Date('2026-09-25T13:00:00-03:00')];
  const {BasicFlowBoard}=load('src/components/basic-flow-board.tsx',{
+  'next/dynamic':{default:()=>()=>null},
   react:{...React,useState:()=>[values[state++],()=>{}]},
   'next/link':{default:({children,href})=>React.createElement('a',{href},children)},
   '@/context/auth-context':auth,'@/components/app-header':{AppHeader},
   '@/lib/access-control':{allowedPathsForRole:()=>['/preparacao','/fluxo','/pos-servico']},
   '@/lib/basic-flow':domain,'@/services/basic-flow':{},
+  '@/services/basic-walk-in':{canAddBasicWalkIn:()=>true},
   './basic-flow-board.module.css':{default:new Proxy({},{get:(_,key)=>key})}
  });
  const css=fs.readFileSync('src/app/globals.css','utf8').replace('@import "tailwindcss";','')
@@ -46,7 +48,7 @@ async function main(){
    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Page overflow: '+name+' '+kind);
    if(await page.locator('.flow-lane').count()!==8)throw Error('Expected the original eight lanes');
    if(await page.getByRole('button',{name:'Abrir menu de páginas'}).count()!==1)throw Error('Missing original menu');
-   if(await page.getByRole('button',{name:'+ Passante',exact:true}).count())throw Error('Disabled feature exposed');
+   if(await page.getByRole('button',{name:'+ Passante',exact:true}).count()!==1)throw Error('Missing restored walk-in button');
    if(await page.locator('.flow-metrics').count()!==1)throw Error('Missing original metrics');
    await page.screenshot({path:path.join(output,name+'-'+kind+'.png'),fullPage:true});
   }await page.close();

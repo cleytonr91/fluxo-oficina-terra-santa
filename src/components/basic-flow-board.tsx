@@ -1,12 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/context/auth-context";
 import { basicConsultants, basicLanes, basicTargets, basicTechnicians, canOperateBasic, isCurrentDayAppointment, localDay } from "@/lib/basic-flow";
 import { BasicMoveInput, moveBasicVehicle, subscribeBasicFlow } from "@/services/basic-flow";
+import { canAddBasicWalkIn } from "@/services/basic-walk-in";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
 import styles from "./basic-flow-board.module.css";
+
+const ChipDetailsModal = dynamic(() => import("@/components/chip-details-modal").then(module => module.ChipDetailsModal));
+const BasicWalkInModal = dynamic(() => import("@/components/basic-walk-in-modal").then(module => module.BasicWalkInModal));
 
 const washes: Record<WashType, string> = { nao: "Sem lavagem", simples: "Lavagem simples", motor: "Lavagem de motor", motor_bancos: "Motor + bancos" };
 function time(value: unknown) {
@@ -41,6 +46,8 @@ export function BasicFlowBoard() {
   const [metric, setMetric] = useState("todos");
   const [now, setNow] = useState(() => new Date());
   const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [detail, setDetail] = useState<{ vehicle: VehicleFlow; parts: boolean } | null>(null);
+  const [walkIn, setWalkIn] = useState(false);
   const lock = useRef(false);
   useEffect(() => {
     let alive = true;
@@ -108,7 +115,7 @@ export function BasicFlowBoard() {
     const progress = promise && received && promise > received ? Math.min(100, Math.max(0, (now.getTime() - received.getTime()) / (promise.getTime() - received.getTime()) * 100)) : 0;
     const days = received ? Math.max(0, Math.floor((now.getTime() - received.getTime()) / 86400000)) : "-";
     const canMove = canOperateBasic(profile?.role, vehicle.currentLane) && basicTargets(vehicle).length > 0;
-    return <article className={`chip flow-chip ${/diagn/i.test(vehicle.serviceLabel ?? "") ? "diagnostico" : /reparo/i.test(vehicle.serviceLabel ?? "") ? "reparo" : ""}`} key={vehicle.id}>
+    return <article className={`chip flow-chip ${/diagn/i.test(vehicle.serviceLabel ?? "") ? "diagnostico" : /reparo/i.test(vehicle.serviceLabel ?? "") ? "reparo" : ""}`} key={vehicle.id} tabIndex={0} aria-label={`Informações de ${vehicle.clientName}`} onDoubleClick={() => setDetail({ vehicle, parts: false })} onKeyDown={event => { if (event.key === "Enter" && event.target === event.currentTarget) setDetail({ vehicle, parts: false }); }}>
       <div className="chip-top"><div><h3 className="client">{vehicle.clientName || "Sem nome"}</h3><p className="model">{vehicle.model || "Modelo não informado"}</p></div><span className={`plate ${vehicle.customerWaits ? "wait-plate" : ""}`} title={vehicle.customerWaits ? "Cliente aguardando na loja" : "Placa"}>{vehicle.plate && vehicle.plate !== "null" ? vehicle.plate : "Sem placa"}</span></div>
       <div className="tag-row"><span className="tag">{vehicle.serviceLabel || "Serviço não informado"}</span>
         {vehicle.appointmentDate && vehicle.appointmentDate < day && <span className="tag previous-day">Dia anterior</span>}
@@ -119,15 +126,16 @@ export function BasicFlowBoard() {
         {vehicle.budgetAuthorized && <span className="tag good">ORÇ Complementar 👍</span>}
         {vehicle.vehicleImmobilized && <span className="tag bad">Imobilizado · {vehicle.immobilizationReason === "aguardando_pecas" ? "Aguardando Peças" : "Aguardando Decisão"}</span>}
         {vehicle.customerWaits && <span className="tag warn">Cliente aguarda</span>}
+        {vehicle.partsOrdered && <button type="button" className="tag" onDoubleClick={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setDetail({ vehicle, parts: true }); }}>Peças</button>}
       </div>
       <div className="chip-compact-details"><div><span>Consultor:</span> {vehicle.consultantName || "-"}</div><div><span>Técnico:</span> {vehicle.technicianName || "-"}</div><div><span>{vehicle.currentLane === "preparacao_confirmada" ? "Agenda:" : "Recebido:"}</span> {vehicle.currentLane === "preparacao_confirmada" ? vehicle.appointmentTime || "-" : received?.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) || "-"}</div></div>
       {vehicle.vehicleImmobilized ? <div className="immobilized-stay"><strong><b>{days}</b><small>dias</small></strong></div> : promise && <div className={`time-bar ${late ? "late" : ""}`}><div className="time-bar-top"><span>Previsão de entrega</span><strong>{time(vehicle.promisedDeliveryAt)}</strong></div><div className="time-track"><span style={{ width: `${progress}%` }} /></div></div>}
-      {canMove && <button className="chip-move-btn" aria-label={`Mover ${vehicle.clientName || "veículo"}`} title="Mover para próxima etapa" disabled={!ready || !online} onClick={() => open(vehicle)}>→</button>}
+      {canMove && <button className="chip-move-btn" aria-label={`Mover ${vehicle.clientName || "veículo"}`} title="Mover para próxima etapa" disabled={!ready || !online} onDoubleClick={event => event.stopPropagation()} onClick={() => open(vehicle)}>→</button>}
     </article>;
   }
   return <div className="app-shell" data-flow-mode="basic-restored">
     <AppHeader title="Fluxo da Oficina" status={<div role="status" className={`realtime-status header-realtime-status ${error || !online ? "offline" : ""}`}><span>{online ? ready ? "Atualização em tempo real ativa" : "Aguardando conexão" : "Sem conexão · movimentações bloqueadas"}</span><strong>{lastSync ? `Atualizado ${lastSync.toLocaleTimeString("pt-BR")}` : "Conectando..."}</strong></div>}
-      flowControls={<label className="date-field"><span>Data</span><input type="date" value={day} onChange={e => { if (e.target.value && e.target.value !== day) { setReady(false); setVehicles([]); setDay(e.target.value); } }} /></label>} />
+      flowControls={<>{canAddBasicWalkIn(profile?.role) && <button type="button" className="primary-btn" disabled={!ready || !online || day !== today} onClick={() => setWalkIn(true)}>+ Passante</button>}<label className="date-field"><span>Data</span><input type="date" value={day} onChange={e => { if (e.target.value && e.target.value !== day) { setReady(false); setVehicles([]); setDay(e.target.value); } }} /></label></>} />
     <main className={`flow-page ${styles.restored}`}>
     <section className="flow-metrics flow-day-panel">
       <button className={`flow-metric flow-total active ${metric === "todos" ? "selected-total" : ""}`} onClick={() => setMetric("todos")}><span>Fluxo do dia</span><strong>{active.length}</strong><small>veículos em atuação hoje</small></button>
@@ -157,5 +165,7 @@ export function BasicFlowBoard() {
         <footer><button type="button" className="ghost-btn" disabled={saving} onClick={() => { setSelected(null); setForm(null); }}>Cancelar</button><button className="primary-btn" disabled={saving || !ready || !online}>{saving ? "Salvando..." : "Confirmar movimentação"}</button></footer>
       </form>
     </section></div>}
+    {detail && <ChipDetailsModal key={detail.vehicle.id} vehicle={vehicles.find(vehicle => vehicle.id === detail.vehicle.id) ?? detail.vehicle} initialParts={detail.parts} connectionReady={ready && online} onClose={() => setDetail(null)} />}
+    {walkIn && <BasicWalkInModal day={day} vehicles={vehicles} ready={ready && online} onClose={() => setWalkIn(false)} onCreated={() => { setWalkIn(false); setMetric("todos"); setSearch(""); setConsultant(""); setTechnicianFilter(""); }} />}
   </div>;
 }

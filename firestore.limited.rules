@@ -20,8 +20,56 @@ service cloud.firestore {
         || (before == 'em_servico' && after in ['orcamento_complementar', 'aguardando_lavagem', 'preparacao_entrega'])
         || (before == 'orcamento_complementar' && after in ['aguardando_servico', 'aguardando_lavagem', 'preparacao_entrega'])
         || (before == 'aguardando_lavagem' && after == 'lavagem')
-        || (before == 'lavagem' && after in ['aguardando_servico', 'preparacao_entrega'])
+        || (before == 'lavagem' && after in ['aguardando_servico', 'orcamento_complementar', 'preparacao_entrega'])
         || (before == 'preparacao_entrega' && after == 'entregue');
+    }
+
+    function chipFields(fields) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+        fields.concat(['updatedAt', 'chipDetailVersion', 'chipActor', 'chipAction', 'chipMutationId']));
+    }
+    function chipEdit() {
+      let data = request.resource.data;
+      let action = data.chipAction;
+      return flow() && resource.data.status != 'cancelado'
+        && data.chipDetailVersion == 1 && data.chipActor == request.auth.uid && data.updatedAt == request.time
+        && (
+          (action == 'plate' && chipFields(['plate']) && data.plate is string && data.plate.size() > 0)
+          || (action == 'consultant' && role(['admin', 'gerente']) && chipFields(['consultantName']) && data.consultantName is string)
+          || (action == 'technician' && chipFields(['technicianName']) && data.technicianName is string)
+          || (action == 'service' && chipFields(['serviceLabel', 'serviceType']) && data.serviceLabel is string)
+          || (action == 'wash' && chipFields(['washType', 'washDone', 'washingAdvanced']) && data.washType in ['nao', 'simples', 'motor', 'motor_bancos'])
+          || (action == 'wait' && role(['admin', 'consultor']) && chipFields(['customerWaits', 'customerWaitsUpdatedBy', 'customerWaitsUpdatedAt']) && data.customerWaits is bool)
+          || (action == 'immobilize' && prepare() && chipFields(['vehicleImmobilized', 'immobilizationReason', 'immobilizationUpdatedBy', 'immobilizationUpdatedAt'])
+            && data.vehicleImmobilized is bool && (data.vehicleImmobilized == false || data.immobilizationReason in ['aguardando_pecas', 'aguardando_decisao']))
+          || (action == 'promise' && chipFields(['promisedDeliveryAt', 'promiseHistory']) && data.promisedDeliveryAt is timestamp
+            && (role(['admin', 'gerente']) || !(resource.data.get('promisedDeliveryAt', null) is timestamp) || data.promisedDeliveryAt >= resource.data.promisedDeliveryAt))
+          || (action == 'stage' && chipFields(['currentLane', 'status', 'noShow', 'noShowAt', 'washingAdvanced', 'advancedWashReturnLane', 'serviceCompleted', 'washDone', 'deliveredAt'])
+            && data.status == 'ativo' && data.currentLane in ['preparacao_confirmada', 'aguardando_servico', 'em_servico', 'orcamento_complementar', 'aguardando_lavagem', 'lavagem', 'preparacao_entrega'])
+          || (action == 'cancel' && role(['admin', 'gerente']) && chipFields(['status']) && data.status == 'cancelado')
+          || (action == 'roadTest' && chipFields(['roadTestForm']) && data.roadTestForm is map)
+          || (action == 'parts' && chipFields(['partsOrdered']) && data.partsOrdered == true)
+          || (action == 'advanceWash' && chipFields(['currentLane', 'washingAdvanced', 'serviceCompleted', 'advancedWashReturnLane'])
+            && resource.data.currentLane in ['aguardando_servico', 'orcamento_complementar'] && resource.data.washType != 'nao' && resource.data.washDone == false
+            && data.currentLane == 'lavagem' && data.washingAdvanced == true && data.serviceCompleted == false && data.advancedWashReturnLane == resource.data.currentLane)
+        );
+    }
+    function walkIn() {
+      let data = request.resource.data;
+      return flow() && data.basicWalkInVersion == 1 && data.basicWalkInActor == request.auth.uid
+        && data.updatedAt == request.time && data.attendanceStartedAt == request.time
+        && data.origin == 'passante' && data.status == 'ativo'
+        && data.currentLane in ['aguardando_servico', 'aguardando_lavagem']
+        && data.clientName is string && data.clientName.size() > 0
+        && data.consultantName in ['Cleverton', 'Eliane', 'Rosangela', 'Luan']
+        && data.technicianName in ['Hernando', 'Elimarcos', 'Wesley', 'Ayslan', 'Gilvan', 'Nathan', 'Igo']
+        && data.promisedDeliveryAt is timestamp;
+    }
+    function walkInFields() {
+      return ['origin', 'currentLane', 'status', 'appointmentDate', 'appointmentTime', 'clientName', 'phone', 'plate', 'chassi', 'model',
+        'serviceLabel', 'consultantName', 'technicianName', 'washType', 'washDone', 'washOnlyService', 'serviceCompleted',
+        'noShow', 'noShowAt', 'washingAdvanced', 'advancedWashReturnLane', 'receiveNote', 'promisedDeliveryAt',
+        'attendanceStartedAt', 'attendanceStartedBy', 'updatedAt', 'basicWalkInVersion', 'basicWalkInActor'];
     }
 
     match /users/{userId} {
@@ -39,6 +87,12 @@ service cloud.firestore {
       allow create: if prepare() && request.resource.data.preparationMode == 'basic'
         && request.resource.data.currentLane == 'preparacao_confirmada'
         && request.resource.data.status == 'ativo';
+      allow create: if walkIn() && request.resource.data.createdAt == request.time
+        && request.resource.data.customerWaits == false && request.resource.data.partsOrdered == false
+        && request.resource.data.keys().hasOnly(walkInFields().concat(['appointmentId', 'priority', 'customerWaits', 'partsOrdered', 'createdAt']));
+      allow update: if walkIn() && resource.data.currentLane == 'preparacao_confirmada' && resource.data.status == 'ativo'
+        && resource.data.appointmentDate != request.resource.data.appointmentDate
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(walkInFields());
       allow update: if operate(resource.data.currentLane)
         && resource.data.status == 'ativo'
         && request.resource.data.basicFlowVersion == 1
@@ -50,10 +104,18 @@ service cloud.firestore {
           'currentLane', 'updatedAt', 'basicFlowVersion', 'basicUpdatedBy', 'status',
           'consultantName', 'washType', 'customerWaits', 'attendanceStartedAt', 'attendanceStartedBy', 'receiveNote',
           'promisedDeliveryAt', 'noShow', 'technicianName', 'budgetStatus', 'budgetAuthorized',
-          'serviceCompleted', 'washDone', 'washingAdvanced', 'deliveredAt', 'deliveredOnTime', 'hasPendingIssue', 'futureNote', 'internalNps'
+          'serviceCompleted', 'washDone', 'washingAdvanced', 'advancedWashReturnLane', 'deliveredAt', 'deliveredOnTime', 'hasPendingIssue', 'futureNote', 'internalNps'
         ]);
+      allow update: if chipEdit();
     }
     match /flowEvents/{id} {
+      allow create: if flow() && request.resource.data.basicWalkInVersion == 1
+        && request.resource.data.basicWalkInActor == request.auth.uid && request.resource.data.createdAt == request.time
+        && request.resource.data.toLane in ['aguardando_servico', 'aguardando_lavagem'];
+      allow list: if flow() && request.query.limit <= 51;
+      allow create: if flow() && request.resource.data.chipDetailVersion == 1
+        && request.resource.data.chipActor == request.auth.uid && request.resource.data.createdAt == request.time
+        && request.resource.data.vehicleFlowId is string;
       allow create: if prepare()
         && id == 'basic-preparation-' + request.resource.data.vehicleFlowId
         && request.resource.data.toLane == 'preparacao_confirmada';
@@ -62,6 +124,25 @@ service cloud.firestore {
         && request.resource.data.actorId == request.auth.uid
         && request.resource.data.createdAt == request.time
         && validStep(request.resource.data.fromLane, request.resource.data.toLane);
+    }
+    match /partOrders/{id} {
+      allow get: if flow();
+      allow list: if flow() && request.query.limit <= 21;
+      function chipOrder() {
+        return flow() && request.resource.data.chipDetailVersion == 1
+          && request.resource.data.chipActor == request.auth.uid && request.resource.data.updatedAt == request.time
+          && request.resource.data.vehicleFlowId == id
+          && request.resource.data.orderKind in ['garantia', 'campanha', 'externo']
+          && request.resource.data.parts is list && request.resource.data.parts.size() > 0 && request.resource.data.parts.size() <= 50;
+      }
+      allow create: if chipOrder() && request.resource.data.orderStatus == 'solicitado_oficina'
+        && request.resource.data.trackingState == 'active'
+        && request.resource.data.keys().hasOnly(['vehicleFlowId', 'plate', 'chassi', 'phone', 'clientName', 'consultantName', 'technicianName', 'orderKind', 'parts', 'partReference', 'partDescription', 'orderStatus', 'trackingState', 'createdAt', 'orderStatusUpdatedAt', 'requestedBy', 'updatedBy', 'updatedAt', 'chipDetailVersion', 'chipActor']);
+      allow update: if chipOrder() && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'vehicleFlowId', 'plate', 'chassi', 'phone', 'clientName', 'consultantName', 'technicianName', 'orderKind', 'parts', 'partReference', 'partDescription', 'updatedBy', 'updatedAt', 'chipDetailVersion', 'chipActor']);
+    }
+    match /partsCatalog/{id} {
+      allow get: if flow() && (id == 'meta' || id.matches('chunk-[0-9]{3}'));
     }
     match /deliveries/{id} {
       allow create, update: if operate('preparacao_entrega')
@@ -83,7 +164,7 @@ service cloud.firestore {
     match /importBatches/{id} {
       allow create: if importHgsi() && request.resource.data.sourceKind in ['hgsi_records', 'hgsi_answers'];
     }
-    // Everything else (including parts/public lookup, old tabs and old writers) is denied.
+    // Other pages, public lookup and legacy unbounded writers remain denied.
     match /{document=**} { allow read, write: if false; }
   }
 }

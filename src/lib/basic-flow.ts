@@ -20,7 +20,12 @@ export function basicTargets(vehicle: VehicleFlow): FlowLane[] {
     case "em_servico": return [finish, "orcamento_complementar"];
     case "orcamento_complementar": return ["aguardando_servico", finish];
     case "aguardando_lavagem": return ["lavagem"];
-    case "lavagem": return [vehicle.washingAdvanced && !vehicle.serviceCompleted ? "aguardando_servico" : "preparacao_entrega"];
+    case "lavagem": {
+      const origin = (vehicle as VehicleFlow & { advancedWashReturnLane?: FlowLane }).advancedWashReturnLane;
+      return [vehicle.washingAdvanced && !vehicle.serviceCompleted
+        ? origin === "orcamento_complementar" ? origin : "aguardando_servico"
+        : "preparacao_entrega"];
+    }
     case "preparacao_entrega": return ["entregue"];
     default: return [];
   }
