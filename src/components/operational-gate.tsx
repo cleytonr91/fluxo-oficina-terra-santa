@@ -21,8 +21,8 @@ export function OperationalGate({ children }: { children: ReactNode }) {
       <section className="panel">
         <div className="panel-head"><h1 className="panel-title">Operação temporariamente limitada</h1></div>
         <div className="panel-body stack">
-          <p>Esta página está suspensa. Preparação e Pós-serviço permanecem disponíveis conforme seu perfil.</p>
-          {paths.map((path) => <Link className="primary-btn fit-btn" key={path} href={path}>{path === "/preparacao" ? "Preparação" : "Pós-serviço"}</Link>)}
+          <p>Esta página está suspensa. Preparação, Fluxo básico e Pós-serviço permanecem disponíveis conforme seu perfil.</p>
+          {paths.map((path) => <Link className="primary-btn fit-btn" key={path} href={path}>{path === "/preparacao" ? "Preparação" : path === "/fluxo" ? "Fluxo básico" : "Pós-serviço"}</Link>)}
           <button className="ghost-btn fit-btn" onClick={logout}>Sair</button>
         </div>
       </section>

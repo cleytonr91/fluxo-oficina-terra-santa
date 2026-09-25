@@ -17,14 +17,14 @@ function load(file, mocks = {}) {
 }
 const limited = load('src/lib/limited-operation.ts');
 const access = load('src/lib/access-control.ts', { '@/lib/limited-operation': limited });
-test('only preparation and post-service remain available even for admin/custom paths', () => {
-  assert.deepEqual(access.allowedPathsForRole('admin'), ['/preparacao', '/pos-servico']);
-  assert.deepEqual(access.allowedPathsForRole('consultor'), ['/pos-servico']);
-  assert.deepEqual(access.allowedPathsForRole('chefe_oficina'), ['/preparacao']);
-  assert.deepEqual(access.allowedPathsForRole('tecnico'), []);
+test('only preparation, basic flow and post-service remain available even for admin/custom paths', () => {
+  assert.deepEqual(access.allowedPathsForRole('admin'), ['/preparacao', '/fluxo', '/pos-servico']);
+  assert.deepEqual(access.allowedPathsForRole('consultor'), ['/fluxo', '/pos-servico']);
+  assert.deepEqual(access.allowedPathsForRole('chefe_oficina'), ['/preparacao', '/fluxo']);
+  assert.deepEqual(access.allowedPathsForRole('tecnico'), ['/fluxo']);
   assert.equal(access.canAccessPath('admin', '/pecas', ['/pecas']), false);
-  assert.equal(access.canAccessPath('admin', '/fluxo'), false);
-  assert.equal(access.defaultPathForRole('tecnico'), '/operacao-limitada');
+  assert.equal(access.canAccessPath('admin', '/fluxo'), true);
+  assert.equal(access.defaultPathForRole('tecnico'), '/fluxo');
   assert.equal(access.canAccessPath('tecnico', '/operacao-limitada'), true);
 });
 test('suspended route component is not mounted (no page effects)', () => {

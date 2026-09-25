@@ -7,6 +7,22 @@ service cloud.firestore {
     function prepare() { return role(['admin', 'gerente', 'chefe_oficina']); }
     function postService() { return role(['admin', 'gerente', 'qualidade', 'consultor']); }
     function importHgsi() { return role(['admin', 'gerente', 'qualidade']); }
+    function flow() { return role(['admin', 'gerente', 'chefe_oficina', 'consultor', 'consultor_funilaria', 'tecnico', 'lider_lavagem', 'estoquista']); }
+    function operate(lane) {
+      return prepare()
+        || (lane in ['preparacao_confirmada', 'preparacao_entrega', 'orcamento_complementar'] && role(['consultor', 'consultor_funilaria']))
+        || (lane in ['aguardando_servico', 'em_servico'] && role(['tecnico']))
+        || (lane in ['aguardando_lavagem', 'lavagem'] && role(['lider_lavagem']));
+    }
+    function validStep(before, after) {
+      return (before == 'preparacao_confirmada' && after == 'aguardando_servico')
+        || (before == 'aguardando_servico' && after == 'em_servico')
+        || (before == 'em_servico' && after in ['orcamento_complementar', 'aguardando_lavagem', 'preparacao_entrega'])
+        || (before == 'orcamento_complementar' && after in ['aguardando_servico', 'aguardando_lavagem', 'preparacao_entrega'])
+        || (before == 'aguardando_lavagem' && after == 'lavagem')
+        || (before == 'lavagem' && after in ['aguardando_servico', 'preparacao_entrega'])
+        || (before == 'preparacao_entrega' && after == 'entregue');
+    }
 
     match /users/{userId} {
       allow get: if signedIn() && request.auth.uid == userId;
@@ -16,17 +32,42 @@ service cloud.firestore {
     }
     match /vehiclesFlow/{id} {
       // One-document idempotency guard used only when adding a preparation.
-      allow get: if prepare();
+      allow get: if flow();
       // Post-service already queries deliveredAt by month. Active-flow queries fail.
-      allow list: if postService() && resource.data.deliveredAt > timestamp.date(2000, 1, 1);
+      allow list: if (postService() && resource.data.deliveredAt > timestamp.date(2000, 1, 1))
+        || (flow() && request.query.limit <= 301 && (resource.data.status == 'ativo' || resource.data.deliveredAt > timestamp.date(2000, 1, 1)));
       allow create: if prepare() && request.resource.data.preparationMode == 'basic'
         && request.resource.data.currentLane == 'preparacao_confirmada'
         && request.resource.data.status == 'ativo';
+      allow update: if operate(resource.data.currentLane)
+        && resource.data.status == 'ativo'
+        && request.resource.data.basicFlowVersion == 1
+        && request.resource.data.basicUpdatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && validStep(resource.data.currentLane, request.resource.data.currentLane)
+        && request.resource.data.status == (request.resource.data.currentLane == 'entregue' ? 'entregue' : 'ativo')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'currentLane', 'updatedAt', 'basicFlowVersion', 'basicUpdatedBy', 'status',
+          'consultantName', 'washType', 'customerWaits', 'attendanceStartedAt', 'attendanceStartedBy', 'receiveNote',
+          'promisedDeliveryAt', 'noShow', 'technicianName', 'budgetStatus', 'budgetAuthorized',
+          'serviceCompleted', 'washDone', 'washingAdvanced', 'deliveredAt', 'deliveredOnTime', 'hasPendingIssue', 'futureNote', 'internalNps'
+        ]);
     }
     match /flowEvents/{id} {
       allow create: if prepare()
         && id == 'basic-preparation-' + request.resource.data.vehicleFlowId
         && request.resource.data.toLane == 'preparacao_confirmada';
+      allow create: if operate(request.resource.data.fromLane)
+        && request.resource.data.basicFlowVersion == 1
+        && request.resource.data.actorId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && validStep(request.resource.data.fromLane, request.resource.data.toLane);
+    }
+    match /deliveries/{id} {
+      allow create, update: if operate('preparacao_entrega')
+        && request.resource.data.basicFlowVersion == 1
+        && request.resource.data.deliveredAt == request.time
+        && getAfter(/databases/$(database)/documents/vehiclesFlow/$(id)).data.currentLane == 'entregue';
     }
     match /hgsiRecords/{id} {
       allow read: if postService();

@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { LIMITED_OPERATION } from "@/lib/limited-operation";
+import { BasicFlowBoard } from "@/components/basic-flow-board";
 import { ProtectedPage } from "@/components/protected-page";
 import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { PartCatalogFields } from "@/components/part-catalog-fields";
@@ -779,6 +781,10 @@ function FlowChip({
 }
 
 export default function FluxoPage() {
+  return LIMITED_OPERATION ? <BasicFlowBoard /> : <FullFluxoPage />;
+}
+
+function FullFluxoPage() {
   const { profile, user } = useAuth();
   const canDeleteChip = profile?.role === "admin" || profile?.role === "gerente";
   const canEditConsultant = profile?.role === "admin" || profile?.role === "gerente";
