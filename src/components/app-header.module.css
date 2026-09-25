@@ -232,3 +232,9 @@
     animation: none;
   }
 }
+
+@media (max-width: 640px) {
+  .pageActions.customActions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

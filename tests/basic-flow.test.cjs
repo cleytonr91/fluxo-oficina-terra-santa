@@ -66,3 +66,11 @@ test('lane permissions and existing advanced wash return are maintained',()=>{
   assert.equal(domain.canOperateBasic('lider_lavagem','lavagem'),true);
   assert.deepEqual(domain.basicTargets({currentLane:'lavagem',washingAdvanced:true,serviceCompleted:false}),['aguardando_servico']);
 });
+
+test('restored layout keeps one subscription effect keyed only by day and no auxiliary services',()=>{
+ const source=fs.readFileSync('src/components/basic-flow-board.tsx','utf8');
+ assert.equal((source.match(/subscribeBasicFlow\(day/g)||[]).length,1);
+ assert.match(source,/return \(\) => \{ alive = false; stop\(\); \};\s*\}, \[day\]\)/);
+ assert.doesNotMatch(source,/getDocs|onSnapshot|subscribePart|subscribeFlowEvents|loadHyundaiPartsCatalog/);
+ assert.match(source,/data-flow-mode="basic-restored"/);
+});

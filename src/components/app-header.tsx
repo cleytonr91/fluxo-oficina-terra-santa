@@ -38,10 +38,12 @@ export function AppHeader({
   title,
   subtitle,
   status,
+  flowControls,
 }: {
   title: string;
   subtitle?: string;
   status?: ReactNode;
+  flowControls?: ReactNode;
 }) {
   const pathname = usePathname();
   const { profile, user, logout } = useAuth();
@@ -181,10 +183,10 @@ export function AppHeader({
       {isFlow && <strong className="flow-clock">{clock}</strong>}
 
       <div className={`header-actions ${styles.headerActions}`}>
-        <div className={styles.pageActions}>
+        <div className={`${styles.pageActions} ${flowControls ? styles.customActions : ""}`}>
           {isPreparation ? (
             <span className="save-status">Salva ao confirmar</span>
-          ) : isFlow ? (
+          ) : isFlow ? (flowControls ?? (
             <>
               <button
                 className="ghost-btn icon-btn"
@@ -207,7 +209,7 @@ export function AppHeader({
                 <input type="date" value={flowDate} onChange={(event) => changeFlowDate(event.target.value)} />
               </label>
             </>
-          ) : null}
+          )) : null}
         </div>
 
         <div className={`user-pill ${styles.profile}`}>

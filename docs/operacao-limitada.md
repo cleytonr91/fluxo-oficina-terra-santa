@@ -32,6 +32,8 @@ Nenhum dado existente e apagado. Nao alterar o plano do Firebase.
 
 ## Impacto na cota
 
+Restauracao visual (2026-09-25): reutiliza AppHeader e classes originais do quadro/chips. Contadores, pesquisa, filtros e barras de prazo usam apenas os dados em memoria. O relogio e a atualizacao visual dos prazos nao consultam o banco. Permanecem os mesmos dois listeners; nenhum servico, regra ou gravacao foi alterado nesta restauracao. O indicador de entregas usa deliveredAt, sem buscar eventos para inferir conclusoes. Acoes suspensas nao aparecem no cabecalho.
+
 - Abrir/importar arquivo/selecionar data na Preparacao: zero leituras de dados operacionais e zero gravacoes, fora a validacao normal do perfil no login.
 - Adicionar 1 veiculo novo: normalmente 1 leitura de documento + 2 gravacoes. Repeticao: leitura do mesmo documento, sem novas gravacoes. Retries de transacao e leituras dependentes das regras podem acrescentar consumo.
 - 100 novos veiculos: aproximadamente 100 leituras e 200 gravacoes, mais validacao de permissao/retries.
