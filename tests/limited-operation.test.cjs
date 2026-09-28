@@ -17,19 +17,21 @@ function load(file, mocks = {}) {
 }
 const limited = load('src/lib/limited-operation.ts');
 const access = load('src/lib/access-control.ts', { '@/lib/limited-operation': limited });
-test('only preparation, basic flow and post-service remain available even for admin/custom paths', () => {
-  assert.deepEqual(access.allowedPathsForRole('admin'), ['/preparacao', '/fluxo', '/pos-servico']);
+test('reviewed operational pages are available; unrelated pages stay suspended', () => {
+  assert.deepEqual(access.allowedPathsForRole('admin'), ['/preparacao', '/fluxo', '/agendamento', '/pecas', '/pos-servico']);
   assert.deepEqual(access.allowedPathsForRole('consultor'), ['/fluxo', '/pos-servico']);
-  assert.deepEqual(access.allowedPathsForRole('chefe_oficina'), ['/preparacao', '/fluxo']);
+  assert.deepEqual(access.allowedPathsForRole('chefe_oficina'), ['/preparacao', '/pecas', '/fluxo']);
   assert.deepEqual(access.allowedPathsForRole('tecnico'), ['/fluxo']);
-  assert.equal(access.canAccessPath('admin', '/pecas', ['/pecas']), false);
+  assert.equal(access.canAccessPath('admin', '/pecas', ['/pecas']), true);
+  assert.deepEqual(access.allowedPathsForRole('agendamento'), ['/agendamento']);
+  assert.equal(access.canAccessPath('admin', '/radar'), false);
   assert.equal(access.canAccessPath('admin', '/fluxo'), true);
   assert.equal(access.defaultPathForRole('tecnico'), '/fluxo');
   assert.equal(access.canAccessPath('tecnico', '/operacao-limitada'), true);
 });
 test('suspended route component is not mounted (no page effects)', () => {
   const { OperationalGate } = load('src/components/operational-gate.tsx', {
-    'next/navigation': { usePathname: () => '/pecas' },
+    'next/navigation': { usePathname: () => '/radar' },
     'next/link': { default: props => React.createElement('a', props) },
     '@/context/auth-context': { useAuth: () => ({ profile: { role: 'admin' }, logout() {} }) },
     '@/lib/access-control': access, '@/lib/limited-operation': limited,

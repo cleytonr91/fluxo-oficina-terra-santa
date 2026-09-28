@@ -20,6 +20,8 @@ import {
   where,
   writeBatch,
 } from "firebase/firestore";
+import { LIMITED_OPERATION } from "@/lib/limited-operation";
+import { loadCachedCatalog, importCachedCatalog } from "@/services/parts-catalog-cache";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import type { AgendaItem, Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, HyundaiPartCatalogItem, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PartsCounterEntry, PartsCounterEntryType, PartsCounterItem, PartsSalesGoal, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
@@ -149,56 +151,8 @@ type SavePartOrderInput = {
   actionBy?: string;
 };
 
-export async function loadHyundaiPartsCatalog() {
-  const db = getFirebaseDb();
-  const snapshot = await getDocs(collection(db, collections.partsCatalog));
-
-  return snapshot.docs
-    .filter((item) => item.id.startsWith("chunk-"))
-    .sort((left, right) => left.id.localeCompare(right.id))
-    .flatMap((item) => (item.data().items ?? []) as HyundaiPartCatalogItem[]);
-}
-
-export async function replaceHyundaiPartsCatalog({
-  items,
-  sourceFileName,
-  importedBy,
-}: {
-  items: HyundaiPartCatalogItem[];
-  sourceFileName: string;
-  importedBy?: string;
-}) {
-  const db = getFirebaseDb();
-  const catalogRef = collection(db, collections.partsCatalog);
-  const current = await getDocs(catalogRef);
-  const batch = writeBatch(db);
-  const chunkSize = 700;
-  const chunks: HyundaiPartCatalogItem[][] = [];
-
-  for (let index = 0; index < items.length; index += chunkSize) {
-    chunks.push(items.slice(index, index + chunkSize));
-  }
-
-  current.docs.forEach((item) => batch.delete(item.ref));
-  chunks.forEach((chunk, index) => {
-    batch.set(doc(catalogRef, `chunk-${String(index).padStart(3, "0")}`), {
-      items: chunk,
-      itemCount: chunk.length,
-      sourceFileName,
-      importedBy,
-      importedAt: serverTimestamp(),
-    });
-  });
-  batch.set(doc(catalogRef, "meta"), {
-    itemCount: items.length,
-    chunkCount: chunks.length,
-    sourceFileName,
-    importedBy,
-    importedAt: serverTimestamp(),
-  });
-
-  await batch.commit();
-}
+export const loadHyundaiPartsCatalog = loadCachedCatalog;
+export const replaceHyundaiPartsCatalog = importCachedCatalog;
 
 export function subscribePartsCounterEntries(
   onData: (items: PartsCounterEntry[]) => void,
@@ -2226,7 +2180,7 @@ export async function updatePartOrder({
   const normalizedDescription = partDescription?.trim() || firstPart?.partDescription;
   const lookupId = publicPartLookupId(plate, cleanCustomerId);
 
-  await setDoc(ref, withoutUndefined({
+  const payload = withoutUndefined({
     vehicleFlowId,
     plate,
     chassi,
@@ -2251,9 +2205,12 @@ export async function updatePartOrder({
     cancellationReason: cancellationReason?.trim(),
     updatedBy,
     updatedAt: serverTimestamp(),
-  }), { merge: true });
+  });
+  const comparable = Object.fromEntries(Object.entries(payload).filter(([key]) => !["updatedAt", "updatedBy", "orderStatusUpdatedAt"].includes(key)));
+  if (existingOrder.exists() && Object.entries(comparable).every(([key, value]) => JSON.stringify(existingOrder.data()?.[key]) === JSON.stringify(value))) return;
+  await setDoc(ref, payload, { merge: true });
 
-  if (lookupId) {
+  if (lookupId && !LIMITED_OPERATION) {
     await setDoc(doc(collection(db, collections.publicPartLookups), lookupId), {
       plate: normalizeVehicleIdentifier(plate),
       customerId: normalizeVehicleIdentifier(cleanCustomerId),
@@ -2354,7 +2311,14 @@ export async function registerPartSchedulingAction({
     note: cleanNote,
   });
 
-  await setDoc(ref, withoutUndefined({
+  await runTransaction(db, async transaction => {
+    const snapshot = await transaction.get(ref);
+    const current = snapshot.data();
+    if (!snapshot.exists() || current?.orderStatus !== "disponivel" || current?.schedulingCompletedAt) throw new Error("Pedido não está disponível para agendamento. Atualize a lista.");
+    if (current?.schedulingStatus === action && (current.scheduledReturnDate ?? "") === (returnDate ?? "")
+      && (current.contactAttemptAt ?? "") === (contactAttemptAt ?? "") && (current.nextContactAt ?? "") === (nextContactAt ?? "")
+      && (current.schedulingNote ?? "") === (cleanNote ?? "")) return;
+  transaction.set(ref, withoutUndefined({
     schedulingStatus: action,
     scheduledReturnDate: action === "agendamento_confirmado" ? returnDate : deleteField(),
     contactAttemptAt: action === "contato_sem_sucesso" ? contactAttemptAt : deleteField(),
@@ -2366,6 +2330,7 @@ export async function registerPartSchedulingAction({
     updatedBy: actionBy,
     updatedAt: serverTimestamp(),
   }), { merge: true });
+  });
 }
 
 export async function markPartSchedulingCompleted({

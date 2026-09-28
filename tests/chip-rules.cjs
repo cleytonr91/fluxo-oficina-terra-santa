@@ -47,6 +47,18 @@ add('preserve parts sector status','tecnico','update','partOrders',{...order,ord
 add('cannot reset sector status','tecnico','update','partOrders',{...order,orderStatus:'disponivel'},order,'DENY');
 add('no legacy catalog list','admin','list','partsCatalog',{},null,'DENY');
 add('no legacy appointment reads','admin','list','appointments',{},null,'DENY');
+add('parts bounded active list','estoquista','list','partOrders',{trackingState:'active'},null,'ALLOW',{query:{limit:50}});
+add('parts unbounded list denied','admin','list','partOrders',{trackingState:'active'},null,'DENY',{query:{limit:51}});
+add('scheduling available list','agendamento','list','partOrders',{orderStatus:'disponivel'},null,'ALLOW',{query:{limit:50}});
+add('scheduling cannot list unavailable','agendamento','list','partOrders',{orderStatus:'pedido_realizado'},null,'DENY',{query:{limit:50}});
+add('scheduling linked vehicle get','agendamento','get','vehiclesFlow',before,null);
+add('scheduling cannot list all vehicles','agendamento','list','vehiclesFlow',before,null,'DENY',{query:{limit:50}});
+const sectorOrder={vehicleFlowId:'test',parts:[{id:'1',partReference:'REF'}],orderStatus:'em_transito',trackingState:'active',updatedAt:now};
+add('stock edits part order','estoquista','update','partOrders',sectorOrder,{...sectorOrder,invoiceNumber:'NF-TEST'});
+add('technician cannot edit sector status','tecnico','update','partOrders',sectorOrder,{...sectorOrder,orderStatus:'disponivel'},'DENY');
+add('no automatic completion from old browser','admin','update','partOrders',sectorOrder,{...sectorOrder,schedulingCompletedAt:now},'DENY');
+add('schedule explicit contact','agendamento','update','partOrders',{...sectorOrder,orderStatus:'disponivel'},{...sectorOrder,orderStatus:'disponivel',schedulingStatus:'contato_sem_sucesso',schedulingNote:'Contato confirmado'});
+add('scheduling cannot change sector fields','agendamento','update','partOrders',{...sectorOrder,orderStatus:'disponivel'},{...sectorOrder,orderStatus:'disponivel',schedulingStatus:'contato_sem_sucesso',invoiceNumber:'NF-EDIT'},'DENY');
 add('wash returns to budget','lider_lavagem','update','vehiclesFlow',{...before,currentLane:'lavagem',washingAdvanced:true,advancedWashReturnLane:'orcamento_complementar'}, {...before,currentLane:'orcamento_complementar',washingAdvanced:false,advancedWashReturnLane:null,washDone:true,basicFlowVersion:1,basicUpdatedBy:'test',updatedAt:now});
 const walkIn={origin:'passante',status:'ativo',currentLane:'aguardando_servico',clientName:'Teste',consultantName:'Luan',technicianName:'Wesley',promisedDeliveryAt:'2026-09-25T17:00:00Z',basicWalkInVersion:1,basicWalkInActor:'test',updatedAt:now,attendanceStartedAt:now,createdAt:now,customerWaits:false,partsOrdered:false,appointmentDate:'2026-09-25'};
 add('consultant creates walk-in','consultor','create','vehiclesFlow',{},walkIn);

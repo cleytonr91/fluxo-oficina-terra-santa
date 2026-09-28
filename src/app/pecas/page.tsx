@@ -1,10 +1,13 @@
 "use client";
 
 import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ConfirmedSearch } from "@/components/confirmed-search";
 import { ProtectedPage } from "@/components/protected-page";
 import { invalidatePartsCatalogCache, PartCatalogFields } from "@/components/part-catalog-fields";
 import { useAuth } from "@/context/auth-context";
-import { createStandalonePartOrder, ensurePartOrderTracking, listArchivedPartOrders, replaceHyundaiPartsCatalog, subscribeActivePartOrders, subscribeVehicleFlowsByIds, updatePartOrder } from "@/services/firestore";
+import { createStandalonePartOrder, replaceHyundaiPartsCatalog, updatePartOrder } from "@/services/firestore";
+import { usePartsPage } from "@/components/use-parts-page";
+import { loadPartById, loadPartsPage, type PartsScope } from "@/services/parts-pages";
 import { parseHyundaiPartsCatalog } from "@/lib/hyundai-parts-catalog";
 import type { PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
@@ -336,22 +339,26 @@ export default function PecasPage() {
   const initialFocusedOrderId = typeof window === "undefined"
     ? ""
     : new URLSearchParams(window.location.search).get("pedido") ?? "";
-  const [orders, setOrders] = useState<PartOrder[]>([]);
+  const page = usePartsPage("active", user?.uid);
+  const { orders, setOrders } = page;
+  const [archiveCursor, setArchiveCursor] = useState<string>();
+  const [archiveVehicles, setArchiveVehicles] = useState<VehicleFlow[]>([]);
   const [archivedOrders, setArchivedOrders] = useState<PartOrder[]>([]);
+  const [linkedOrder, setLinkedOrder] = useState<PartOrder>();
   const [archiveLoadState, setArchiveLoadState] = useState<"idle" | "loading" | "loaded">("idle");
-  const [trackingOptimized, setTrackingOptimized] = useState(false);
+  const trackingOptimized = true;
   const [orderForms, setOrderForms] = useState<Record<string, Partial<PartOrderFormFields>>>({});
   const [orderValidationErrors, setOrderValidationErrors] = useState<Record<string, PartOrderValidationErrors>>({});
   const [openSections, setOpenSections] = useState<Record<string, PartEditSection | undefined>>({});
   const [savingId, setSavingId] = useState("");
   const [statusFilter, setStatusFilter] = useState<PartsFilter>(initialFocusedOrderId ? "todos" : "pendentes");
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
   const [focusedOrderId, setFocusedOrderId] = useState(initialFocusedOrderId);
   const [error, setError] = useState("");
   const [mobisReceipt, setMobisReceipt] = useState<MobisReceiptState>(emptyMobisReceipt);
   const [applyingReceiptId, setApplyingReceiptId] = useState("");
   const [mobisActionFeedback, setMobisActionFeedback] = useState<MobisActionFeedback>(null);
-  const [syncingPortal, setSyncingPortal] = useState(false);
   const [standaloneOpen, setStandaloneOpen] = useState(false);
   const [transportInfoModal, setTransportInfoModal] = useState<TransportInfoModal>(null);
   const [standaloneForm, setStandaloneForm] = useState<StandalonePartOrderFormFields>(emptyStandalonePartOrder);
@@ -359,11 +366,14 @@ export default function PecasPage() {
   const [catalogImporting, setCatalogImporting] = useState(false);
   const [catalogMessage, setCatalogMessage] = useState("");
 
-  async function ensureArchiveLoaded() {
-    if (!trackingOptimized || archiveLoadState !== "idle") return;
+  async function ensureArchiveLoaded(more = false) {
+    if (archiveLoadState === "loading" || (!more && archiveLoadState === "loaded")) return;
     setArchiveLoadState("loading");
     try {
-      setArchivedOrders(await listArchivedPartOrders());
+      const result = await loadPartsPage("archive" as PartsScope, more ? archiveCursor : undefined);
+      setArchivedOrders(current => more ? [...current, ...result.orders] : result.orders);
+      setArchiveVehicles(current => more ? [...current, ...result.vehicles] : result.vehicles);
+      setArchiveCursor(result.cursor);
       setArchiveLoadState("loaded");
     } catch (currentError) {
       setArchiveLoadState("idle");
@@ -375,7 +385,7 @@ export default function PecasPage() {
     window.history.replaceState(null, "", "/pecas");
     setFocusedOrderId("");
     setStatusFilter(filter);
-    if (["todos", "concluidos", "cancelado"].includes(filter)) void ensureArchiveLoaded();
+
   }
 
   function applySearchQuery(value: string) {
@@ -383,7 +393,7 @@ export default function PecasPage() {
     setFocusedOrderId("");
     if (value.trim()) {
       setStatusFilter("todos");
-      void ensureArchiveLoaded();
+
     }
     setSearchQuery(value);
   }
@@ -416,55 +426,23 @@ export default function PecasPage() {
   }
 
   useEffect(() => {
-    if (!profile?.id) return undefined;
-    let disposed = false;
-    let unsubscribe: () => void = () => undefined;
-    const onError = (currentError: Error) => {
-      setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar pedidos de peças.");
-    };
-
-    // Opening this page must never migrate orders or fall back to an unfiltered listener.
-    void ensurePartOrderTracking(false).then((optimized) => {
-      if (disposed) return;
-      if (!optimized) {
-        throw new Error("A consulta de pedidos precisa de manutenção. Solicite ao administrador a conclusão da organização dos pedidos.");
-      }
-      setTrackingOptimized(optimized);
-      unsubscribe = subscribeActivePartOrders((items) => {
-        setOrders(items);
-        setError("");
-      }, onError);
-    }).catch((currentError: unknown) => {
-      if (disposed) return;
-      setTrackingOptimized(false);
-      onError(currentError instanceof Error ? currentError : new Error("Não foi possível carregar pedidos de peças. Tente novamente mais tarde."));
-    });
-
-    return () => {
-      disposed = true;
-      unsubscribe();
-    };
-  }, [profile?.id]);
+    if (!initialFocusedOrderId || !user?.uid) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      void loadPartById(initialFocusedOrderId).then(order => {
+        if (!cancelled && order) setLinkedOrder(order);
+      }).catch(failure => { if (!cancelled) setError(String(failure)); });
+    }, 0);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [initialFocusedOrderId, user?.uid]);
 
   const loadedOrders = useMemo(() => {
     const unique = new Map<string, PartOrder>();
-    [...orders, ...archivedOrders].forEach((order) => unique.set(order.id, order));
+    [...(linkedOrder ? [linkedOrder] : []), ...archivedOrders, ...orders].forEach((order) => unique.set(order.id, order));
     return [...unique.values()];
-  }, [archivedOrders, orders]);
+  }, [archivedOrders, orders, linkedOrder]);
 
-  const orderVehicleIds = useMemo(
-    () => Array.from(new Set(loadedOrders.map((order) => order.vehicleFlowId).filter(Boolean))).sort(),
-    [loadedOrders],
-  );
-  const orderVehicleIdsKey = orderVehicleIds.join("|");
-
-  const [orderVehicles, setOrderVehicles] = useState<VehicleFlow[]>([]);
-
-  useEffect(() => {
-    return subscribeVehicleFlowsByIds(orderVehicleIds, setOrderVehicles, () => undefined);
-  // A chave evita recriar a assinatura quando apenas outros dados do pedido mudam.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderVehicleIdsKey]);
+  const orderVehicles = useMemo(() => [...page.vehicles, ...archiveVehicles], [page.vehicles, archiveVehicles]);
 
   const mergedOrders = useMemo(() => {
     const vehiclesById = new Map(orderVehicles.map((vehicle) => [vehicle.id, vehicle]));
@@ -679,6 +657,11 @@ export default function PecasPage() {
   async function handleMobisReceiptFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    if (page.hasMore || page.loading || page.error) {
+      setError("Carregue todos os lotes ativos antes de conferir o recebimento Mobis, para respeitar a ordem dos pedidos mais antigos.");
+      event.target.value = "";
+      return;
+    }
     setMobisActionFeedback(null);
 
     try {
@@ -781,6 +764,8 @@ export default function PecasPage() {
   }
 
   async function saveOrder(order: PartOrder) {
+    if (savingId) return;
+    if (!Object.keys(orderForms[order.id] ?? {}).length) return;
     const form = orderFormValues(order);
     const validParts = form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim());
     const requestedOrderStatus: PartOrderStatus = form.cancellationReason.trim() ? "cancelado" : form.orderStatus;
@@ -947,6 +932,7 @@ export default function PecasPage() {
       });
       setStandaloneForm({ ...emptyStandalonePartOrder, parts: [{ id: "peca-1", partReference: "", partDescription: "" }] });
       setStandaloneOpen(false);
+      await page.refresh();
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível criar o pedido avulso.");
     } finally {
@@ -1025,42 +1011,6 @@ export default function PecasPage() {
     }
   }
 
-  async function syncPublicPartsPortal() {
-    const syncableOrders = mergedOrders.filter((order) => order.plate && order.customerId);
-    setSyncingPortal(true);
-    setError("");
-
-    try {
-      for (const order of syncableOrders) {
-        const form = orderFormValues(order);
-        await updatePartOrder({
-          orderId: order.id,
-          vehicleFlowId: order.vehicleFlowId,
-          plate: order.plate,
-          customerId: form.customerId || order.customerId,
-          clientName: order.clientName,
-          consultantName: order.consultantName,
-          technicianName: order.technicianName,
-          orderKind: form.orderKind || undefined,
-          parts: form.parts.filter((part) => part.partReference?.trim() || part.partDescription?.trim()),
-          orderStatus: form.orderStatus,
-          orderSource: form.orderSource || undefined,
-          orderNumber: form.orderNumber,
-          orderVor: form.orderVor,
-          orderDate: form.orderDate,
-          invoiceNumber: form.invoiceNumber,
-          expectedArrivalDate: form.expectedArrivalDate,
-          cancellationReason: form.cancellationReason,
-          updatedBy: profile?.name ?? user?.email ?? user?.uid,
-        });
-      }
-    } catch (currentError) {
-      setError(currentError instanceof Error ? currentError.message : "Não foi possível sincronizar o Portal Minha Peça.");
-    } finally {
-      setSyncingPortal(false);
-    }
-  }
-
   function updatePartItem(order: PartOrder, partId: string, patch: Partial<PartOrderItem>) {
     const form = orderFormValues(order);
     updateOrderForm(order.id, {
@@ -1095,6 +1045,16 @@ export default function PecasPage() {
   return (
     <ProtectedPage title="Pedidos de Peças" subtitle="Acompanhamento dos pedidos originados nos chips do fluxo.">
       <main className="page-wrap parts-page">
+        {(page.error) && <p role="alert">{page.error}</p>}
+        <div className="modal-actions">
+          <span>{orders.length} ativos carregados · {archivedOrders.length} históricos carregados</span>
+          <button className="ghost-btn" disabled={page.loading} onClick={() => void page.refresh()}>Atualizar ativos</button>
+          {page.hasMore && <button className="primary-btn" disabled={page.loading} onClick={() => void page.more()}>Carregar mais 50 ativos</button>}
+          <button className="ghost-btn" disabled={archiveLoadState === "loading" || (archiveLoadState === "loaded" && !archiveCursor)} onClick={() => void ensureArchiveLoaded(archiveLoadState === "loaded")}>
+            {archiveLoadState === "loading" ? "Carregando..." : archiveLoadState === "loaded" ? "Carregar mais 50 históricos" : "Consultar histórico"}
+          </button>
+        </div>
+        <p>Indicadores e pesquisa dos pedidos carregados.</p>
         <section className="flow-metrics">
           {metrics.map((metric) => (
             <button
@@ -1121,29 +1081,17 @@ export default function PecasPage() {
             </select>
           </label>
 
-          <label className="flow-filter">
-            <span>Consultar chip</span>
-            <input
-              type="search"
-              value={searchQuery}
-              placeholder="Placa ou cliente"
-              autoComplete="off"
-              onChange={(event) => applySearchQuery(event.target.value)}
-            />
-          </label>
+          <ConfirmedSearch label="Consultar chip" value={searchDraft} onChange={setSearchDraft} onSearch={applySearchQuery} placeholder="Placa ou cliente" />
         </section>
 
         <div className="parts-portal-sync">
           <div>
             <strong>Portal Minha Peça</strong>
-            <span>Sincroniza pedidos com placa e ID Cliente para consulta pública.</span>
+            <span>Sincronização pública suspensa durante a operação limitada.</span>
           </div>
           <a className="ghost-btn" href="/minha-peca" target="_blank" rel="noreferrer">Abrir portal</a>
           <button className="ghost-btn" type="button" onClick={() => { setError(""); setStandaloneOpen(true); }}>
             + Pedido avulso
-          </button>
-          <button className="primary-btn" type="button" disabled={syncingPortal} onClick={syncPublicPartsPortal}>
-            {syncingPortal ? "Sincronizando..." : "Sincronizar portal"}
           </button>
           {profile?.role === "admin" && (
             <label className={`ghost-btn catalog-import-button ${catalogImporting ? "disabled" : ""}`}>

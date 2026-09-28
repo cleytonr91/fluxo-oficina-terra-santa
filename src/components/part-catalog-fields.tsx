@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import { loadHyundaiPartsCatalog } from "@/services/firestore";
+import { clearCatalogCache } from "@/services/parts-catalog-cache";
 import type { HyundaiPartCatalogItem } from "@/types/domain";
 
 type SearchableCatalogItem = HyundaiPartCatalogItem & {
@@ -33,6 +34,7 @@ async function getCatalog(loader = loadHyundaiPartsCatalog) {
 }
 
 export function invalidatePartsCatalogCache() {
+  clearCatalogCache();
   catalogCache = null;
   catalogRequest = null;
 }

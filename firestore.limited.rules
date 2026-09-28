@@ -7,6 +7,8 @@ service cloud.firestore {
     function prepare() { return role(['admin', 'gerente', 'chefe_oficina']); }
     function postService() { return role(['admin', 'gerente', 'qualidade', 'consultor']); }
     function importHgsi() { return role(['admin', 'gerente', 'qualidade']); }
+    function parts() { return role(['admin', 'gerente', 'chefe_oficina', 'consultor_funilaria', 'estoquista']); }
+    function scheduling() { return role(['admin', 'gerente', 'agendamento']); }
     function flow() { return role(['admin', 'gerente', 'chefe_oficina', 'consultor', 'consultor_funilaria', 'tecnico', 'lider_lavagem', 'estoquista']); }
     function operate(lane) {
       return prepare()
@@ -80,7 +82,7 @@ service cloud.firestore {
     }
     match /vehiclesFlow/{id} {
       // One-document idempotency guard used only when adding a preparation.
-      allow get: if flow();
+      allow get: if flow() || scheduling();
       // Post-service already queries deliveredAt by month. Active-flow queries fail.
       allow list: if (postService() && resource.data.deliveredAt > timestamp.date(2000, 1, 1))
         || (flow() && request.query.limit <= 301 && (resource.data.status == 'ativo' || resource.data.deliveredAt > timestamp.date(2000, 1, 1)));
@@ -126,8 +128,31 @@ service cloud.firestore {
         && validStep(request.resource.data.fromLane, request.resource.data.toLane);
     }
     match /partOrders/{id} {
-      allow get: if flow();
+      allow get: if flow() || (scheduling() && resource.data.orderStatus == 'disponivel');
       allow list: if flow() && request.query.limit <= 21;
+      allow list: if request.query.limit <= 50 && (
+        (parts() && resource.data.trackingState in ['active', 'completed', 'cancelled'])
+        || (scheduling() && resource.data.orderStatus == 'disponivel'));
+      function orderFields() {
+        return ['vehicleFlowId', 'plate', 'chassi', 'phone', 'customerId', 'clientName', 'consultantName', 'technicianName',
+          'orderKind', 'parts', 'partReference', 'partDescription', 'orderStatus', 'trackingState', 'orderStatusUpdatedAt',
+          'orderSource', 'orderNumber', 'orderVor', 'orderDate', 'invoiceNumber', 'expectedArrivalDate', 'cancellationReason',
+          'updatedBy', 'updatedAt'];
+      }
+      function validOrder() {
+        return request.resource.data.updatedAt == request.time
+          && request.resource.data.orderStatus in ['solicitado_oficina', 'necessidade_identificada', 'aguardando_pecas', 'pedido_realizado', 'back_order', 'em_transito', 'recebido', 'disponivel', 'disponivel_execucao', 'cancelado']
+          && request.resource.data.trackingState in ['active', 'completed', 'cancelled']
+          && request.resource.data.parts is list && request.resource.data.parts.size() > 0 && request.resource.data.parts.size() <= 50;
+      }
+      allow update: if parts() && validOrder() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(orderFields());
+      allow create: if parts() && validOrder() && request.resource.data.createdAt == request.time
+        && request.resource.data.keys().hasOnly(orderFields().concat(['createdAt', 'requestedBy']));
+      allow update: if scheduling() && resource.data.orderStatus == 'disponivel'
+        && resource.data.get('schedulingCompletedAt', null) == null
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.schedulingStatus in ['agendamento_confirmado', 'contato_sem_sucesso', 'cliente_sem_disponibilidade']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['schedulingStatus', 'scheduledReturnDate', 'contactAttemptAt', 'nextContactAt', 'schedulingNote', 'schedulingUpdatedBy', 'schedulingUpdatedAt', 'schedulingHistory', 'updatedBy', 'updatedAt']);
       function chipOrder() {
         return flow() && request.resource.data.chipDetailVersion == 1
           && request.resource.data.chipActor == request.auth.uid && request.resource.data.updatedAt == request.time
@@ -142,7 +167,8 @@ service cloud.firestore {
         'vehicleFlowId', 'plate', 'chassi', 'phone', 'clientName', 'consultantName', 'technicianName', 'orderKind', 'parts', 'partReference', 'partDescription', 'updatedBy', 'updatedAt', 'chipDetailVersion', 'chipActor']);
     }
     match /partsCatalog/{id} {
-      allow get: if flow() && (id == 'meta' || id.matches('chunk-[0-9]{3}'));
+      allow get: if (flow() || scheduling()) && (id == 'meta' || id.matches('chunk-[0-9]{3}'));
+      allow create, update: if role(['admin']) && (id == 'meta' || id.matches('chunk-0[0-9]{2}'));
     }
     match /deliveries/{id} {
       allow create, update: if operate('preparacao_entrega')

@@ -1,0 +1,6 @@
+.search { display:flex; align-items:flex-end; gap:8px; min-width:0; grid-column:span 2; }
+.field { display:grid; gap:6px; min-width:0; flex:1; }
+.field input { width:100%; min-width:0; }
+.search button { flex-shrink:0; min-height:40px; }
+@media(max-width:380px) { .search { flex-wrap:wrap; } .field { flex-basis:100%; } }
+@media(max-width:600px) { .search { grid-column:auto; } }

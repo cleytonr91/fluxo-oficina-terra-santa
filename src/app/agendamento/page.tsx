@@ -1,9 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { ProtectedPage } from "@/components/protected-page";
+import { ConfirmedSearch } from "@/components/confirmed-search";
 import { useAuth } from "@/context/auth-context";
-import { markPartSchedulingCompleted, registerPartSchedulingAction, subscribePartOrdersByStatuses, subscribeVehicleFlowsByIdentifiers, subscribeVehicleFlowsByIds } from "@/services/firestore";
+import { registerPartSchedulingAction } from "@/services/firestore";
+import { usePartsPage } from "@/components/use-parts-page";
+import { loadPartsVehicle } from "@/services/parts-pages";
 import type { PartOrder, PartOrderItem, PartOrderStatus, PartSchedulingActionType, PartSchedulingStatus, VehicleFlow } from "@/types/domain";
 
 type ScheduleForm = {
@@ -150,21 +153,13 @@ function isOverdueContact(order: PartOrder) {
   );
 }
 
-function normalizeIdentifier(value?: string) {
-  return (value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .toUpperCase();
-}
-
 export default function AgendamentoPage() {
   const { profile, user } = useAuth();
-  const [orders, setOrders] = useState<PartOrder[]>([]);
-  const [orderVehicles, setOrderVehicles] = useState<VehicleFlow[]>([]);
-  const [relatedVehicles, setRelatedVehicles] = useState<VehicleFlow[]>([]);
-  const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<SchedulingFilter>("available");
+  const page = usePartsPage(activeFilter === "completed" ? "schedulingHistory" : "scheduling", user?.uid);
+  const { orders, vehicles, setVehicles } = page;
+  const [search, setSearch] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
   const [activeOrder, setActiveOrder] = useState<PartOrder | null>(null);
   const [form, setForm] = useState<ScheduleForm>({
     action: "agendamento_confirmado",
@@ -175,52 +170,6 @@ export default function AgendamentoPage() {
   });
   const [savingId, setSavingId] = useState("");
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const unsubscribe = subscribePartOrdersByStatuses(["disponivel"], (items) => {
-      setOrders(items);
-      setError("");
-    }, (currentError) => {
-      setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar os pedidos para agendamento.");
-    });
-
-    return unsubscribe;
-  }, []);
-
-  const orderVehicleIds = useMemo(
-    () => Array.from(new Set(orders.map((order) => order.vehicleFlowId).filter(Boolean))).sort(),
-    [orders],
-  );
-  const orderVehicleIdsKey = orderVehicleIds.join("|");
-
-  useEffect(() => {
-    return subscribeVehicleFlowsByIds(orderVehicleIds, setOrderVehicles, () => undefined);
-  }, [orderVehicleIdsKey]);
-
-  const relatedIdentifiers = useMemo(() => ({
-    plates: Array.from(new Set([
-      ...orders.map((order) => order.plate),
-      ...orderVehicles.map((vehicle) => vehicle.plate),
-    ].filter((value): value is string => Boolean(value)))).sort(),
-    chassis: Array.from(new Set(orderVehicles
-      .map((vehicle) => vehicle.chassi)
-      .filter((value): value is string => Boolean(value)))).sort(),
-  }), [orderVehicles, orders]);
-  const relatedIdentifiersKey = `${relatedIdentifiers.plates.join("|")}::${relatedIdentifiers.chassis.join("|")}`;
-
-  useEffect(() => {
-    return subscribeVehicleFlowsByIdentifiers(
-      relatedIdentifiers.plates,
-      relatedIdentifiers.chassis,
-      setRelatedVehicles,
-      () => undefined,
-    );
-  }, [relatedIdentifiersKey]);
-
-  const vehicles = useMemo(() => [...new Map([
-    ...orderVehicles.map((vehicle) => [vehicle.id, vehicle] as const),
-    ...relatedVehicles.map((vehicle) => [vehicle.id, vehicle] as const),
-  ]).values()], [orderVehicles, relatedVehicles]);
 
   const vehiclesById = useMemo(() => {
     const mapped = new Map<string, VehicleFlow>();
@@ -236,59 +185,9 @@ export default function AgendamentoPage() {
     ))
   ), [orders, vehiclesById]);
 
-  const newerPassageByOrder = useMemo(() => {
-    const result = new Map<string, VehicleFlow>();
-
-    orders.forEach((order) => {
-      if (order.schedulingCompletedAt) return;
-      const originalVehicle = vehiclesById.get(order.vehicleFlowId);
-      const originalPlate = normalizeIdentifier(order.plate || originalVehicle?.plate);
-      const originalChassi = normalizeIdentifier(originalVehicle?.chassi);
-      const orderCreatedAt = toDate(order.createdAt)?.getTime() ?? 0;
-      if (!orderCreatedAt || (!originalPlate && !originalChassi)) return;
-
-      const newer = vehicles
-        .filter((vehicle) => {
-          if (vehicle.id === order.vehicleFlowId || vehicle.status === "cancelado") return false;
-          const vehicleCreatedAt = toDate(vehicle.createdAt)?.getTime() ?? 0;
-          if (!vehicleCreatedAt || vehicleCreatedAt <= orderCreatedAt) return false;
-          const vehiclePlate = normalizeIdentifier(vehicle.plate);
-          const vehicleChassi = normalizeIdentifier(vehicle.chassi);
-          return Boolean(
-            (originalPlate && vehiclePlate && originalPlate === vehiclePlate)
-            || (originalChassi && vehicleChassi && originalChassi === vehicleChassi),
-          );
-        })
-        .sort((a, b) => (toDate(a.createdAt)?.getTime() ?? 0) - (toDate(b.createdAt)?.getTime() ?? 0))[0];
-
-      if (newer) result.set(order.id, newer);
-    });
-
-    return result;
-  }, [orders, vehicles, vehiclesById]);
-
   const completedOrders = useMemo(() => (
     schedulableOrders.filter((order) => Boolean(order.schedulingCompletedAt))
   ), [schedulableOrders]);
-
-  useEffect(() => {
-    if (!newerPassageByOrder.size) return undefined;
-    let cancelled = false;
-    const completedBy = profile?.name ?? user?.email ?? user?.uid;
-
-    Promise.all(Array.from(newerPassageByOrder.entries()).map(([orderId, vehicle]) => (
-      markPartSchedulingCompleted({
-        orderId,
-        completedBy,
-        newVehicleFlowId: vehicle.id,
-        newAppointmentDate: vehicle.appointmentDate,
-      })
-    ))).catch((currentError) => {
-      if (!cancelled) setError(currentError instanceof Error ? currentError.message : "Não foi possível concluir os processos por nova passagem.");
-    });
-
-    return () => { cancelled = true; };
-  }, [newerPassageByOrder, profile?.name, user?.email, user?.uid]);
 
   const availableOrders = useMemo(() => (
     [...schedulableOrders]
@@ -311,13 +210,14 @@ export default function AgendamentoPage() {
 
   const filteredOrders = useMemo(() => {
     const query = normalizeSearch(search);
-    const sourceOrders = activeFilter === "available"
+    const filteredSourceOrders = activeFilter === "available"
       ? availableOrders
       : activeFilter === "overdue"
         ? pendingContact
         : activeFilter === "completed"
           ? completedOrders
           : schedulableOrders.filter((order) => order.schedulingStatus === activeFilter && !order.schedulingCompletedAt);
+    const sourceOrders = query ? orders : filteredSourceOrders;
     if (!query) return sourceOrders;
 
     return sourceOrders.filter((order) => {
@@ -326,13 +226,17 @@ export default function AgendamentoPage() {
         order.clientName,
         order.plate,
         order.customerId,
-        vehicle?.chassi,
-        vehicle?.phone,
+        order.chassi || vehicle?.chassi,
+        order.phone || vehicle?.phone,
         vehicle?.model,
+        order.orderNumber,
+        order.invoiceNumber,
+        order.orderStatus,
+        order.schedulingStatus,
         order.parts?.map((part) => `${part.partReference ?? ""} ${part.partDescription ?? ""}`).join(" "),
       ].some((value) => normalizeSearch(value).includes(query));
     });
-  }, [activeFilter, availableOrders, completedOrders, pendingContact, schedulableOrders, search, vehiclesById]);
+  }, [activeFilter, availableOrders, completedOrders, orders, pendingContact, schedulableOrders, search, vehiclesById]);
 
   const filterCards: Array<{ id: SchedulingFilter; count: number; label: string; className?: string }> = [
     { id: "available", count: availableOrders.length, label: "disponíveis para agendar", className: "active" },
@@ -343,8 +247,18 @@ export default function AgendamentoPage() {
     { id: "completed", count: completedOrders.length, label: "concluídos", className: "good" },
   ];
 
-  function openSchedule(order: PartOrder) {
-    setActiveOrder(order);
+  async function openSchedule(order: PartOrder) {
+    if (savingId) return;
+    setSavingId(order.id);
+    try {
+      const vehicle = await loadPartsVehicle(order.vehicleFlowId);
+      if (vehicle) setVehicles(current => [...current.filter(item => item.id !== vehicle.id), vehicle]);
+      if (vehicle?.vehicleImmobilized) throw new Error("Veículo imobilizado: encaminhe as peças para execução na oficina.");
+      setActiveOrder(order);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Não foi possível conferir o veículo.");
+      return;
+    } finally { setSavingId(""); }
     setForm({
       action: order.schedulingStatus === "contato_sem_sucesso" || order.schedulingStatus === "cliente_sem_disponibilidade"
         ? order.schedulingStatus
@@ -358,7 +272,7 @@ export default function AgendamentoPage() {
 
   async function submitSchedule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!activeOrder) return;
+    if (!activeOrder || savingId) return;
 
     if (form.action === "agendamento_confirmado" && !form.returnDate) {
       setError("Informe a data do retorno para confirmar o agendamento.");
@@ -388,6 +302,13 @@ export default function AgendamentoPage() {
         nextContactAt: form.nextContactAt || undefined,
         note: form.note,
       });
+      page.setOrders(current => current.map(order => order.id === activeOrder.id ? {
+        ...order, schedulingStatus: form.action, schedulingNote: form.note.trim(),
+        scheduledReturnDate: form.action === "agendamento_confirmado" ? form.returnDate : undefined,
+        contactAttemptAt: form.action === "contato_sem_sucesso" ? form.contactAttemptAt : undefined,
+        nextContactAt: form.nextContactAt || undefined,
+        schedulingUpdatedAt: new Date().toISOString(),
+      } : order));
       setActiveOrder(null);
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar a ação de agendamento.");
@@ -399,7 +320,13 @@ export default function AgendamentoPage() {
   return (
     <ProtectedPage title="Agendamento" subtitle="Retornos de clientes com peças disponíveis.">
       <main className="page-wrap scheduling-page">
-        {error && <div className="duplicate-alert"><strong>Erro em agendamento</strong><span>{error}</span></div>}
+        {(error || page.error) && <div className="duplicate-alert"><strong>Erro em agendamento</strong><span>{error || page.error}</span></div>}
+        <div className="modal-actions">
+          <span>{orders.length} pedidos carregados</span>
+          <button className="ghost-btn" disabled={page.loading} onClick={() => void page.refresh()}>Atualizar</button>
+          {page.hasMore && <button className="primary-btn" disabled={page.loading} onClick={() => void page.more()}>Carregar mais 50</button>}
+          {page.loading && <span role="status">Carregando...</span>}
+        </div>
 
         <section className="scheduling-filter-bar" aria-label="Filtros de agendamento">
           {filterCards.map((card) => (
@@ -413,14 +340,7 @@ export default function AgendamentoPage() {
               <strong>{card.count}</strong><span>{card.label}</span>
             </button>
           ))}
-          <label className="flow-filter scheduling-search">
-            <span>Pesquisa</span>
-            <input
-              value={search}
-              placeholder="Cliente, placa, chassi ou telefone"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
+          <ConfirmedSearch className="scheduling-search" value={searchDraft} onChange={setSearchDraft} onSearch={setSearch} placeholder="Cliente, placa, chassi ou telefone" />
         </section>
 
         <section className="flow-metrics scheduling-metrics">
@@ -430,28 +350,21 @@ export default function AgendamentoPage() {
           <div className="flow-metric"><strong>{confirmed.length}</strong><span>agendados</span></div>
           <div className="flow-metric"><strong>{unsuccessful.length}</strong><span>contato sem sucesso</span></div>
           <div className="flow-metric"><strong>{unavailable.length}</strong><span>sem disponibilidade</span></div>
-          <label className="flow-filter scheduling-search">
-            <span>Pesquisa</span>
-            <input
-              value={search}
-              placeholder="Cliente, placa, chassi ou telefone"
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
+          <ConfirmedSearch className="scheduling-search" value={searchDraft} onChange={setSearchDraft} onSearch={setSearch} placeholder="Cliente, placa, chassi ou telefone" />
         </section>
 
         <section className="panel">
           <div className="panel-head">
             <div>
               <h2 className="panel-title">{activeFilter === "available" ? "Veículos disponíveis para agendamento" : activeFilter === "overdue" ? "Compromissos vencidos" : activeFilter === "completed" ? "Concluídos por nova passagem" : actionLabels[activeFilter]}</h2>
-              <span>{filteredOrders.length} cliente(s) no filtro atual. {search.trim() ? "Pesquisa em todos os pedidos." : "Fila de disponíveis para ação."}</span>
+              <span>{filteredOrders.length} cliente(s) no filtro atual. {search.trim() ? "Pesquisa nos pedidos carregados." : "Indicadores dos pedidos carregados."}</span>
             </div>
           </div>
 
           <div className="scheduling-list">
             {filteredOrders.length ? filteredOrders.map((order) => {
               const vehicle = vehiclesById.get(order.vehicleFlowId);
-              const phoneUrl = whatsappUrl(vehicle?.phone);
+              const phoneUrl = whatsappUrl(order.phone || vehicle?.phone);
               const parts = orderParts(order);
               const processDays = order.schedulingCompletedAt
                 ? elapsedDaysBetween(order.createdAt, order.schedulingCompletedAt)
@@ -472,9 +385,9 @@ export default function AgendamentoPage() {
                       ) : (
                         <strong>{order.clientName ?? "Cliente sem nome"}</strong>
                       )}
-                      <span>{order.plate ?? "-"} · {vehicle?.chassi ?? "sem chassi"}</span>
+                      <span>{order.plate ?? "-"} · {order.chassi || vehicle?.chassi || "sem chassi"}</span>
                     </div>
-                    <div><span>Telefone</span><strong>{vehicle?.phone ?? "-"}</strong></div>
+                    <div><span>Telefone</span><strong>{order.phone || vehicle?.phone || "-"}</strong></div>
                     <div><span>Status atual</span><strong>{orderStatusLabels[order.orderStatus]}</strong></div>
                     <div><span>Tipo</span><strong>{order.orderKind === "garantia" ? "Garantia" : order.orderKind === "externo" ? "Externo" : "-"}</strong></div>
                     <div><span>Disponível desde</span><strong>{formatOperationalDateTime(order.updatedAt)}</strong></div>
@@ -507,7 +420,7 @@ export default function AgendamentoPage() {
                       {order.schedulingNote && <small>{order.schedulingNote}</small>}
                     </div>
                     {canEdit ? (
-                      <button type="button" className={canSchedule ? "primary-btn" : "ghost-btn"} onClick={() => openSchedule(order)}>
+                      <button type="button" className={canSchedule ? "primary-btn" : "ghost-btn"} disabled={Boolean(savingId)} onClick={() => void openSchedule(order)}>
                         {canSchedule ? "Agendar" : "Editar ação"}
                       </button>
                     ) : (

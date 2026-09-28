@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { allowedPathsForRole } from "@/lib/access-control";
+import { allowedPathsForRole, pageOptions } from "@/lib/access-control";
 import { isLimitedShellPath, isOperationalPathEnabled } from "@/lib/limited-operation";
 import { AuthGate } from "@/components/auth-gate";
 
@@ -21,8 +21,8 @@ export function OperationalGate({ children }: { children: ReactNode }) {
       <section className="panel">
         <div className="panel-head"><h1 className="panel-title">Operação temporariamente limitada</h1></div>
         <div className="panel-body stack">
-          <p>Esta página está suspensa. Preparação, Fluxo básico e Pós-serviço permanecem disponíveis conforme seu perfil.</p>
-          {paths.map((path) => <Link className="primary-btn fit-btn" key={path} href={path}>{path === "/preparacao" ? "Preparação" : path === "/fluxo" ? "Fluxo básico" : "Pós-serviço"}</Link>)}
+          <p>Esta página está suspensa. Acesse abaixo as páginas liberadas para seu perfil.</p>
+          {paths.map((path) => <Link className="primary-btn fit-btn" key={path} href={path}>{pageOptions.find(page => page.path === path)?.label ?? path}</Link>)}
           <button className="ghost-btn fit-btn" onClick={logout}>Sair</button>
         </div>
       </section>
