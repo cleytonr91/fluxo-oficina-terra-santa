@@ -2311,13 +2311,13 @@ export async function registerPartSchedulingAction({
     note: cleanNote,
   });
 
-  await runTransaction(db, async transaction => {
+  return runTransaction(db, async transaction => {
     const snapshot = await transaction.get(ref);
     const current = snapshot.data();
     if (!snapshot.exists() || current?.orderStatus !== "disponivel" || current?.schedulingCompletedAt) throw new Error("Pedido não está disponível para agendamento. Atualize a lista.");
     if (current?.schedulingStatus === action && (current.scheduledReturnDate ?? "") === (returnDate ?? "")
       && (current.contactAttemptAt ?? "") === (contactAttemptAt ?? "") && (current.nextContactAt ?? "") === (nextContactAt ?? "")
-      && (current.schedulingNote ?? "") === (cleanNote ?? "")) return;
+      && (current.schedulingNote ?? "") === (cleanNote ?? "")) return false;
   transaction.set(ref, withoutUndefined({
     schedulingStatus: action,
     scheduledReturnDate: action === "agendamento_confirmado" ? returnDate : deleteField(),
@@ -2330,6 +2330,7 @@ export async function registerPartSchedulingAction({
     updatedBy: actionBy,
     updatedAt: serverTimestamp(),
   }), { merge: true });
+    return true;
   });
 }
 

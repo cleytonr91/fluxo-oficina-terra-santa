@@ -293,7 +293,7 @@ export default function AgendamentoPage() {
     setError("");
 
     try {
-      await registerPartSchedulingAction({
+      const changed = await registerPartSchedulingAction({
         orderId: activeOrder.id,
         action: form.action,
         actionBy: profile?.name ?? user?.email ?? user?.uid,
@@ -302,12 +302,19 @@ export default function AgendamentoPage() {
         nextContactAt: form.nextContactAt || undefined,
         note: form.note,
       });
-      page.setOrders(current => current.map(order => order.id === activeOrder.id ? {
+      const actionAt = new Date().toISOString();
+      page.setOrders(current => current.map(order => changed && order.id === activeOrder.id ? {
         ...order, schedulingStatus: form.action, schedulingNote: form.note.trim(),
         scheduledReturnDate: form.action === "agendamento_confirmado" ? form.returnDate : undefined,
         contactAttemptAt: form.action === "contato_sem_sucesso" ? form.contactAttemptAt : undefined,
         nextContactAt: form.nextContactAt || undefined,
-        schedulingUpdatedAt: new Date().toISOString(),
+        schedulingUpdatedAt: actionAt,
+        schedulingHistory: [...(order.schedulingHistory ?? []), {
+          action: form.action, actionAt, actionBy: profile?.name ?? user?.email ?? user?.uid,
+          returnDate: form.action === "agendamento_confirmado" ? form.returnDate : undefined,
+          contactAttemptAt: form.action === "contato_sem_sucesso" ? form.contactAttemptAt : undefined,
+          nextContactAt: form.nextContactAt || undefined, note: form.note.trim(),
+        }],
       } : order));
       setActiveOrder(null);
     } catch (currentError) {
