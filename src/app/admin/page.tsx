@@ -5,6 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 import { allowedPathsForRole, pageOptions, roleOptions } from "@/lib/access-control";
+import { listUserProfiles, updateUserProfile } from "@/services/firestore";
 import type { UserProfile, UserRole } from "@/types/domain";
 
 export default function AdminPage() {
@@ -19,15 +20,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     let active = true;
-    async function loadUsers() {
-      const token = await getFirebaseAuth().currentUser?.getIdToken();
-      if (!token) throw new Error("Sua sessão expirou. Entre novamente.");
-      const response = await fetch("/api/admin/users", { headers: { Authorization: `Bearer ${token}` } });
-      const result = await response.json() as { users?: UserProfile[]; error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Não foi possível carregar usuários.");
-      return result.users ?? [];
-    }
-    loadUsers().then((data) => {
+    listUserProfiles().then((data) => {
       if (active) setUsers(data.map((user) => ({ ...user, allowedPaths: user.allowedPaths ?? allowedPathsForRole(user.role) })).sort((a, b) => Number(a.active) - Number(b.active) || a.name.localeCompare(b.name)));
     }).catch((currentError) => {
       if (active) setError(currentError instanceof Error ? currentError.message : "Não foi possível carregar usuários.");
@@ -38,11 +31,7 @@ export default function AdminPage() {
   async function saveUser(user: UserProfile) {
     setSavingId(user.id); setError(""); setMessage("");
     try {
-      const token = await getFirebaseAuth().currentUser?.getIdToken();
-      if (!token) throw new Error("Sua sessão expirou. Entre novamente.");
-      const response = await fetch("/api/admin/users", { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ userId: user.id, name: user.name.trim(), role: user.role, active: user.active, allowedPaths: user.allowedPaths ?? [] }) });
-      const result = await response.json() as { error?: string };
-      if (!response.ok) throw new Error(result.error ?? "Não foi possível salvar usuário.");
+      await updateUserProfile({ userId: user.id, name: user.name.trim(), role: user.role, active: user.active, allowedPaths: user.allowedPaths ?? [] });
       setMessage(`Usuário ${user.name} salvo.`);
     } catch (currentError) {
       setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar usuário.");
