@@ -1,6 +1,6 @@
 // Temporary containment: do not add routes without reviewing their database usage.
 export const LIMITED_OPERATION = true;
-export const limitedOperationalPaths = ["/preparacao", "/fluxo", "/pos-servico", "/pecas", "/agendamento", "/admin"] as const;
+export const limitedOperationalPaths = ["/preparacao", "/fluxo", "/pos-servico", "/pecas", "/agendamento", "/radar", "/admin"] as const;
 
 export function isOperationalPathEnabled(pathname: string) {
   return !LIMITED_OPERATION || limitedOperationalPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`));
