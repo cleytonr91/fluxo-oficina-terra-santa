@@ -39,6 +39,10 @@ export function canOperateBasic(role: UserRole | undefined, lane: FlowLane) {
 export function isCurrentDayAppointment(vehicle: VehicleFlow, today: string) {
   return vehicle.currentLane !== "preparacao_confirmada" || vehicle.appointmentDate === today;
 }
+export function basicFlowDayVehicles(vehicles: VehicleFlow[], day: string, today: string) {
+  return vehicles.filter(vehicle => isCurrentDayAppointment(vehicle, today)
+    && !(vehicle.status === "ativo" && vehicle.appointmentDate && vehicle.appointmentDate > day));
+}
 export function localDay(reference = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(reference);
 }

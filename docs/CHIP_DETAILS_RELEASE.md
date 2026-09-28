@@ -15,8 +15,13 @@ from dates other than today remain hidden, without deleting their records.
 
 The + Passante button is restored for flow roles, including Consultor. It records
 the actual receipt time, requires consultant/technician/promise, and assigns Igo
-for Embelezamento. It operates on today's date only. Pending old appointments
-can be reused after confirmation, preserving their history and linked parts.
+for Embelezamento. It operates on today's date only.
+
+Update 2026-09-27: walk-in duplicate checks use only the day board's loaded
+vehicles, before personal search/consultant/technician/metric filters. Hidden old
+and future appointments are excluded. Previous-day vehicles still in service
+and today's no-shows remain eligible conflicts. Delivered records do not block
+this local duplicate check. This changes local scope only, not board subscriptions.
 
 ## Database budget
 
@@ -32,7 +37,7 @@ can be reused after confirmation, preserving their history and linked parts.
 - Catalog: one metadata get plus up to 100 chunk gets, only on field interaction,
   shared once per browser session. No catalog collection listener.
 - Common save: one transaction document read and two writes (vehicle + event).
-- Walk-in: conflict check against the already loaded active chips, then one
+- Walk-in: conflict check against the already loaded day-board chips, then one
   targeted transaction read and two writes. Deterministic day/identity IDs prevent
   retries from replacing an existing walk-in. No appointments/walkInCustomers
   mirror writes and no automatic parts lookup. Different identities arriving

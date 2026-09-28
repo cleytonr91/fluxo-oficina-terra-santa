@@ -24,6 +24,27 @@ test('identity uses matching chassis, never null placeholders',()=>{
  assert.ok(s.findBasicWalkInConflict({plate:'',chassi:'ONE'},[{status:'ativo',plate:'',chassi:'one'}]));
  assert.equal(s.findBasicWalkInConflict({plate:'ABC1D23',chassi:''},[{status:'entregue',plate:'ABC1D23'}]),undefined);
 });
+test('walk-in checks the day board, not hidden old or future appointments',()=>{
+ const s=setup().service, today='2026-09-27';
+ const base={status:'ativo',plate:'ABC1D23',currentLane:'preparacao_confirmada'};
+ for(const appointmentDate of ['2026-09-26','2026-09-28','']){
+  const dayVehicles=domain.basicFlowDayVehicles([{...base,appointmentDate}],today,today);
+  assert.equal(s.findBasicWalkInConflict(input,dayVehicles),undefined);
+ }
+ for(const vehicle of [{...base,appointmentDate:today},{...base,appointmentDate:today,noShow:true},{...base,currentLane:'em_servico',appointmentDate:'2026-09-26',consultantName:'Eliane'}]){
+  const dayVehicles=domain.basicFlowDayVehicles([vehicle],today,today);
+  assert.equal(s.findBasicWalkInConflict(input,dayVehicles),vehicle);
+ }
+ const delivered={...base,status:'entregue',currentLane:'entregue',appointmentDate:today};
+ assert.equal(s.findBasicWalkInConflict(input,domain.basicFlowDayVehicles([delivered],today,today)),undefined);
+});
+test('board passes the unfiltered day scope to walk-in without extra database queries',()=>{
+ const source=fs.readFileSync('src/components/basic-flow-board.tsx','utf8');
+ assert.match(source,/const dayVehicles = basicFlowDayVehicles\(vehicles, day, today\)/);
+ assert.match(source,/const filtered = dayVehicles.filter/);
+ assert.match(source,/<BasicWalkInModal day=\{day\} vehicles=\{dayVehicles\}/);
+ assert.doesNotMatch(source,/getDocs|findVehicleFlowConflict/);
+});
 test('old scheduled chip is reused only if still pending, never another active stage',async()=>{
  const old={id:'old',status:'ativo',currentLane:'preparacao_confirmada',appointmentDate:'2020-01-01',plate:'ABC1D23'};
  const s=setup(old);await s.service.createBasicWalkIn(input,actor,old);assert.equal(s.reads[0],'vehiclesFlow/old');assert.equal(s.writes.length,2);

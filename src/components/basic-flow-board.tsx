@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/context/auth-context";
-import { basicConsultants, basicLanes, basicTargets, basicTechnicians, canOperateBasic, isCurrentDayAppointment, localDay } from "@/lib/basic-flow";
+import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, localDay } from "@/lib/basic-flow";
 import { BasicMoveInput, moveBasicVehicle, subscribeBasicFlow } from "@/services/basic-flow";
 import { canAddBasicWalkIn } from "@/services/basic-walk-in";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
@@ -65,9 +65,8 @@ export function BasicFlowBoard() {
     return () => window.clearInterval(timer);
   }, []);
   const today = localDay(now);
-  const filtered = vehicles.filter(v => {
-    if (!isCurrentDayAppointment(v, today)) return false;
-    if (v.status === "ativo" && v.appointmentDate && v.appointmentDate > day) return false;
+  const dayVehicles = basicFlowDayVehicles(vehicles, day, today);
+  const filtered = dayVehicles.filter(v => {
     if (consultant && v.consultantName !== consultant) return false;
     if (technicianFilter && v.technicianName !== technicianFilter) return false;
     return `${v.clientName ?? ""} ${v.plate ?? ""} ${v.chassi ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
@@ -166,6 +165,6 @@ export function BasicFlowBoard() {
       </form>
     </section></div>}
     {detail && <ChipDetailsModal key={detail.vehicle.id} vehicle={vehicles.find(vehicle => vehicle.id === detail.vehicle.id) ?? detail.vehicle} initialParts={detail.parts} connectionReady={ready && online} onClose={() => setDetail(null)} />}
-    {walkIn && <BasicWalkInModal day={day} vehicles={vehicles} ready={ready && online} onClose={() => setWalkIn(false)} onCreated={() => { setWalkIn(false); setMetric("todos"); setSearch(""); setConsultant(""); setTechnicianFilter(""); }} />}
+    {walkIn && <BasicWalkInModal day={day} vehicles={dayVehicles} ready={ready && online} onClose={() => setWalkIn(false)} onCreated={() => { setWalkIn(false); setMetric("todos"); setSearch(""); setConsultant(""); setTechnicianFilter(""); }} />}
   </div>;
 }
