@@ -46,3 +46,40 @@ export function basicFlowDayVehicles(vehicles: VehicleFlow[], day: string, today
 export function localDay(reference = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(reference);
 }
+
+function flowTimestamp(value: unknown): number | undefined {
+  const date = value instanceof Date ? value : typeof value === "string" ? new Date(value)
+    : value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function" ? value.toDate()
+      : value && typeof value === "object" && "seconds" in value && typeof value.seconds === "number" ? new Date(value.seconds * 1000) : null;
+  return date instanceof Date && Number.isFinite(date.getTime()) ? date.getTime() : undefined;
+}
+
+export function flowSequenceTime(vehicle: VehicleFlow): number {
+  if (vehicle.currentLane !== "preparacao_confirmada") {
+    const received = flowTimestamp(vehicle.attendanceStartedAt)
+      ?? (vehicle.origin === "passante" ? flowTimestamp(vehicle.createdAt) : undefined);
+    if (received !== undefined) return received;
+  }
+  const match = /^(\d{1,2}):(\d{2})$/.exec(vehicle.appointmentTime ?? "");
+  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59 || !/^\d{4}-\d{2}-\d{2}$/.test(vehicle.appointmentDate ?? "")) return Infinity;
+  return flowTimestamp(`${vehicle.appointmentDate}T${match[1].padStart(2, "0")}:${match[2]}:00-03:00`) ?? Infinity;
+}
+
+export function sortFlowLane(vehicles: VehicleFlow[], day: string): VehicleFlow[] {
+  return [...vehicles].sort((left, right) => {
+    const a = flowSequenceTime(left), b = flowSequenceTime(right);
+    if (left.currentLane === "aguardando_lavagem" && right.currentLane === "aguardando_lavagem") {
+      const oldA = Number(Number.isFinite(a) && localDay(new Date(a)) < day);
+      const oldB = Number(Number.isFinite(b) && localDay(new Date(b)) < day);
+      if (oldA !== oldB) return oldB - oldA;
+      const origin = Number(left.origin === "passante") - Number(right.origin === "passante");
+      if (origin) return origin;
+    }
+    if (a !== b) return a < b ? -1 : 1;
+    if (left.currentLane === "aguardando_lavagem" && right.currentLane === "aguardando_lavagem") {
+      const wash = Number(right.washType === "simples") - Number(left.washType === "simples");
+      if (wash) return wash;
+    }
+    return left.id.localeCompare(right.id);
+  });
+}

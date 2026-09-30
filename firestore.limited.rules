@@ -51,6 +51,11 @@ service cloud.firestore {
           || (action == 'cancel' && role(['admin', 'gerente']) && chipFields(['status']) && data.status == 'cancelado')
           || (action == 'roadTest' && chipFields(['roadTestForm']) && data.roadTestForm is map)
           || (action == 'parts' && chipFields(['partsOrdered']) && data.partsOrdered == true)
+          || (action == 'completeBudget' && role(['admin', 'gerente', 'chefe_oficina', 'estoquista'])
+            && resource.data.status == 'ativo' && resource.data.currentLane == 'orcamento_complementar'
+            && chipFields(['budgetStatus', 'budgetQuotedBy', 'partAvailability', 'partsNote'])
+            && data.budgetStatus == 'realizado' && data.partAvailability in ['sim', 'nao', 'parcial']
+            && data.budgetQuotedBy is string && data.partsNote is string)
           || (action == 'advanceWash' && chipFields(['currentLane', 'washingAdvanced', 'serviceCompleted', 'advancedWashReturnLane'])
             && resource.data.currentLane in ['aguardando_servico', 'orcamento_complementar'] && resource.data.washType != 'nao' && resource.data.washDone == false
             && data.currentLane == 'lavagem' && data.washingAdvanced == true && data.serviceCompleted == false && data.advancedWashReturnLane == resource.data.currentLane)

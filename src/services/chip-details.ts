@@ -1,7 +1,7 @@
 import { arrayUnion, collection, doc, getDoc, getDocs, limit, orderBy, query, runTransaction, serverTimestamp, startAfter, Timestamp, where, type DocumentData, type QueryDocumentSnapshot } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import { basicLanes } from "@/lib/basic-flow";
-import type { FlowEvent, FlowLane, HyundaiPartCatalogItem, PartOrder, PartOrderItem, PartOrderKind, RoadTestFormData, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { FlowEvent, FlowLane, HyundaiPartCatalogItem, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, RoadTestFormData, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 export type ChipAction =
   | { kind: "plate" | "consultant" | "technician" | "service"; value: string }
@@ -13,6 +13,7 @@ export type ChipAction =
   | { kind: "cancel"; note: string }
   | { kind: "roadTest"; value: RoadTestFormData }
   | { kind: "advanceWash" }
+  | { kind: "completeBudget"; availability: PartAvailability; note: string }
   | { kind: "parts"; orderKind: PartOrderKind; parts: PartOrderItem[] };
 
 export function canEditChip(role: UserRole | undefined, kind: ChipAction["kind"]) {
@@ -20,6 +21,7 @@ export function canEditChip(role: UserRole | undefined, kind: ChipAction["kind"]
   if (kind === "cancel" || kind === "consultant") return ["admin", "gerente"].includes(role);
   if (kind === "immobilize") return ["admin", "gerente", "chefe_oficina"].includes(role);
   if (kind === "wait") return ["admin", "consultor"].includes(role);
+  if (kind === "completeBudget") return ["admin", "gerente", "chefe_oficina", "estoquista"].includes(role);
   return true;
 }
 export function chipDate(value: unknown): Date | null {
@@ -89,6 +91,15 @@ export function prepareChipPatch(current: VehicleFlow, action: ChipAction, actor
     case "roadTest":
       if (JSON.stringify(action.value).length > 700000) throw new Error("Ficha muito grande. Reduza as assinaturas antes de salvar.");
       patch.roadTestForm = { ...JSON.parse(JSON.stringify(action.value)), updatedBy: actor.name, updatedAt: now }; note = "Ficha de teste de rodagem atualizada"; break;
+    case "completeBudget": {
+      if (current.status !== "ativo" || current.currentLane !== "orcamento_complementar") throw new Error("O chip precisa estar em Orçamento Complementar.");
+      if (!["sim", "nao", "parcial"].includes(action.availability)) throw new Error("Selecione a disponibilidade das peças.");
+      const partsNote = action.note.trim();
+      if (current.budgetStatus === "realizado" && current.partAvailability === action.availability && (current.partsNote ?? "") === partsNote) throw new Error("Nenhuma alteração para salvar.");
+      Object.assign(patch, { budgetStatus: "realizado", budgetQuotedBy: actor.name, partAvailability: action.availability, partsNote });
+      note = `Orçamento realizado. Peças: ${{ sim: "em estoque", nao: "sem estoque", parcial: "estoque parcial" }[action.availability]}${partsNote ? `. ${partsNote}` : ""}`;
+      break;
+    }
     case "advanceWash":
       if (!['aguardando_servico', 'orcamento_complementar'].includes(current.currentLane) || current.washType === "nao" || current.washDone) throw new Error("Não há lavagem pendente para antecipar nesta etapa.");
       Object.assign(patch, { currentLane: "lavagem", washingAdvanced: true, serviceCompleted: false, advancedWashReturnLane: current.currentLane });

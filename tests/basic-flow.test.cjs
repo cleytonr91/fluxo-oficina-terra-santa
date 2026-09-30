@@ -9,6 +9,24 @@ function load(file, mocks={}) {
   return mod.exports;
 }
 const domain=load('src/lib/basic-flow.ts');
+
+test('lane order uses appointment before receipt and actual receipt afterwards',()=>{
+ const make=(id,time,extra={})=>({id,currentLane:'preparacao_confirmada',appointmentDate:'2026-09-30',appointmentTime:time,...extra});
+ const ids=items=>domain.sortFlowLane(items,'2026-09-30').map(v=>v.id);
+ const late=make('late','10:00'),early=make('early','8:00');
+ const input=[late,early];assert.deepEqual(ids(input),['early','late']);assert.equal(input[0],late);
+ assert.deepEqual(ids([make('late','08:00',{currentLane:'em_servico',attendanceStartedAt:'2026-09-30T13:00:00Z'}),make('early','10:00',{currentLane:'em_servico',attendanceStartedAt:{seconds:Date.parse('2026-09-30T12:00:00Z')/1000}})]),['early','late']);
+ assert.deepEqual(ids([make('missing','99:99'),make('valid','09:00')]),['valid','missing']);
+ assert.deepEqual(ids([make('b',''),make('a','')]),['a','b']);
+ assert.equal(domain.flowSequenceTime(make('walk','15:00',{origin:'passante',currentLane:'aguardando_servico',createdAt:new Date('2026-09-30T11:00:00Z')})),Date.parse('2026-09-30T11:00:00Z'));
+ assert.deepEqual(ids([make('today','08:00',{currentLane:'em_servico'}),make('old','17:00',{currentLane:'em_servico',appointmentDate:'2026-09-29'})]),['old','today']);
+});
+
+test('wash queue retains previous day, scheduled priority and simple wash as tie breaker',()=>{
+ const make=(id,date,time,origin='agendado',washType='motor')=>({id,currentLane:'aguardando_lavagem',appointmentDate:date,appointmentTime:time,origin,washType});
+ const list=[make('walk','2026-09-30','07:00','passante'),make('scheduled','2026-09-30','10:00'),make('old','2026-09-29','17:00','passante'),make('simple','2026-09-30','10:00','agendado','simples')];
+ assert.deepEqual(domain.sortFlowLane(list,'2026-09-30').map(v=>v.id),['old','simple','scheduled','walk']);
+});
 test('scheduled column only includes today, without hiding vehicles already in service',()=>{
  const today='2026-09-25';
  for(const date of ['2026-09-24','2026-09-26','',undefined]) {

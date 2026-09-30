@@ -6,7 +6,7 @@ import { basicConsultants, basicLanes, basicTechnicians } from "@/lib/basic-flow
 import { PartCatalogFields } from "@/components/part-catalog-fields";
 import { RoadTestFormModal } from "@/components/road-test-form-modal";
 import { canEditChip, chipDate, loadChipCatalog, loadChipHistory, loadChipOrders, saveChipAction, type ChipAction } from "@/services/chip-details";
-import type { FlowLane, PartOrder, PartOrderItem, PartOrderKind, VehicleFlow, WashType } from "@/types/domain";
+import type { FlowLane, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, VehicleFlow, WashType } from "@/types/domain";
 import styles from "./chip-details-modal.module.css";
 
 const washNames = { nao: "Não", simples: "Lavagem Simples", motor: "Lavagem de Motor", motor_bancos: "Lavagem Motor + Bancos" };
@@ -19,7 +19,7 @@ function SaveChipButton({ text, action, disabled, saving, onSave }: { text: stri
   return <button className="primary-btn" type="button" disabled={saving || disabled} onClick={() => void onSave(action)}>{saving ? "Salvando..." : text}</button>;
 }
 
-export function ChipDetailsModal({ vehicle, onClose, initialParts = false, connectionReady = true }: { vehicle: VehicleFlow; onClose: () => void; initialParts?: boolean; connectionReady?: boolean }) {
+export function ChipDetailsModal({ vehicle, onClose, initialParts = false, initialBudget = false, connectionReady = true }: { vehicle: VehicleFlow; onClose: () => void; initialParts?: boolean; initialBudget?: boolean; connectionReady?: boolean }) {
   const { profile, user } = useAuth();
   const [plate, setPlate] = useState(vehicle.plate ?? "");
   const [consultant, setConsultant] = useState(vehicle.consultantName ?? "");
@@ -34,6 +34,8 @@ export function ChipDetailsModal({ vehicle, onClose, initialParts = false, conne
   const [stage, setStage] = useState<FlowLane>("aguardando_servico");
   const [stageNote, setStageNote] = useState("");
   const [cancelNote, setCancelNote] = useState("");
+  const [budgetAvailability, setBudgetAvailability] = useState<PartAvailability | "">(vehicle.budgetStatus === "realizado" ? vehicle.partAvailability ?? "" : "");
+  const [budgetNote, setBudgetNote] = useState(vehicle.budgetStatus === "realizado" ? vehicle.partsNote ?? "" : "");
   const [partsOpen, setPartsOpen] = useState(initialParts);
   const [parts, setParts] = useState<PartOrderItem[]>([{ id: "peca-1", partReference: "", partDescription: "" }]);
   const [kind, setKind] = useState<PartOrderKind | "">("");
@@ -53,6 +55,10 @@ export function ChipDetailsModal({ vehicle, onClose, initialParts = false, conne
   const ownMutation = useRef<string | null>(null);
   const latestVehicle = useRef(vehicle);
   const allowed = (action: ChipAction["kind"]) => canEditChip(profile?.role, action);
+
+  useEffect(() => {
+    if (initialBudget) document.getElementById("chip-budget-form")?.scrollIntoView({ block: "center" });
+  }, [initialBudget]);
 
   useEffect(() => {
     latestVehicle.current = vehicle;
@@ -164,6 +170,15 @@ export function ChipDetailsModal({ vehicle, onClose, initialParts = false, conne
           <div className={styles.actions}><button className="primary-btn" disabled={saving||parts.length>=50} onClick={()=>setParts(items=>[...items,{id:crypto.randomUUID(),partReference:"",partDescription:""}])}>+ Adicionar peça</button>{saveButton("Salvar pedido de peças",{kind:"parts",orderKind:kind as PartOrderKind,parts},!kind||ordersLoading||!!ordersError)}</div>
         </div>}
       </section>
+      {vehicle.currentLane === "orcamento_complementar" && vehicle.status === "ativo" && allowed("completeBudget") && <section className="history-box" id="chip-budget-form">
+        <h3>Realização do orçamento complementar</h3>
+        <label className="field"><span>Disponibilidade das peças</span><select value={budgetAvailability} onChange={event => setBudgetAvailability(event.target.value as PartAvailability | "")} disabled={saving}>
+          <option value="">Selecionar</option><option value="sim">Em estoque</option><option value="nao">Sem estoque</option><option value="parcial">Estoque parcial</option>
+        </select></label>
+        <label className="field"><span>Observação das peças</span><textarea value={budgetNote} onChange={event => setBudgetNote(event.target.value)} disabled={saving}/></label>
+        {vehicle.budgetQuotedBy && <p>Registrado por: {vehicle.budgetQuotedBy}</p>}
+        {saveButton(vehicle.budgetStatus === "realizado" ? "Atualizar disponibilidade" : "Registrar orçamento realizado", { kind: "completeBudget", availability: budgetAvailability as PartAvailability, note: budgetNote }, !budgetAvailability)}
+      </section>}
       <section className="history-box"><h3>Observações</h3><p>Agenda: {vehicle.importedNotes||"-"}</p><p>Recebimento: {vehicle.receiveNote||"-"}</p><p>Peças: {vehicle.partsNote||"-"}</p></section>
       <section className="history-box"><h3>Histórico do chip</h3><button className="primary-btn" disabled={historyLoading} onClick={()=>void historyPage()}>{historyLoading?"Carregando...":history?"Atualizar histórico":"Carregar histórico"}</button>{historyError && <p role="alert">{historyError}</p>}
         {history && <><ul className="chip-history-list">{timeline.map(event=><li key={event.id}><strong>{event.label}</strong><span>{event.actor||"Operador não identificado"} · {format(event.date)}</span><p>{event.note}</p></li>)}</ul>{!timeline.length&&<p>Nenhuma movimentação registrada.</p>}{history.cursor&&<button className="primary-btn" disabled={historyLoading} onClick={()=>void historyPage(true)}>Carregar anteriores</button>}</>}

@@ -41,6 +41,30 @@ test('detail changes read one chip and write only chip plus audit',async()=>{
  assert.deepEqual(s.reads,['vehiclesFlow/v1']);assert.equal(s.writes.length,2);assert.equal(s.queries.length,0);
  assert.equal(s.writes[0][1].plate,'DEF4G56');
 });
+
+test('stock records budget and stock selection without authorizing or moving the chip',async()=>{
+ for(const availability of ['sim','nao','parcial']) {
+  const current={...vehicle,currentLane:'orcamento_complementar',budgetStatus:'aguardando'};
+  const s=setup(current);
+  await s.service.saveChipAction(current,{kind:'completeBudget',availability,note:' Conferido '},{...actor,role:'estoquista'});
+  assert.deepEqual(s.reads,['vehiclesFlow/v1']);assert.equal(s.writes.length,2);assert.equal(s.queries.length,0);
+  const patch=s.writes[0][1];assert.equal(patch.budgetStatus,'realizado');assert.equal(patch.partAvailability,availability);
+  assert.equal(patch.budgetQuotedBy,actor.name);assert.equal(patch.partsNote,'Conferido');
+  assert.equal(patch.budgetAuthorized,undefined);assert.equal(patch.currentLane,undefined);
+ }
+});
+
+test('budget rejects absent selection, wrong role/stage, unchanged and stale submissions',async()=>{
+ const current={...vehicle,currentLane:'orcamento_complementar',budgetStatus:'aguardando'};
+ const action={kind:'completeBudget',availability:'parcial',note:''};
+ for(const role of ['consultor','tecnico','lider_lavagem','agendamento','qualidade']){
+  const s=setup(current);await assert.rejects(()=>s.service.saveChipAction(current,action,{...actor,role}));assert.equal(s.writes.length,0);
+ }
+ for(const [record,request] of [[vehicle,action],[current,{...action,availability:''}],[{...current,status:'entregue'},action],[{...current,budgetStatus:'realizado',partAvailability:'parcial'},action]]){
+  const s=setup(record);await assert.rejects(()=>s.service.saveChipAction(record,request,{...actor,role:'estoquista'}));assert.equal(s.writes.length,0);
+ }
+ const s=setup({...current,updatedAt:{seconds:101}});await assert.rejects(()=>s.service.saveChipAction(current,action,{...actor,role:'estoquista'}));assert.equal(s.writes.length,0);
+});
 test('stale versions, unchanged values and absent reasons perform no writes',async()=>{
  const s=setup({...vehicle,updatedAt:{seconds:100,nanoseconds:2}});
  await assert.rejects(()=>s.service.saveChipAction(vehicle,{kind:'plate',value:'DEF4G56'},actor));assert.equal(s.writes.length,0);

@@ -3,6 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),ts=require('typescript'),a
 const root=process.cwd(),output=path.resolve('output/chip-details-qa');fs.mkdirSync(output,{recursive:true});
 const sources=new Map();
 const mocks={
+ '@/services/parts-catalog-cache':`exports.clearCatalogCache=()=>{};`,
  '@/services/basic-walk-in':`exports.findBasicWalkInConflict=()=>undefined;exports.createBasicWalkIn=async(form)=>{window.walkInForm=form;window.counts.saves++;return 'test'};`,
  '@/context/auth-context':`exports.useAuth=()=>({profile:{role:window.testRole||'admin',name:'Operador teste'},user:{uid:'test'}});`,
  '@/services/firestore':`exports.loadHyundaiPartsCatalog=async()=>[];`,
@@ -37,7 +38,8 @@ const css=fs.readFileSync('src/app/globals.css','utf8').replace('@import "tailwi
 const js=`window.counts={orders:0,history:0,catalog:0,saves:0,pdf:0};const process={env:{NODE_ENV:'development'}};const modules={${[...sources].map(([id,code])=>`${JSON.stringify(id)}:function(module,exports,require){${code}\n}`).join(',')}};const cache={};function require(id){if(cache[id])return cache[id].exports;const m={exports:{}};cache[id]=m;modules[id](m,m.exports,require);return m.exports;}const React=require(${JSON.stringify(react)});const {createRoot}=require(${JSON.stringify(client)});const {ChipDetailsModal}=require(${JSON.stringify(component)});
 const vehicle={id:'test',status:'ativo',currentLane:'aguardando_servico',clientName:'CLIENTE DE TESTE',plate:'ABC1D23',chassi:'9BHTESTE1234567890',model:'HB20',consultantName:'Eliane',technicianName:'Wesley',serviceLabel:'Revisão 01',washType:'simples',washDone:false,customerWaits:false,promiseHistory:[{changedAt:'2026-09-25T12:10:00Z',promisedDeliveryAt:'2026-09-25T17:00:00Z',changedBy:'Eliane',note:'Ajuste anterior'}]};
 const {BasicWalkInModal}=require(${JSON.stringify(walkInComponent)});
-function Harness(){const[open,setOpen]=React.useState(true);return open?(location.search.includes('walk-in')?React.createElement(BasicWalkInModal,{day:'2026-09-25',vehicles:[],ready:true,onClose:()=>setOpen(false),onCreated:()=>setOpen(false)}):React.createElement(ChipDetailsModal,{vehicle,initialParts:location.search.includes('parts'),onClose:()=>setOpen(false)})):React.createElement('p',null,'Fechado');}createRoot(document.getElementById('root')).render(React.createElement(React.StrictMode,null,React.createElement(Harness)));`;
+if(location.search.includes("budget")){Object.assign(vehicle,{currentLane:"orcamento_complementar",budgetStatus:"aguardando"});window.testRole="estoquista";}
+function Harness(){const[open,setOpen]=React.useState(true);return open?(location.search.includes('walk-in')?React.createElement(BasicWalkInModal,{day:'2026-09-25',vehicles:[],ready:true,onClose:()=>setOpen(false),onCreated:()=>setOpen(false)}):React.createElement(ChipDetailsModal,{vehicle,initialParts:location.search.includes('parts'),initialBudget:location.search.includes('budget'),onClose:()=>setOpen(false)})):React.createElement('p',null,'Fechado');}createRoot(document.getElementById('root')).render(React.createElement(React.StrictMode,null,React.createElement(Harness)));`;
 fs.writeFileSync(path.join(output,'harness.html'),`<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{font-family:Arial;margin:0}button,input,select,textarea{font:inherit}button{padding:10px;border:1px solid #ced9e2;border-radius:6px}.primary-btn{background:#002c5f;color:white}${css}</style><div id="root"></div><script>${js.replaceAll('</script','<\\/script')}</script></html>`);
 async function main(){
  const {chromium}=require(path.join(process.env.USERPROFILE,'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'));
@@ -85,6 +87,19 @@ async function main(){
   await page.getByText('Fechado',{exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>window.walkInForm.consultant),'Luan');
   assert.equal(await page.evaluate(()=>window.counts.saves),1);
+  assert.deepEqual(errors,[]);
+  await page.goto('file:///'+path.join(output,'harness.html').replaceAll('\\','/')+'?budget');
+  await page.getByRole('combobox',{name:'Disponibilidade das peças',exact:true}).waitFor();
+  assert.equal(await page.getByRole('combobox',{name:'Disponibilidade das peças',exact:true}).inputValue(),'');
+  assert.equal(await page.getByRole('button',{name:'Registrar orçamento realizado',exact:true}).isDisabled(),true);
+  await page.getByRole('combobox',{name:'Disponibilidade das peças',exact:true}).selectOption('parcial');
+  await page.getByLabel('Observação das peças',{exact:true}).fill('Falta um item');
+  await page.screenshot({path:path.join(output,name+'-budget.png')});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.getByRole('button',{name:'Registrar orçamento realizado',exact:true}).click();
+  await page.getByText('Alteração salva.',{exact:true}).waitFor();
+  assert.deepEqual(await page.evaluate(()=>window.lastAction),{kind:'completeBudget',availability:'parcial',note:'Falta um item'});
+  assert.deepEqual(await page.evaluate(()=>window.counts),{orders:0,history:0,catalog:0,saves:1,pdf:0});
   assert.deepEqual(errors,[]);
   await page.close();
  }console.log('Interactive desktop/mobile: lazy loads, caching, save, history, road form, walk-in and StrictMode passed. Firebase/PDF mocked.');}finally{await browser.close();}

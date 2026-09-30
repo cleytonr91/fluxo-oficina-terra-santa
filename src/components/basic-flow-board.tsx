@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/context/auth-context";
-import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, localDay } from "@/lib/basic-flow";
+import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, localDay, sortFlowLane } from "@/lib/basic-flow";
 import { BasicMoveInput, moveBasicVehicle, subscribeBasicFlow } from "@/services/basic-flow";
 import { canAddBasicWalkIn } from "@/services/basic-walk-in";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
@@ -46,7 +46,7 @@ export function BasicFlowBoard() {
   const [metric, setMetric] = useState("todos");
   const [now, setNow] = useState(() => new Date());
   const [lastSync, setLastSync] = useState<Date | null>(null);
-  const [detail, setDetail] = useState<{ vehicle: VehicleFlow; parts: boolean } | null>(null);
+  const [detail, setDetail] = useState<{ vehicle: VehicleFlow; parts: boolean; budget?: boolean } | null>(null);
   const [walkIn, setWalkIn] = useState(false);
   const lock = useRef(false);
   useEffect(() => {
@@ -88,7 +88,7 @@ export function BasicFlowBoard() {
     { id: "delivered", label: "Entregues do dia", items: filtered.filter(v => v.status === "entregue") },
   ];
   const visible = metric === "todos" ? filtered : groups.find(group => group.id === metric)?.items ?? [];
-  const visibleNoShows = noShows.filter(v => visible.includes(v));
+  const visibleNoShows = sortFlowLane(noShows.filter(v => visible.includes(v)), day);
   function metricLine(group: typeof groups[number]) {
     return <button key={group.id} className={`metric-line-btn ${metric === group.id ? "selected" : ""}`} type="button" onClick={() => setMetric(metric === group.id ? "todos" : group.id)}><span>{group.label}</span><b>{group.items.length}</b></button>;
   }
@@ -121,6 +121,7 @@ export function BasicFlowBoard() {
         {vehicle.origin === "passante" && <span className="tag warn">Passante</span>}
         {vehicle.priority === "alta" && <span className="tag bad">Alta</span>}
         <span className={`tag ${vehicle.washDone ? "good" : vehicle.washType === "nao" ? "bad" : ""}`}>{washes[vehicle.washType] ?? "Lavagem não informada"}{vehicle.washDone ? " 👍" : vehicle.washType === "nao" ? " 👎" : ""}</span>
+        {vehicle.currentLane === "orcamento_complementar" && vehicle.budgetStatus === "realizado" && vehicle.partAvailability && <span className={`tag ${vehicle.partAvailability === "sim" ? "good" : vehicle.partAvailability === "nao" ? "bad" : "warn"}`}>Peças: {{ sim: "em estoque", nao: "sem estoque", parcial: "estoque parcial" }[vehicle.partAvailability]}</span>}
         {vehicle.noShow && vehicle.currentLane === "preparacao_confirmada" && <span className="tag bad">NO-SHOW</span>}
         {vehicle.budgetAuthorized && <span className="tag good">ORÇ Complementar 👍</span>}
         {vehicle.vehicleImmobilized && <span className="tag bad">Imobilizado · {vehicle.immobilizationReason === "aguardando_pecas" ? "Aguardando Peças" : "Aguardando Decisão"}</span>}
@@ -129,6 +130,7 @@ export function BasicFlowBoard() {
       </div>
       <div className="chip-compact-details"><div><span>Consultor:</span> {vehicle.consultantName || "-"}</div><div><span>Técnico:</span> {vehicle.technicianName || "-"}</div><div><span>{vehicle.currentLane === "preparacao_confirmada" ? "Agenda:" : "Recebido:"}</span> {vehicle.currentLane === "preparacao_confirmada" ? vehicle.appointmentTime || "-" : received?.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) || "-"}</div></div>
       {vehicle.vehicleImmobilized ? <div className="immobilized-stay"><strong><b>{days}</b><small>dias</small></strong></div> : promise && <div className={`time-bar ${late ? "late" : ""}`}><div className="time-bar-top"><span>Previsão de entrega</span><strong>{time(vehicle.promisedDeliveryAt)}</strong></div><div className="time-track"><span style={{ width: `${progress}%` }} /></div></div>}
+      {vehicle.currentLane === "orcamento_complementar" && profile?.role === "estoquista" && <button className="primary-btn" type="button" disabled={!ready || !online} onDoubleClick={event => event.stopPropagation()} onClick={() => setDetail({ vehicle, parts: false, budget: true })}>{vehicle.budgetStatus === "realizado" ? "Ver orçamento" : "Registrar orçamento"}</button>}
       {canMove && <button className="chip-move-btn" aria-label={`Mover ${vehicle.clientName || "veículo"}`} title="Mover para próxima etapa" disabled={!ready || !online} onDoubleClick={event => event.stopPropagation()} onClick={() => open(vehicle)}>→</button>}
     </article>;
   }
@@ -145,7 +147,7 @@ export function BasicFlowBoard() {
     </section>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <section className="flow-board">{basicLanes.map(lane => {
-      const items = visible.filter(v => v.currentLane === lane.id && !(lane.id === "preparacao_confirmada" && v.noShow));
+      const items = sortFlowLane(visible.filter(v => v.currentLane === lane.id && !(lane.id === "preparacao_confirmada" && v.noShow)), day);
       return <section className={`flow-lane lane-${lane.id}`} key={lane.id}><div className="flow-lane-head"><h2>{lane.label}</h2><strong>{items.length}</strong></div>
         {lane.id === "orcamento_complementar" ? <div className="budget-split">{[false, true].map(done => { const subset = items.filter(v => (v.budgetStatus === "realizado") === done); return <div className="budget-box" key={String(done)}><h3>{done ? "Orçamento realizado" : "Aguardando"}</h3>{subset.length ? subset.map(card) : <p>{done ? "Nenhum orçamento realizado" : "Sem orçamentos pendentes"}</p>}</div>; })}</div> : <div className="flow-lane-body">{items.map(card)}{!items.length && <div className="empty">{ready ? "Sem veículos nesta etapa" : "Carregando veículos..."}</div>}</div>}
         {lane.id === "preparacao_confirmada" && <div className="lane-no-show-section"><div className="lane-no-show-head"><h3>No-show</h3><strong>{visibleNoShows.length}</strong></div><div className="lane-no-show-body">{visibleNoShows.map(card)}{!visibleNoShows.length && <div className="empty">Nenhum no-show neste dia.</div>}</div></div>}
@@ -164,7 +166,7 @@ export function BasicFlowBoard() {
         <footer><button type="button" className="ghost-btn" disabled={saving} onClick={() => { setSelected(null); setForm(null); }}>Cancelar</button><button className="primary-btn" disabled={saving || !ready || !online}>{saving ? "Salvando..." : "Confirmar movimentação"}</button></footer>
       </form>
     </section></div>}
-    {detail && <ChipDetailsModal key={detail.vehicle.id} vehicle={vehicles.find(vehicle => vehicle.id === detail.vehicle.id) ?? detail.vehicle} initialParts={detail.parts} connectionReady={ready && online} onClose={() => setDetail(null)} />}
+    {detail && <ChipDetailsModal key={detail.vehicle.id} vehicle={vehicles.find(vehicle => vehicle.id === detail.vehicle.id) ?? detail.vehicle} initialParts={detail.parts} initialBudget={detail.budget} connectionReady={ready && online} onClose={() => setDetail(null)} />}
     {walkIn && <BasicWalkInModal day={day} vehicles={dayVehicles} ready={ready && online} onClose={() => setWalkIn(false)} onCreated={() => { setWalkIn(false); setMetric("todos"); setSearch(""); setConsultant(""); setTechnicianFilter(""); }} />}
   </div>;
 }
