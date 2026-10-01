@@ -383,30 +383,30 @@ const grossProfitTrend: GrossProfitMonth[] = [
   { month: "2026-07", label: "Jul", planned: 288244.79, realized: 184033.77, previousYear: 288424.89, margin: 56.32 },
 ];
 
-const serviceReportSnapshots: Record<string, { revisions: number; revisionSales: number; mechanicsSales: number; additionalSales: number; beautySales: number; productiveShop: number; totalServices: number; tkmServices?: number; tkmAdditional?: number; tkmBeauty?: number }> = {
+const serviceReportSnapshots: Record<string, { revisions: number; revisionSales: number; mechanicsSales: number; additionalSales: number; beautySales: number; beautyTotalSales?: number; bodyworkSales?: number; accessoriesLaborSales?: number; productiveShop: number; totalServices: number; tkmServices?: number; tkmAdditional?: number; tkmBeauty?: number }> = {
   "2025-01": {
     revisions: 266, revisionSales: 84293, mechanicsSales: 20941, additionalSales: 15014, beautySales: 48205,
-    productiveShop: 120248, totalServices: 246289, tkmServices: 555, tkmAdditional: 56, tkmBeauty: 181,
+    beautyTotalSales: 88415, bodyworkSales: 26455, accessoriesLaborSales: 11171, productiveShop: 120248, totalServices: 246289, tkmServices: 555, tkmAdditional: 56, tkmBeauty: 181,
   },
   "2025-02": {
     revisions: 232, revisionSales: 73848, mechanicsSales: 24044, additionalSales: 21057, beautySales: 41404,
-    productiveShop: 118949, totalServices: 211996, tkmServices: 588, tkmAdditional: 91, tkmBeauty: 178,
+    beautyTotalSales: 65260, bodyworkSales: 12365, accessoriesLaborSales: 15422, productiveShop: 118949, totalServices: 211996, tkmServices: 588, tkmAdditional: 91, tkmBeauty: 178,
   },
   "2025-03": {
     revisions: 206, revisionSales: 66688, mechanicsSales: 37197, additionalSales: 16789, beautySales: 32805,
-    productiveShop: 120674, totalServices: 198679, tkmServices: 564, tkmAdditional: 82, tkmBeauty: 159,
+    beautyTotalSales: 47813, bodyworkSales: 22407, accessoriesLaborSales: 7785, productiveShop: 120674, totalServices: 198679, tkmServices: 564, tkmAdditional: 82, tkmBeauty: 159,
   },
   "2025-04": {
     revisions: 219, revisionSales: 67012, mechanicsSales: 30156, additionalSales: 34658, beautySales: 44823,
-    productiveShop: 131826, totalServices: 234404, tkmServices: 669, tkmAdditional: 158, tkmBeauty: 205,
+    beautyTotalSales: 73261, bodyworkSales: 18685, accessoriesLaborSales: 10631, productiveShop: 131826, totalServices: 234404, tkmServices: 669, tkmAdditional: 158, tkmBeauty: 205,
   },
   "2025-05": {
     revisions: 252, revisionSales: 79327, mechanicsSales: 46622, additionalSales: 27316, beautySales: 42603,
-    productiveShop: 153265, totalServices: 267668, tkmServices: 592, tkmAdditional: 108, tkmBeauty: 169,
+    beautyTotalSales: 62965, bodyworkSales: 37891, accessoriesLaborSales: 13547, productiveShop: 153265, totalServices: 267668, tkmServices: 592, tkmAdditional: 108, tkmBeauty: 169,
   },
   "2025-06": {
     revisions: 219, revisionSales: 71532, mechanicsSales: 28561, additionalSales: 18961, beautySales: 23401,
-    productiveShop: 119054, totalServices: 209716, tkmServices: 520, tkmAdditional: 87, tkmBeauty: 107,
+    beautyTotalSales: 48709, bodyworkSales: 23566, accessoriesLaborSales: 18387, productiveShop: 119054, totalServices: 209716, tkmServices: 520, tkmAdditional: 87, tkmBeauty: 107,
   },
   "2025-07": {
     revisions: 263,
@@ -414,7 +414,7 @@ const serviceReportSnapshots: Record<string, { revisions: number; revisionSales:
     mechanicsSales: 36409,
     additionalSales: 44853,
     beautySales: 46800,
-    productiveShop: 169230,
+    beautyTotalSales: 66630, bodyworkSales: 30813, accessoriesLaborSales: 8000, productiveShop: 169230,
     totalServices: 274673,
     tkmServices: 682,
     tkmAdditional: 171,
@@ -438,7 +438,7 @@ const serviceReportSnapshots: Record<string, { revisions: number; revisionSales:
     mechanicsSales: 31128,
     additionalSales: 51851,
     beautySales: 29289,
-    productiveShop: 156845,
+    beautyTotalSales: 44288, bodyworkSales: 20668, accessoriesLaborSales: 5000, productiveShop: 156845,
     totalServices: 226801,
     tkmServices: 651,
     tkmAdditional: 218,
@@ -446,19 +446,19 @@ const serviceReportSnapshots: Record<string, { revisions: number; revisionSales:
   },
   "2025-09": {
     revisions: 240, revisionSales: 75715, mechanicsSales: 32140, additionalSales: 49681, beautySales: 38040,
-    productiveShop: 157536, totalServices: 251028, tkmServices: 681, tkmAdditional: 207, tkmBeauty: 159,
+    beautyTotalSales: 58468, bodyworkSales: 35024, accessoriesLaborSales: 0, productiveShop: 157536, totalServices: 251028, tkmServices: 681, tkmAdditional: 207, tkmBeauty: 159,
   },
   "2025-10": {
     revisions: 248, revisionSales: 82469, mechanicsSales: 37451, additionalSales: 55935, beautySales: 35050,
-    productiveShop: 175855, totalServices: 259425, tkmServices: 699, tkmAdditional: 226, tkmBeauty: 141,
+    beautyTotalSales: 51980, bodyworkSales: 23990, accessoriesLaborSales: 7600, productiveShop: 175855, totalServices: 259425, tkmServices: 699, tkmAdditional: 226, tkmBeauty: 141,
   },
   "2025-11": {
     revisions: 228, revisionSales: 73881, mechanicsSales: 19570, additionalSales: 46598, beautySales: 34390,
-    productiveShop: 140049, totalServices: 210764, tkmServices: 679, tkmAdditional: 204, tkmBeauty: 151,
+    beautyTotalSales: 46989, bodyworkSales: 23727, accessoriesLaborSales: 0, productiveShop: 140049, totalServices: 210764, tkmServices: 679, tkmAdditional: 204, tkmBeauty: 151,
   },
   "2025-12": {
     revisions: 294, revisionSales: 97198, mechanicsSales: 19455, additionalSales: 58297, beautySales: 39338,
-    productiveShop: 174950, totalServices: 259545, tkmServices: 663, tkmAdditional: 198, tkmBeauty: 134,
+    beautyTotalSales: 71652, bodyworkSales: 10643, accessoriesLaborSales: 2300, productiveShop: 174950, totalServices: 259545, tkmServices: 663, tkmAdditional: 198, tkmBeauty: 134,
   },
   "2026-08": {
     revisions: 71,
@@ -789,7 +789,7 @@ export default function FarolGerencialPage() {
   const [channelRevenueDraft, setChannelRevenueDraft] = useState({ month: "", oficinaProdutiva: "", acessorios: "", embelezamento: "", funilaria: "", balcao: "" });
   const [savingChannelRevenueEntry, setSavingChannelRevenueEntry] = useState(false);
   const [activeServiceProductivityEntry, setActiveServiceProductivityEntry] = useState(false);
-  const [serviceProductivityDraft, setServiceProductivityDraft] = useState({ month: "", revisions: "", revisionSales: "", mechanicsSales: "", additionalSales: "", beautySales: "" });
+  const [serviceProductivityDraft, setServiceProductivityDraft] = useState({ month: "", revisions: "", revisionSales: "", mechanicsSales: "", additionalSales: "", beautySales: "", beautyTotalSales: "", bodyworkSales: "", accessoriesLaborSales: "" });
   const [savingServiceProductivityEntry, setSavingServiceProductivityEntry] = useState(false);
   const [activeMonthlyPlan, setActiveMonthlyPlan] = useState(false);
   const [monthlyPlanDraft, setMonthlyPlanDraft] = useState<{ month: string; shopGoal: string; beautyGoal: string; status: "partial" | "closed"; operationalDays: FarolOperationalDay[] }>({ month: "", shopGoal: "", beautyGoal: "", status: "partial", operationalDays: [] });
@@ -866,7 +866,7 @@ export default function FarolGerencialPage() {
     const previousSnapshot = previousManualEntry ?? serviceReportSnapshots[`${selectedYear - 1}-${String(selectedMonthNumber).padStart(2, "0")}`];
     const useDailyResults = !manualEntry && entries.length > 0;
     const previousProductiveShop = previousSnapshot ? ("productiveShop" in previousSnapshot ? previousSnapshot.productiveShop : previousSnapshot.revisionSales + previousSnapshot.mechanicsSales + previousSnapshot.additionalSales) : 0;
-    const previousTotalServices = previousSnapshot ? ("totalServices" in previousSnapshot ? previousSnapshot.totalServices : previousProductiveShop + previousSnapshot.beautySales) : 0;
+    const previousTotalServices = previousSnapshot ? ("totalServices" in previousSnapshot ? previousSnapshot.totalServices : previousProductiveShop + (previousSnapshot.beautyTotalSales ?? previousSnapshot.beautySales) + (previousSnapshot.bodyworkSales ?? 0) + (previousSnapshot.accessoriesLaborSales ?? 0)) : 0;
     const previousTkmBeauty = previousSnapshot ? ("tkmBeauty" in previousSnapshot ? previousSnapshot.tkmBeauty ?? (previousSnapshot.revisions ? previousSnapshot.beautySales / previousSnapshot.revisions : 0) : (previousSnapshot.revisions ? previousSnapshot.beautySales / previousSnapshot.revisions : 0)) : 0;
     const previousTkmAdditional = previousSnapshot ? ("tkmAdditional" in previousSnapshot ? previousSnapshot.tkmAdditional ?? (previousSnapshot.revisions ? previousSnapshot.additionalSales / previousSnapshot.revisions : 0) : (previousSnapshot.revisions ? previousSnapshot.additionalSales / previousSnapshot.revisions : 0)) : 0;
     const previousTkmServiceSales = previousSnapshot ? previousSnapshot.revisionSales + previousSnapshot.additionalSales + previousSnapshot.beautySales : 0;
@@ -879,7 +879,7 @@ export default function FarolGerencialPage() {
       { label: "Serviços adicionais", current: 0, lastYear: previousSnapshot?.additionalSales ?? 0, type: "currency", note: "Vendas de alinhamento e balanceamento." },
       { label: "TKM serv. adicionais", current: 0, lastYear: previousTkmAdditional, type: "currency", note: "Alinhamento e balanceamento divididos por revisões." },
       { label: "Oficina produtiva", current: 0, lastYear: previousProductiveShop, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
-      { label: "Fat. total serviços", current: 0, lastYear: previousTotalServices, type: "currency", note: "Faturamento total de serviços." },
+      { label: "Fat. total serviços", current: 0, lastYear: previousTotalServices, type: "currency", note: "Oficina produtiva, faturamento total de embelezamento, M.O. de funilaria e M.O. de acessórios." },
       { label: "TKM serviços", current: 0, lastYear: previousTkmServices, type: "currency", note: "M.O de revisão, serviços adicionais e embelezamento divididos por revisões." },
     ];
 
@@ -889,7 +889,10 @@ export default function FarolGerencialPage() {
     const additionalSales = useDailyResults ? entries.reduce((total, item) => total + item.alignmentBalancing, 0) : snapshot!.additionalSales;
     const beautySales = useDailyResults ? entries.reduce((total, item) => total + item.beauty, 0) : snapshot!.beautySales;
     const productiveShop = manualEntry || useDailyResults ? revisionSales + mechanicsSales + additionalSales : ("productiveShop" in snapshot! ? snapshot!.productiveShop : revisionSales + mechanicsSales + additionalSales);
-    const totalServices = manualEntry || useDailyResults ? productiveShop + beautySales : ("totalServices" in snapshot! ? snapshot!.totalServices : productiveShop + beautySales);
+    const beautyTotalSales = manualEntry || useDailyResults ? (manualEntry?.beautyTotalSales ?? beautySales) : (snapshot!.beautyTotalSales ?? beautySales);
+    const bodyworkSales = manualEntry?.bodyworkSales ?? 0;
+    const accessoriesLaborSales = manualEntry?.accessoriesLaborSales ?? 0;
+    const totalServices = manualEntry || useDailyResults ? productiveShop + beautyTotalSales + bodyworkSales + accessoriesLaborSales : ("totalServices" in snapshot! ? snapshot!.totalServices : productiveShop + beautyTotalSales + bodyworkSales + accessoriesLaborSales);
     const tkmServiceSales = revisionSales + additionalSales + beautySales;
     const perRevision = (value: number) => revisions ? value / revisions : 0;
     const legacySnapshot = snapshot && "tkmServices" in snapshot ? snapshot : undefined;
@@ -904,7 +907,7 @@ export default function FarolGerencialPage() {
       { label: "Embelezamento", current: beautySales, lastYear: previousSnapshot?.beautySales ?? 0, type: "currency", note: "Vendas de embelezamento." },
       { label: "TKM embelezamento", current: tkmBeauty, lastYear: previousTkmBeauty, type: "currency", note: "Embelezamento dividido por revisões." },
       { label: "Oficina produtiva", current: productiveShop, lastYear: previousProductiveShop, type: "currency", note: "Revisão, mecânica e serviços adicionais." },
-      { label: "Fat. total serviços", current: totalServices, lastYear: previousTotalServices, type: "currency", note: "Faturamento total de serviços." },
+      { label: "Fat. total serviços", current: totalServices, lastYear: previousTotalServices, type: "currency", note: "Oficina produtiva, faturamento total de embelezamento, M.O. de funilaria e M.O. de acessórios." },
       { label: "TKM serviços", current: tkmServices, lastYear: previousTkmServices, type: "currency", note: "M.O de revisão, serviços adicionais e embelezamento divididos por revisões." },
     ];
   }, [dailyResults, selectedMonth, serviceProductivityEntries]);
@@ -1245,6 +1248,9 @@ export default function FarolGerencialPage() {
       mechanicsSales: existing ? String(existing.mechanicsSales) : "",
       additionalSales: existing ? String(existing.additionalSales) : "",
       beautySales: existing ? String(existing.beautySales) : "",
+      beautyTotalSales: existing ? String(existing.beautyTotalSales ?? existing.beautySales) : "",
+      bodyworkSales: existing ? String(existing.bodyworkSales ?? 0) : "",
+      accessoriesLaborSales: existing ? String(existing.accessoriesLaborSales ?? 0) : "",
     });
     setActiveServiceProductivityEntry(true);
   }
@@ -1260,6 +1266,9 @@ export default function FarolGerencialPage() {
         mechanicsSales: parseCurrencyInput(serviceProductivityDraft.mechanicsSales),
         additionalSales: parseCurrencyInput(serviceProductivityDraft.additionalSales),
         beautySales: parseCurrencyInput(serviceProductivityDraft.beautySales),
+        beautyTotalSales: parseCurrencyInput(serviceProductivityDraft.beautyTotalSales),
+        bodyworkSales: parseCurrencyInput(serviceProductivityDraft.bodyworkSales),
+        accessoriesLaborSales: parseCurrencyInput(serviceProductivityDraft.accessoriesLaborSales),
         updatedBy: profile?.name,
       });
       setActiveServiceProductivityEntry(false);
@@ -1598,9 +1607,12 @@ export default function FarolGerencialPage() {
                 <label><span>Vendas de revisão</span><input inputMode="decimal" value={serviceProductivityDraft.revisionSales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, revisionSales: event.target.value }))} placeholder="R$ 114.710,32" /></label>
                 <label><span>Mecânica geral e demais</span><input inputMode="decimal" value={serviceProductivityDraft.mechanicsSales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, mechanicsSales: event.target.value }))} placeholder="R$ 27.828,88" /></label>
                 <label><span>Serviços adicionais</span><input inputMode="decimal" value={serviceProductivityDraft.additionalSales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, additionalSales: event.target.value }))} placeholder="R$ 84.660,52" /></label>
-                <label><span>Embelezamento</span><input inputMode="decimal" value={serviceProductivityDraft.beautySales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, beautySales: event.target.value }))} placeholder="R$ 40.332,37" /></label>
+                <label><span>Embelezamento oficina</span><input inputMode="decimal" value={serviceProductivityDraft.beautySales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, beautySales: event.target.value }))} placeholder="R$ 40.332,37" /></label>
+                <label><span>Faturamento total de embelezamento</span><input inputMode="decimal" value={serviceProductivityDraft.beautyTotalSales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, beautyTotalSales: event.target.value }))} placeholder="R$ 58.468,00" /></label>
+                <label><span>M.O. de funilaria</span><input inputMode="decimal" value={serviceProductivityDraft.bodyworkSales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, bodyworkSales: event.target.value }))} placeholder="R$ 35.024,00" /></label>
+                <label><span>M.O. de acessórios</span><input inputMode="decimal" value={serviceProductivityDraft.accessoriesLaborSales} onChange={(event) => setServiceProductivityDraft((current) => ({ ...current, accessoriesLaborSales: event.target.value }))} placeholder="R$ 0,00" /></label>
               </div>
-              <div className="farol-revenue-total-preview"><span>Oficina produtiva / total de serviços</span><strong>{formatCurrency(parseCurrencyInput(serviceProductivityDraft.revisionSales) + parseCurrencyInput(serviceProductivityDraft.mechanicsSales) + parseCurrencyInput(serviceProductivityDraft.additionalSales))} / {formatCurrency(parseCurrencyInput(serviceProductivityDraft.revisionSales) + parseCurrencyInput(serviceProductivityDraft.mechanicsSales) + parseCurrencyInput(serviceProductivityDraft.additionalSales) + parseCurrencyInput(serviceProductivityDraft.beautySales))}</strong></div>
+              <div className="farol-revenue-total-preview"><span>Oficina produtiva / total de serviços</span><strong>{formatCurrency(parseCurrencyInput(serviceProductivityDraft.revisionSales) + parseCurrencyInput(serviceProductivityDraft.mechanicsSales) + parseCurrencyInput(serviceProductivityDraft.additionalSales))} / {formatCurrency(parseCurrencyInput(serviceProductivityDraft.revisionSales) + parseCurrencyInput(serviceProductivityDraft.mechanicsSales) + parseCurrencyInput(serviceProductivityDraft.additionalSales) + parseCurrencyInput(serviceProductivityDraft.beautyTotalSales) + parseCurrencyInput(serviceProductivityDraft.bodyworkSales) + parseCurrencyInput(serviceProductivityDraft.accessoriesLaborSales))}</strong></div>
               <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveServiceProductivityEntry(false)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveServiceProductivityEntry()} disabled={!serviceProductivityDraft.month || savingServiceProductivityEntry}>{savingServiceProductivityEntry ? "Salvando..." : "Salvar produtividade"}</button></div>
             </section>
           </div>

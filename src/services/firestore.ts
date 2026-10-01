@@ -3,6 +3,7 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   documentId,
   deleteField,
@@ -24,7 +25,7 @@ import { LIMITED_OPERATION } from "@/lib/limited-operation";
 import { loadCachedCatalog, importCachedCatalog } from "@/services/parts-catalog-cache";
 import { collections } from "@/lib/firebase/collections";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import type { AgendaItem, Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, HyundaiPartCatalogItem, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PartsCounterEntry, PartsCounterEntryType, PartsCounterItem, PartsSalesGoal, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
+import type { ActionPlan, AgendaItem, Appointment, BodyShopProcess, BodyShopStatus, BodyShopVehicleLocation, FlowEvent, FlowLane, HgsiAnswer, HgsiRecord, HyundaiPartCatalogItem, InventoryItem, InventorySupplier, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, PartSchedulingActionType, PartsCounterEntry, PartsCounterEntryType, PartsCounterItem, PartsSalesGoal, PostCaseType, PostServiceCase, Preparation, RoadTestFormData, ServiceType, TreatmentStatus, UserProfile, UserRole, VehicleFlow, WashType } from "@/types/domain";
 
 type PreparedVehicleInput = {
   id: string;
@@ -493,6 +494,9 @@ export type FarolServiceProductivity = {
   mechanicsSales: number;
   additionalSales: number;
   beautySales: number;
+  beautyTotalSales?: number;
+  bodyworkSales?: number;
+  accessoriesLaborSales?: number;
   updatedBy?: string;
   updatedAt?: unknown;
 };
@@ -514,6 +518,9 @@ export async function saveFarolServiceProductivity({
   mechanicsSales,
   additionalSales,
   beautySales,
+  beautyTotalSales,
+  bodyworkSales,
+  accessoriesLaborSales,
   updatedBy,
 }: Omit<FarolServiceProductivity, "id" | "updatedAt">) {
   const db = getFirebaseDb();
@@ -524,6 +531,9 @@ export async function saveFarolServiceProductivity({
     mechanicsSales: Math.max(0, Number(mechanicsSales) || 0),
     additionalSales: Math.max(0, Number(additionalSales) || 0),
     beautySales: Math.max(0, Number(beautySales) || 0),
+    beautyTotalSales: Math.max(0, Number(beautyTotalSales) || 0),
+    bodyworkSales: Math.max(0, Number(bodyworkSales) || 0),
+    accessoriesLaborSales: Math.max(0, Number(accessoriesLaborSales) || 0),
     updatedBy,
     updatedAt: serverTimestamp(),
   }), { merge: true });
@@ -895,6 +905,71 @@ export async function listUserProfiles() {
   })) as UserProfile[];
 }
 
+export function subscribeInventoryItems(onItems: (items: InventoryItem[]) => void, onError?: (error: Error) => void) {
+  const ref = query(collection(getFirebaseDb(), collections.inventoryItems), orderBy("createdAt", "desc"));
+  return onSnapshot(
+    ref,
+    (snapshot) => onItems(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as InventoryItem[]),
+    (error) => onError?.(error),
+  );
+}
+
+export async function saveInventoryItem(item: Omit<InventoryItem, "id" | "createdAt" | "updatedAt"> & { id?: string }) {
+  const ref = item.id
+    ? doc(getFirebaseDb(), collections.inventoryItems, item.id)
+    : doc(collection(getFirebaseDb(), collections.inventoryItems));
+  await setDoc(ref, withoutUndefined({
+    ...item,
+    updatedAt: serverTimestamp(),
+    ...(item.id ? {} : { createdAt: serverTimestamp() }),
+  }), { merge: true });
+  return ref.id;
+}
+
+export function subscribeInventorySuppliers(onSuppliers: (suppliers: InventorySupplier[]) => void, onError?: (error: Error) => void) {
+  const ref = query(collection(getFirebaseDb(), collections.inventorySuppliers), orderBy("createdAt", "desc"));
+  return onSnapshot(
+    ref,
+    (snapshot) => onSuppliers(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as InventorySupplier[]),
+    (error) => onError?.(error),
+  );
+}
+
+export async function saveInventorySupplier(supplier: Omit<InventorySupplier, "id" | "createdAt" | "updatedAt"> & { id?: string }) {
+  const ref = supplier.id
+    ? doc(getFirebaseDb(), collections.inventorySuppliers, supplier.id)
+    : doc(collection(getFirebaseDb(), collections.inventorySuppliers));
+  await setDoc(ref, withoutUndefined({
+    ...supplier,
+    updatedAt: serverTimestamp(),
+    ...(supplier.id ? {} : { createdAt: serverTimestamp() }),
+  }), { merge: true });
+  return ref.id;
+}
+
+export async function adjustInventoryStock(itemId: string, delta: number, purchase?: { supplierId?: string; supplierName?: string; unitPrice: number }) {
+  const db = getFirebaseDb();
+  const ref = doc(db, collections.inventoryItems, itemId);
+  return runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists()) throw new Error("Item de estoque não encontrado.");
+    const currentStock = Number(snapshot.data().stock ?? 0);
+    const nextStock = currentStock + delta;
+    if (nextStock < 0) throw new Error("Estoque insuficiente para esta saída.");
+    transaction.update(ref, withoutUndefined({
+      stock: nextStock,
+      updated: "Agora",
+      updatedAt: serverTimestamp(),
+      ...(purchase ? {
+        lastPurchasePrice: Math.max(0, Number(purchase.unitPrice) || 0),
+        lastPurchaseAt: serverTimestamp(),
+        ...(purchase.supplierId ? { lastSupplierId: purchase.supplierId, lastSupplierName: purchase.supplierName } : {}),
+      } : {}),
+    }));
+    return nextStock;
+  });
+}
+
 export async function listAgendaItems(userId: string, canSeeTeam = false) {
   const db = getFirebaseDb();
   const ref = collection(db, collections.agendaItems);
@@ -903,6 +978,7 @@ export async function listAgendaItems(userId: string, canSeeTeam = false) {
     : await Promise.all([
         getDocs(query(ref, where("ownerId", "==", userId))),
         getDocs(query(ref, where("participantIds", "array-contains", userId))),
+        getDocs(query(ref, where("kind", "==", "holiday"))),
       ]);
   const unique = new Map<string, AgendaItem>();
   snapshots.forEach((snapshot) => snapshot.docs.forEach((item) => unique.set(item.id, { id: item.id, ...item.data() } as AgendaItem)));
@@ -925,6 +1001,35 @@ export async function toggleAgendaItemOccurrence(itemId: string, date: string, c
     completedDates: completed ? arrayUnion(date) : arrayRemove(date),
     updatedAt: serverTimestamp(),
   });
+}
+
+export async function listActionPlans(userId: string, canSeeTeam = false) {
+  const db = getFirebaseDb();
+  const ref = collection(db, collections.actionPlans);
+  const snapshots = canSeeTeam
+    ? [await getDocs(ref)]
+    : await Promise.all([
+        getDocs(query(ref, where("createdBy", "==", userId))),
+        getDocs(query(ref, where("responsibleIds", "array-contains", userId))),
+      ]);
+  const unique = new Map<string, ActionPlan>();
+  snapshots.forEach((snapshot) => snapshot.docs.forEach((item) => unique.set(item.id, { id: item.id, ...item.data() } as ActionPlan)));
+  return [...unique.values()].sort((a, b) => (a.dueDate ?? "9999-12-31").localeCompare(b.dueDate ?? "9999-12-31"));
+}
+
+export async function saveActionPlan(plan: Omit<ActionPlan, "id" | "createdAt" | "updatedAt"> & { id?: string }) {
+  const db = getFirebaseDb();
+  const ref = plan.id ? doc(collection(db, collections.actionPlans), plan.id) : doc(collection(db, collections.actionPlans));
+  await setDoc(ref, withoutUndefined({ ...plan, updatedAt: serverTimestamp(), ...(plan.id ? {} : { createdAt: serverTimestamp() }) }), { merge: true });
+  return ref.id;
+}
+
+export async function updateActionPlanStatus(planId: string, status: ActionPlan["status"]) {
+  await updateDoc(doc(getFirebaseDb(), collections.actionPlans, planId), { status, updatedAt: serverTimestamp() });
+}
+
+export async function deleteAgendaItem(itemId: string) {
+  await deleteDoc(doc(getFirebaseDb(), collections.agendaItems, itemId));
 }
 
 export async function listHgsiRecords() {
