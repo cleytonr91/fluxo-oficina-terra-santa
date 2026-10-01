@@ -2547,10 +2547,34 @@
 
 .farol-lb-columns i {
   border-radius: 6px 6px 2px 2px;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   max-width: 26px;
   min-height: 8px;
+  position: relative;
   width: 28%;
+}
+
+.farol-lb-bar-value {
+  color: #fff;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 900;
+  left: 50%;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  pointer-events: none;
+  position: absolute;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.28);
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  white-space: nowrap;
+}
+
+.farol-lb-columns .planned .farol-lb-bar-value {
+  color: #463310;
+  text-shadow: 0 1px 1px rgb(255 255 255 / 0.24);
 }
 
 .farol-lb-month strong,

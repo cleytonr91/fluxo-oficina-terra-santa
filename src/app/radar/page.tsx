@@ -100,7 +100,7 @@ type BalcaoSummary = {
 };
 
 type FarolPdfReportKey = "goals" | "daily" | "open-orders" | "counter" | "revenue" | "gross-profit" | "channels" | "productivity" | "consultants" | "service-ranking";
-type FarolDataStatus = "Parcial" | "Fechado" | "Sem fechamento" | "Sem base";
+type FarolDataStatus = "Parcial" | "Consolidado" | "Sem fechamento" | "Sem base";
 
 const farolPdfReports: Array<{ key: FarolPdfReportKey; label: string }> = [
   { key: "goals", label: "Metas mensais e operação" },
@@ -988,10 +988,10 @@ export default function FarolGerencialPage() {
   }
 
   const monthProgress = monthSummary.businessDays ? (monthSummary.passedDays / monthSummary.businessDays) * 100 : 0;
-  const configuredStatus: FarolDataStatus = !selectedMonthlyPlan ? "Sem base" : selectedMonthlyPlan.status === "closed" ? "Fechado" : "Parcial";
-  const dailyStatus: FarolDataStatus = !dailyResults.length && selectedMonth !== "2026-07" ? "Sem base" : selectedMonthlyPlan?.status === "closed" ? "Fechado" : "Parcial";
-  const operationStatus: FarolDataStatus = !vehicles.length ? "Sem base" : selectedMonthlyPlan?.status === "closed" ? "Fechado" : selectedMonth < monthKey(new Date()) ? "Sem fechamento" : "Parcial";
-  const reportStatus = (hasData: boolean): FarolDataStatus => !hasData ? "Sem base" : selectedMonthlyPlan?.status === "closed" ? "Fechado" : selectedMonth < monthKey(new Date()) ? "Sem fechamento" : "Parcial";
+  const configuredStatus: FarolDataStatus = !selectedMonthlyPlan ? "Sem base" : selectedMonthlyPlan.status === "closed" ? "Consolidado" : "Parcial";
+  const dailyStatus: FarolDataStatus = !dailyResults.length && selectedMonth !== "2026-07" ? "Sem base" : selectedMonthlyPlan?.status === "closed" ? "Consolidado" : "Parcial";
+  const operationStatus: FarolDataStatus = !vehicles.length ? "Sem base" : selectedMonthlyPlan?.status === "closed" ? "Consolidado" : selectedMonth < monthKey(new Date()) ? "Sem fechamento" : "Parcial";
+  const reportStatus = (hasData: boolean): FarolDataStatus => !hasData ? "Sem base" : selectedMonthlyPlan?.status === "closed" ? "Consolidado" : selectedMonth < monthKey(new Date()) ? "Sem fechamento" : "Parcial";
   const grossProfitMonths = useMemo(() => {
     const entryByMonth = new Map(grossProfitEntries.map((item) => [item.month, item]));
     const months = grossProfitTrend.map((item) => {
@@ -1616,7 +1616,7 @@ export default function FarolGerencialPage() {
                   const existing = monthlyPlans.find((item) => item.month === month);
                   setMonthlyPlanDraft({ month, shopGoal: String(existing?.shopGoal ?? 160000), beautyGoal: String(existing?.beautyGoal ?? 35000), status: existing?.status ?? "partial", operationalDays: existing?.operationalDays ?? [] });
                 }} /></label>
-                <label><span>Situação do mês</span><select value={monthlyPlanDraft.status} onChange={(event) => setMonthlyPlanDraft((current) => ({ ...current, status: event.target.value as "partial" | "closed" }))}><option value="partial">Parcial / em andamento</option><option value="closed">Fechado</option></select></label>
+                <label><span>Status dos relatórios</span><select value={monthlyPlanDraft.status} onChange={(event) => setMonthlyPlanDraft((current) => ({ ...current, status: event.target.value as "partial" | "closed" }))}><option value="partial">Parcial</option><option value="closed">Consolidado</option></select></label>
                 <label><span>Meta M.O Oficina Produtiva</span><input inputMode="decimal" value={monthlyPlanDraft.shopGoal} onChange={(event) => setMonthlyPlanDraft((current) => ({ ...current, shopGoal: event.target.value }))} placeholder="R$ 160.000,00" /></label>
                 <label><span>Meta Embelezamento</span><input inputMode="decimal" value={monthlyPlanDraft.beautyGoal} onChange={(event) => setMonthlyPlanDraft((current) => ({ ...current, beautyGoal: event.target.value }))} placeholder="R$ 35.000,00" /></label>
               </div>
@@ -1931,7 +1931,7 @@ function GoalCard({
 }
 
 function DataStatusTag({ status }: { status: FarolDataStatus }) {
-  const tone = status === "Fechado" ? "closed" : status === "Parcial" ? "partial" : status === "Sem fechamento" ? "warning" : "empty";
+  const tone = status === "Consolidado" ? "closed" : status === "Parcial" ? "partial" : status === "Sem fechamento" ? "warning" : "empty";
   return <span className={`farol-data-status ${tone}`}>{status}</span>;
 }
 
@@ -2043,9 +2043,9 @@ function GrossProfitChart({ items, lastUpdated }: { items: GrossProfitMonth[]; l
         {items.map((item) => (
           <div key={item.month} className="farol-lb-month">
             <div className="farol-lb-columns">
-              <i className="previous" title={`Realizado AA: ${formatCurrency(item.previousYear)}`} style={{ height: `${Math.max(8, (item.previousYear / max) * 100)}%` }} />
-              <i className="planned" title={`Planejado: ${formatCurrency(item.planned)}`} style={{ height: `${Math.max(8, (item.planned / max) * 100)}%` }} />
-              <i className="realized" title={`Realizado: ${formatCurrency(item.realized)}`} style={{ height: `${Math.max(8, (item.realized / max) * 100)}%` }} />
+              <i className="previous" title={`Realizado AA: ${formatCurrency(item.previousYear)}`} style={{ height: `${Math.max(8, (item.previousYear / max) * 100)}%` }}><b className="farol-lb-bar-value">{formatCurrency(item.previousYear)}</b></i>
+              <i className="planned" title={`Planejado: ${formatCurrency(item.planned)}`} style={{ height: `${Math.max(8, (item.planned / max) * 100)}%` }}><b className="farol-lb-bar-value">{formatCurrency(item.planned)}</b></i>
+              <i className="realized" title={`Realizado: ${formatCurrency(item.realized)}`} style={{ height: `${Math.max(8, (item.realized / max) * 100)}%` }}><b className="farol-lb-bar-value">{formatCurrency(item.realized)}</b></i>
             </div>
             <strong>{item.label}</strong>
             <span>{formatPercent((item.realized / item.planned) * 100)}</span>
