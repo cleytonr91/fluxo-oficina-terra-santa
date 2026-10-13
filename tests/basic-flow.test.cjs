@@ -10,6 +10,22 @@ function load(file, mocks={}) {
 }
 const domain=load('src/lib/basic-flow.ts');
 
+test('immobilized chips only appear in their filter and return to their unchanged lane on release',()=>{
+ const regular={id:'normal',status:'ativo',currentLane:'em_servico'};
+ const held={id:'held',status:'ativo',currentLane:'em_servico',vehicleImmobilized:true};
+ const noShow={id:'no-show',status:'ativo',currentLane:'preparacao_confirmada',noShow:true,vehicleImmobilized:true};
+ const cancelled={id:'cancelled',status:'cancelado',vehicleImmobilized:true};
+ const list=[regular,held,noShow,cancelled];
+ assert.deepEqual(domain.visibleByImmobilization(list,false),[regular]);
+ assert.deepEqual(domain.visibleByImmobilization(list,true),[held,noShow]);
+ const released={...held,vehicleImmobilized:false};
+ assert.deepEqual(domain.visibleByImmobilization([regular,released],false),[regular,released]);
+ assert.deepEqual(domain.visibleByImmobilization([released],true),[]);
+ assert.equal(released.currentLane,'em_servico');assert.equal(held.vehicleImmobilized,true);
+ const source=fs.readFileSync('src/components/basic-flow-board.tsx','utf8');
+ assert.match(source,/const visible = visibleByImmobilization\(/);
+});
+
 test('lane order uses appointment before receipt and actual receipt afterwards',()=>{
  const make=(id,time,extra={})=>({id,currentLane:'preparacao_confirmada',appointmentDate:'2026-09-30',appointmentTime:time,...extra});
  const ids=items=>domain.sortFlowLane(items,'2026-09-30').map(v=>v.id);

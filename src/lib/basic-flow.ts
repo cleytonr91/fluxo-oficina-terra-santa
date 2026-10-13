@@ -47,6 +47,12 @@ export function localDay(reference = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(reference);
 }
 
+export function visibleByImmobilization(vehicles: VehicleFlow[], onlyImmobilized: boolean): VehicleFlow[] {
+  return vehicles.filter(vehicle => onlyImmobilized
+    ? vehicle.status === "ativo" && vehicle.vehicleImmobilized === true
+    : !vehicle.vehicleImmobilized);
+}
+
 function flowTimestamp(value: unknown): number | undefined {
   const date = value instanceof Date ? value : typeof value === "string" ? new Date(value)
     : value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function" ? value.toDate()

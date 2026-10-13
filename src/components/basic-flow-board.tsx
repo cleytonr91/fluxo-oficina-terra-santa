@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/context/auth-context";
-import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, localDay, sortFlowLane } from "@/lib/basic-flow";
+import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, localDay, sortFlowLane, visibleByImmobilization } from "@/lib/basic-flow";
 import { BasicMoveInput, moveBasicVehicle, subscribeBasicFlow } from "@/services/basic-flow";
 import { canAddBasicWalkIn } from "@/services/basic-walk-in";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
@@ -85,10 +85,10 @@ export function BasicFlowBoard() {
     { id: "embelezamento", label: "Embelezamento", items: active.filter(v => /embelez|lavagem/i.test(v.serviceLabel ?? "")) },
     { id: "noShow", label: "No-show", items: noShows },
     { id: "attention", label: "Em atenção", items: active.filter(attention) },
-    { id: "immobilized", label: "Imobilizados", items: active.filter(v => v.vehicleImmobilized) },
+    { id: "immobilized", label: "Imobilizados", items: visibleByImmobilization(filtered, true) },
     { id: "delivered", label: "Entregues do dia", items: filtered.filter(v => v.status === "entregue") },
   ];
-  const visible = metric === "todos" ? filtered : groups.find(group => group.id === metric)?.items ?? [];
+  const visible = visibleByImmobilization(metric === "todos" ? filtered : groups.find(group => group.id === metric)?.items ?? [], metric === "immobilized");
   const visibleNoShows = sortFlowLane(noShows.filter(v => visible.includes(v)), day);
   const loadingMessage = error ? "Carregamento interrompido. Confira o aviso acima." : "Carregando veículos...";
   function metricLine(group: typeof groups[number]) {
