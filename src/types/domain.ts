@@ -165,8 +165,16 @@ export type PostCaseType =
   | "fora_base"
   | "pendencia_acordada";
 
-export type TreatmentStatus = "aberto" | "em_tratativa" | "tratado" | "sem_acao";
-export type HgsiRequestStatus = "nao_solicitada" | "solicitada" | "respondida" | "bloqueada";
+export type TreatmentStatus =
+  | "aberto"
+  | "em_tratativa"
+  | "tratado"
+  | "sem_acao";
+export type HgsiRequestStatus =
+  | "nao_solicitada"
+  | "solicitada"
+  | "respondida"
+  | "bloqueada";
 
 export type FirestoreTimestamp = Date | string;
 
@@ -213,7 +221,44 @@ export interface UserProfile {
   updatedAt: FirestoreTimestamp;
 }
 
-export type AgendaItemKind = "task" | "event" | "meeting";
+export interface InventoryItem {
+  id: string;
+  code: string;
+  name: string;
+  category: string;
+  unit: string;
+  stock: number;
+  minimum: number;
+  ideal: number;
+  location: string;
+  lastPurchasePrice?: number;
+  lastSupplierId?: string;
+  lastSupplierName?: string;
+  lastPurchaseAt?: FirestoreTimestamp;
+  updated?: string;
+  createdAt?: FirestoreTimestamp;
+  updatedAt?: FirestoreTimestamp;
+}
+
+export interface InventorySupplier {
+  id: string;
+  name: string;
+  contact?: string;
+  phone?: string;
+  email?: string;
+  itemIds: string[];
+  active: boolean;
+  createdAt?: FirestoreTimestamp;
+  updatedAt?: FirestoreTimestamp;
+}
+
+export type AgendaItemKind =
+  | "task"
+  | "event"
+  | "meeting"
+  | "travel"
+  | "time_off"
+  | "holiday";
 export type AgendaRecurrence = "none" | "daily" | "weekly" | "monthly";
 
 export interface AgendaItem {
@@ -221,6 +266,7 @@ export interface AgendaItem {
   title: string;
   kind: AgendaItemKind;
   date: string;
+  endDate?: string;
   startTime?: string;
   endTime?: string;
   recurrence: AgendaRecurrence;
@@ -236,6 +282,40 @@ export interface AgendaItem {
   color?: string;
   completed?: boolean;
   completedDates?: string[];
+  blocksSchedule?: boolean;
+  createdAt?: FirestoreTimestamp;
+  updatedAt?: FirestoreTimestamp;
+}
+
+export type ActionPlanPriority = "low" | "medium" | "high";
+export type ActionPlanStatus = "planned" | "in_progress" | "completed";
+export type ActionPlanStepStatus = "planned" | "in_progress" | "completed";
+
+export interface ActionPlanStep {
+  id: string;
+  title: string;
+  dueDate?: string;
+  responsibleId?: string;
+  responsibleName?: string;
+  status: ActionPlanStepStatus;
+  observations?: string;
+}
+
+export interface ActionPlan {
+  id: string;
+  title: string;
+  objective: string;
+  action: string;
+  expectedResult?: string;
+  priority: ActionPlanPriority;
+  status: ActionPlanStatus;
+  dueDate?: string;
+  responsibleIds: string[];
+  responsibleNames: string[];
+  createdBy: string;
+  createdByName: string;
+  observations?: string;
+  steps?: ActionPlanStep[];
   createdAt?: FirestoreTimestamp;
   updatedAt?: FirestoreTimestamp;
 }

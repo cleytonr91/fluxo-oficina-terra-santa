@@ -1,6 +1,7 @@
 export const collections = {
   users: "users",
   agendaItems: "agendaItems",
+  actionPlans: "actionPlans",
   importBatches: "importBatches",
   appointments: "appointments",
   preparations: "preparations",
@@ -10,6 +11,8 @@ export const collections = {
   complementaryBudgets: "complementaryBudgets",
   partOrders: "partOrders",
   partsCatalog: "partsCatalog",
+  inventoryItems: "inventoryItems",
+  inventorySuppliers: "inventorySuppliers",
   publicPartLookups: "publicPartLookups",
   deliveries: "deliveries",
   postServiceCases: "postServiceCases",
