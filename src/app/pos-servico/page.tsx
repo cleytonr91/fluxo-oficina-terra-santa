@@ -13,6 +13,7 @@ const campaignPeriods = [
   { month: "2026-07", label: "Julho/2026", start: "2026-07-04", end: "2026-08-06" },
   { month: "2026-08", label: "Agosto/2026", start: "2026-08-07", end: "2026-09-07" },
   { month: "2026-09", label: "Setembro/2026", start: "2026-09-08", end: "2026-10-07" },
+  { month: "2026-10", label: "Outubro/2026", start: "2026-10-08", end: "2026-11-07" },
 ];
 const finalizedAnswerFiles: Record<string, string> = {
   "2026-07": "Acompanhamento das Entrevistas - Pós Vendas - 13-08-2026 - 09-09-23.xls",
@@ -708,11 +709,12 @@ export default function PosServicoPage() {
   const flowItems = useMemo(() => vehicles.map(vehicleToItem), [vehicles]);
 
   const availableMonths = useMemo(() => Array.from(new Set([
+    selectedMonth,
     ...campaignPeriods.map((period) => period.month),
     ...flowItems.map((item) => item.sourceMonth),
     ...hgsiRecords.map((record) => record.sourceMonth || monthFromValue(record.importedAt)),
     ...hgsiAnswers.map(answerSourceMonth),
-  ].filter(Boolean) as string[])).sort((first, second) => second.localeCompare(first)), [flowItems, hgsiRecords, hgsiAnswers]);
+  ].filter(Boolean) as string[])).sort((first, second) => second.localeCompare(first)), [selectedMonth, flowItems, hgsiRecords, hgsiAnswers]);
 
   const filterByMonth = (item: Pick<FunnelItem, "sourceMonth">) => (
     selectedMonth === "Todos" || item.sourceMonth === selectedMonth
