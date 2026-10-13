@@ -44,7 +44,7 @@ service cloud.firestore {
 
     match /importBatches/{document} {
       allow read: if operations();
-      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina']);
+      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'qualidade']);
     }
 
     match /appointments/{document} {

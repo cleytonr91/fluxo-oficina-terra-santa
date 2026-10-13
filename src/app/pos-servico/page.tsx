@@ -4,14 +4,15 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { listDeliveredVehicleFlowsForMonth, listHgsiAnswersForMonth, listHgsiRecordsForMonth, listPostServiceCasesForMonth, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
+import { listDeliveredVehicleFlowsForMonth, listDeliveredVehicleFlowsForPeriod, listHgsiAnswersForMonth, listHgsiRecordsForMonth, listPostServiceCasesForMonth, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
 import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from "@/types/domain";
 
-const consultants = ["Cleverton", "Rosangela", "Eliane"];
+const consultants = ["Luan", "Rosangela", "Eliane"];
 const surveyGoal = 15;
 const campaignPeriods = [
   { month: "2026-07", label: "Julho/2026", start: "2026-07-04", end: "2026-08-06" },
   { month: "2026-08", label: "Agosto/2026", start: "2026-08-07", end: "2026-09-07" },
+  { month: "2026-09", label: "Setembro/2026", start: "2026-09-08", end: "2026-10-07" },
 ];
 const finalizedAnswerFiles: Record<string, string> = {
   "2026-07": "Acompanhamento das Entrevistas - Pós Vendas - 13-08-2026 - 09-09-23.xls",
@@ -127,6 +128,16 @@ function campaignMonthFromMatrix(matrix: unknown[][]) {
 function isCampaignClosed(month: string) {
   const period = campaignPeriods.find((item) => item.month === month);
   return period ? period.end < dateKeyFromValue(new Date()) : false;
+}
+
+function campaignMonthFromDateValue(value: unknown) {
+  const dateKey = dateKeyFromValue(value);
+  const period = campaignPeriods.find((item) => dateKey && dateKey >= item.start && dateKey <= item.end);
+  return period?.month || monthFromValue(value);
+}
+
+function currentCampaignMonth() {
+  return campaignMonthFromDateValue(new Date()) || new Date().toISOString().slice(0, 7);
 }
 
 function findColumn(row: Record<string, unknown>, terms: string[]) {
@@ -274,7 +285,7 @@ function answerServiceDate(answer: Pick<HgsiAnswerImport, "serviceDate" | "raw">
 }
 
 function answerSourceMonth(answer: Pick<HgsiAnswerImport, "serviceDate" | "sourceMonth" | "importedAt" | "raw">) {
-  return monthFromValue(answerServiceDate(answer)) || answer.sourceMonth || monthFromValue(answer.importedAt);
+  return answer.sourceMonth || campaignMonthFromDateValue(answerServiceDate(answer)) || campaignMonthFromDateValue(answer.importedAt);
 }
 
 function timeFromValue(value: unknown) {
@@ -298,7 +309,7 @@ function displayMonth(value: string) {
 
 function consultantDisplayName(name?: string) {
   const normalized = normalizeText(name);
-  if (normalized.includes("cleverton")) return "Cleverton";
+  if (normalized.includes("cleverton")) return "Luan";
   if (normalized.includes("rosangela")) return "Rosangela";
   if (normalized.includes("eliane")) return "Eliane";
   if (normalized.includes("luan")) return "Luan";
@@ -495,7 +506,6 @@ function formatIndicator(value: number | null, scale?: "ten" | "percent") {
 function consultantFullName(name: string) {
   if (name === "Rosangela") return "Rosangela Santos de Jesus";
   if (name === "Eliane") return "Eliane Ribeiro";
-  if (name === "Cleverton") return "Jose Cleverton Macedo";
   return name;
 }
 
@@ -602,7 +612,7 @@ export default function PosServicoPage() {
     caseType: "tratar_antes_pesquisa",
   });
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [selectedMonth, setSelectedMonth] = useState(currentCampaignMonth);
   const [deliveredConsultantFilter, setDeliveredConsultantFilter] = useState("Todos");
   const [aptosConsultantFilter, setAptosConsultantFilter] = useState("Todos");
   const [answeredConsultantFilter, setAnsweredConsultantFilter] = useState("Todos");
@@ -627,8 +637,11 @@ export default function PosServicoPage() {
       setSuccessMessage("");
 
       try {
+        const selectedPeriod = campaignPeriods.find((period) => period.month === selectedMonth);
         const [flowData, savedRecords, savedAnswers, savedCases] = await Promise.all([
-          listDeliveredVehicleFlowsForMonth(selectedMonth),
+          selectedPeriod
+            ? listDeliveredVehicleFlowsForPeriod(selectedPeriod.start, selectedPeriod.end)
+            : listDeliveredVehicleFlowsForMonth(selectedMonth),
           listHgsiRecordsForMonth(selectedMonth),
           listHgsiAnswersForMonth(selectedMonth),
           listPostServiceCasesForMonth(selectedMonth),
@@ -672,7 +685,7 @@ export default function PosServicoPage() {
           correctServiceScore: answer.correctServiceScore,
           correctService: answer.correctService,
           raw: answer.rawPayload ?? {},
-          sourceMonth: monthFromValue(answer.serviceDate || serviceDateFromRow(answer.rawPayload ?? {})) || answer.sourceMonth || monthFromValue(answer.importedAt),
+          sourceMonth: answer.sourceMonth || campaignMonthFromDateValue(answer.serviceDate || serviceDateFromRow(answer.rawPayload ?? {})) || campaignMonthFromDateValue(answer.importedAt),
           importedAt: answer.importedAt,
         })).filter((answer) => answer.chassi || answer.osNumber || answer.questionnaireId);
         setHgsiRecords(nextRecords);
@@ -1050,11 +1063,6 @@ export default function PosServicoPage() {
       const parsed = await parseRows(file);
       const rows = parsed.rows;
       const sourceMonth = parsed.campaignMonth || selectedMonth;
-      setSelectedMonth(sourceMonth);
-      if (isCampaignClosed(sourceMonth)) {
-        setSuccessMessage(`A campanha de ${displayMonth(sourceMonth)} está encerrada. Os registros válidos não foram armazenados.`);
-        return;
-      }
       const records = rows.map((row) => {
         const status = textFrom(row, ["status", "registro"]);
         const chassi = textFrom(row, ["chassi", "vin"]).toUpperCase();
@@ -1080,6 +1088,7 @@ export default function PosServicoPage() {
         records,
       });
 
+      setSelectedMonth(sourceMonth);
       setHgsiRecords((current) => [
         ...current.filter((record) => record.sourceMonth !== sourceMonth),
         ...records.map((record) => ({
@@ -1112,7 +1121,7 @@ export default function PosServicoPage() {
         const osNumber = textFrom(row, ["o.s", "os", "ordem"]);
         const serviceDate = serviceDateFromRow(row);
         const answerDate = textFrom(row, ["datas entrevista", "data entrevista", "entrevista", "data resposta", "respondido"]);
-        const sourceMonth = monthFromValue(serviceDate) || fileMonth;
+        const sourceMonth = fileMonth || campaignMonthFromDateValue(serviceDate);
 
         return {
           questionnaireId,
@@ -1140,7 +1149,6 @@ export default function PosServicoPage() {
         };
       }).filter((answer) => answer.chassi || answer.osNumber || answer.questionnaireId);
       const sourceMonth = answers[0]?.sourceMonth || fileMonth;
-      setSelectedMonth(sourceMonth);
 
       const importBatchId = await saveHgsiAnswers({
         sourceFileName: file.name,
@@ -1148,6 +1156,7 @@ export default function PosServicoPage() {
         answers,
       });
 
+      setSelectedMonth(sourceMonth);
       setHgsiAnswers((current) => [
         ...current,
         ...answers.map((answer) => ({

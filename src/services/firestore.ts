@@ -1155,38 +1155,45 @@ export async function saveHgsiRecords({
   records: SaveHgsiRecordInput[];
 }) {
   const db = getFirebaseDb();
-  const batch = writeBatch(db);
   const importBatchId = `hgsi-records-${Date.now()}`;
   const importBatchRef = doc(collection(db, collections.importBatches), importBatchId);
+  const batchSize = 450;
 
-  batch.set(importBatchRef, {
-    sourceFileName,
-    sourceKind: "hgsi_records",
-    importedBy,
-    importedAt: serverTimestamp(),
-    totalRows: records.length,
-    notes: "Importacao de status de registros Route/HGSI",
-  });
+  for (let start = 0; start < Math.max(records.length, 1); start += batchSize) {
+    const batch = writeBatch(db);
+    if (start === 0) {
+      batch.set(importBatchRef, {
+        sourceFileName,
+        sourceKind: "hgsi_records",
+        importedBy,
+        importedAt: serverTimestamp(),
+        totalRows: records.length,
+        notes: "Importacao de status de registros Route/HGSI",
+      });
+    }
 
-  records.forEach((record, index) => {
-    const ref = doc(collection(db, collections.hgsiRecords), documentKey(record.chassi || "sem-chassi", record.osNumber || `linha-${index}`, record.sourceMonth || "sem-mes"));
-    batch.set(ref, withoutUndefined({
-      importBatchId,
-      chassi: record.chassi,
-      osNumber: record.osNumber,
-      recordStatus: record.status,
-      isValidRecord: record.valid,
-      sourceMonth: record.sourceMonth,
-      clientName: record.clientName,
-      plate: record.plate,
-      serviceLabel: record.serviceLabel,
-      consultantName: record.consultantName,
-      rawPayload: record.rawPayload,
-      importedAt: serverTimestamp(),
-    }), { merge: true });
-  });
+    records.slice(start, start + batchSize).forEach((record, offset) => {
+      const index = start + offset;
+      const ref = doc(collection(db, collections.hgsiRecords), documentKey(record.chassi || "sem-chassi", record.osNumber || `linha-${index}`, record.sourceMonth || "sem-mes"));
+      batch.set(ref, withoutUndefined({
+        importBatchId,
+        chassi: record.chassi,
+        osNumber: record.osNumber,
+        recordStatus: record.status,
+        isValidRecord: record.valid,
+        sourceMonth: record.sourceMonth,
+        clientName: record.clientName,
+        plate: record.plate,
+        serviceLabel: record.serviceLabel,
+        consultantName: record.consultantName,
+        rawPayload: record.rawPayload,
+        importedAt: serverTimestamp(),
+      }), { merge: true });
+    });
 
-  await batch.commit();
+    await batch.commit();
+  }
+
   return importBatchId;
 }
 
@@ -1469,6 +1476,24 @@ export async function listDeliveredVehicleFlowsForMonth(month: string) {
     collection(db, collections.vehiclesFlow),
     where("deliveredAt", ">=", monthStart),
     where("deliveredAt", "<", nextMonth),
+  ));
+
+  return snapshot.docs.map((item) => ({
+    id: item.id,
+    ...item.data(),
+  })) as VehicleFlow[];
+}
+
+export async function listDeliveredVehicleFlowsForPeriod(startDate: string, endDate: string) {
+  const db = getFirebaseDb();
+  const deliveredStart = Timestamp.fromDate(new Date(`${startDate}T00:00:00`));
+  const dayAfterEnd = new Date(`${endDate}T00:00:00`);
+  dayAfterEnd.setDate(dayAfterEnd.getDate() + 1);
+  const deliveredEnd = Timestamp.fromDate(dayAfterEnd);
+  const snapshot = await getDocs(query(
+    collection(db, collections.vehiclesFlow),
+    where("deliveredAt", ">=", deliveredStart),
+    where("deliveredAt", "<", deliveredEnd),
   ));
 
   return snapshot.docs.map((item) => ({
