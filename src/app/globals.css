@@ -160,7 +160,24 @@
   width: 44px;
 }
 
+.farol-refresh-page-button {
+  align-self: center;
+  background: #eef5f0;
+  border: 1px solid #cbd9cf;
+  border-radius: 8px;
+  color: #285d46;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: 900;
+  height: 44px;
+  width: 44px;
+}
+
 .farol-plan-button:hover {
+  background: #e1eee5;
+}
+
+.farol-refresh-page-button:hover {
   background: #e1eee5;
 }
 

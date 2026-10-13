@@ -1351,6 +1351,7 @@ export default function FarolGerencialPage() {
           <div><span>Restantes</span><strong>{formatDayCount(monthSummary.remainingDays)}</strong></div>
           <div><span>Avanço do mês</span><strong>{formatPercent(monthProgress)}</strong></div>
           {canManageReports && <button data-html2canvas-ignore="true" data-pdf-hide="true" className="farol-plan-button" type="button" onClick={openMonthlyPlanEditor} aria-label="Configurar metas e calendário" title="Configurar metas e calendário operacional">⚙</button>}
+          <button data-html2canvas-ignore="true" data-pdf-hide="true" className="farol-refresh-page-button" type="button" onClick={() => window.location.reload()} aria-label="Atualizar página" title="Atualizar dados da página">↻</button>
           <button data-html2canvas-ignore="true" className="farol-pdf-button" type="button" onClick={() => setPdfSelectorOpen(true)} disabled={pdfLoading} aria-label={pdfLoading ? "Gerando relatório PDF" : "Gerar relatório PDF"} title={pdfLoading ? "Gerando PDF..." : "Gerar relatório PDF"}>
             <svg viewBox="0 0 32 36" aria-hidden="true"><path d="M6 2h13l7 7v25H6z" /><path d="M19 2v8h7" /><text x="16" y="27" textAnchor="middle">PDF</text></svg>
           </button>
@@ -1398,7 +1399,7 @@ export default function FarolGerencialPage() {
             <div className="farol-daily-panel-actions"><DataStatusTag status={dailyStatus} /><button data-pdf-hide="true" type="button" className="farol-collapse-button" onClick={() => setDailyResultCollapsed((current) => !current)} aria-expanded={!dailyResultCollapsed}>{dailyResultCollapsed ? "Expandir" : "Recolher"}</button></div>
           </div>
           {!dailyResultCollapsed && <div className="farol-daily-result-layout">
-            <DailyResultLineChart rows={financialRows} />
+            <DailyResultLineChart rows={financialRows} projections={{ shop: shop.projection, beauty: beauty.projection }} />
             <div className="farol-daily-two-rows">
               {dailyRowsByHalf.map((dailyRow, rowIndex) => (
                 <div className="farol-daily-row" key={`${selectedMonth}-row-${rowIndex}`}>
@@ -1856,7 +1857,7 @@ function ServiceRankingReport({ selectedMonth }: { selectedMonth: string }) {
   );
 }
 
-function DailyResultLineChart({ rows }: { rows: DailyResult[] }) {
+function DailyResultLineChart({ rows, projections }: { rows: DailyResult[]; projections: { shop: number; beauty: number } }) {
   const [mode, setMode] = useState<"shop" | "beauty">("shop");
   const [showProjection, setShowProjection] = useState(false);
   const goalField = mode === "shop" ? "shopGoal" : "beautyGoal";
@@ -1891,12 +1892,12 @@ function DailyResultLineChart({ rows }: { rows: DailyResult[] }) {
   const plotHeight = height - padding.top - padding.bottom;
   const x = (index: number) => padding.left + (rows.length <= 1 ? 0 : (index / (rows.length - 1)) * plotWidth);
   const lastDone = doneSeries.at(-1);
-  const completedGoal = doneSeries.reduce((total, point) => total + (rows[point.index]?.[goalField] ?? 0), 0);
-  const pace = completedGoal && lastDone ? lastDone.value / completedGoal : 0;
+  const projectionTotal = mode === "shop" ? projections.shop : projections.beauty;
+  const remainingGoal = lastDone ? rows.slice(lastDone.index + 1).reduce((total, row) => total + row[goalField], 0) : 0;
   let projectedValue = lastDone?.value ?? 0;
   const projectionSeries = lastDone ? rows.slice(lastDone.index).map((row, offset) => {
     const index = lastDone.index + offset;
-    if (index > lastDone.index) projectedValue += row[goalField] * pace;
+    if (index > lastDone.index) projectedValue += remainingGoal ? (projectionTotal - lastDone.value) * (row[goalField] / remainingGoal) : 0;
     return { index, value: projectedValue };
   }) : [];
   const maxValue = Math.max(...goalSeries.map((point) => point.value), ...doneSeries.map((point) => point.value), ...previousSeries.map((point) => point.value), ...projectionSeries.map((point) => point.value), 1);
