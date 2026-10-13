@@ -252,13 +252,7 @@ export interface InventorySupplier {
   updatedAt?: FirestoreTimestamp;
 }
 
-export type AgendaItemKind =
-  | "task"
-  | "event"
-  | "meeting"
-  | "travel"
-  | "time_off"
-  | "holiday";
+export type AgendaItemKind = "task" | "event" | "meeting";
 export type AgendaRecurrence = "none" | "daily" | "weekly" | "monthly";
 
 export interface AgendaItem {
