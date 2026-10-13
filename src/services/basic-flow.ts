@@ -1,25 +1,31 @@
-import { collection, doc, limit, onSnapshot, query, runTransaction, serverTimestamp, Timestamp, where } from "firebase/firestore";
+import { and, collection, doc, limit, onSnapshot, or, query, runTransaction, serverTimestamp, Timestamp, where } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
-import { basicTargets } from "@/lib/basic-flow";
+import { basicTargets, localDay } from "@/lib/basic-flow";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
 
 // Two bounded, non-overlapping subscriptions; no auxiliary collections or writes on load.
-export function subscribeBasicFlow(day: string, onData: (vehicles: VehicleFlow[]) => void, onError: (error: Error) => void) {
+export function subscribeBasicFlow(day: string, onData: (vehicles: VehicleFlow[]) => void, onError: (error: Error) => void, today = localDay()) {
   const ref = collection(getFirebaseDb(), "vehiclesFlow");
   let active: VehicleFlow[] = [], delivered: VehicleFlow[] = [];
   let activeReady = false, deliveredReady = false, blocked = false;
-  const emit = () => { if (activeReady && deliveredReady && !blocked) onData([...active, ...delivered]); };
+  let activeOverflow = false, deliveredOverflow = false;
+  const emit = () => { if (activeReady && deliveredReady && !blocked && !activeOverflow && !deliveredOverflow) onData([...active, ...delivered]); };
   const start = new Date(`${day}T00:00:00-03:00`);
   const end = new Date(start.getTime() + 86400000);
   const fail = (error: Error) => { blocked = true; onError(error); };
-  const stopActive = onSnapshot(query(ref, where("status", "==", "ativo"), limit(301)), (snapshot) => {
-    if (snapshot.size > 300) return fail(new Error("Mais de 300 chips ativos. O quadro foi bloqueado para não mostrar uma lista incompleta. Solicite revisão da base."));
+  const stopActive = onSnapshot(query(ref, and(where("status", "==", "ativo"), or(
+    and(where("currentLane", "==", "preparacao_confirmada"), where("appointmentDate", "==", today)),
+    where("currentLane", "in", ["aguardando_servico", "em_servico", "orcamento_complementar", "aguardando_lavagem", "lavagem", "preparacao_entrega"]),
+  )), limit(301)), (snapshot) => {
+    activeOverflow = snapshot.size > 300;
+    if (activeOverflow) return onError(new Error("Mais de 300 veículos entre agendamentos de hoje e atendimentos em aberto. Revise os atendimentos pendentes; a lista foi bloqueada para não ficar incompleta."));
     active = snapshot.docs.map(item => ({ ...item.data(), id: item.id }) as VehicleFlow);
     activeReady = true;
     emit();
   }, fail);
   const stopDelivered = onSnapshot(query(ref, where("deliveredAt", ">=", Timestamp.fromDate(start)), where("deliveredAt", "<", Timestamp.fromDate(end)), limit(101)), (snapshot) => {
-    if (snapshot.size > 100) return fail(new Error("Mais de 100 entregas no dia. Solicite revisão antes de continuar."));
+    deliveredOverflow = snapshot.size > 100;
+    if (deliveredOverflow) return onError(new Error("Mais de 100 entregas no dia. Solicite revisão antes de continuar."));
     delivered = snapshot.docs.map(item => ({ ...item.data(), id: item.id }) as VehicleFlow).filter(v => v.status === "entregue");
     deliveredReady = true;
     emit();

@@ -1,6 +1,23 @@
 {
   "indexes": [
     {
+      "collectionGroup": "vehiclesFlow",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "currentLane", "order": "ASCENDING" },
+        { "fieldPath": "appointmentDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "vehiclesFlow",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "currentLane", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "flowEvents",
       "queryScope": "COLLECTION",
       "fields": [

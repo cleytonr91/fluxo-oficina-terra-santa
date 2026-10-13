@@ -49,11 +49,13 @@ export function BasicFlowBoard() {
   const [detail, setDetail] = useState<{ vehicle: VehicleFlow; parts: boolean; budget?: boolean } | null>(null);
   const [walkIn, setWalkIn] = useState(false);
   const lock = useRef(false);
+  const today = localDay(now);
   useEffect(() => {
     let alive = true;
-    const stop = subscribeBasicFlow(day, data => { if (alive) { setVehicles(data); setReady(true); setError(""); setLastSync(new Date()); } }, failure => { if (alive) { setError(failure.message); setReady(false); } });
+    setReady(false); setVehicles([]); setError(""); setLastSync(null);
+    const stop = subscribeBasicFlow(day, data => { if (alive) { setVehicles(data); setReady(true); setError(""); setLastSync(new Date()); } }, failure => { if (alive) { setError(failure.message); setReady(false); } }, today);
     return () => { alive = false; stop(); };
-  }, [day]);
+  }, [day, today]);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     update();
@@ -64,7 +66,6 @@ export function BasicFlowBoard() {
     const timer = window.setInterval(() => setNow(new Date()), 60000);
     return () => window.clearInterval(timer);
   }, []);
-  const today = localDay(now);
   const dayVehicles = basicFlowDayVehicles(vehicles, day, today);
   const filtered = dayVehicles.filter(v => {
     if (consultant && v.consultantName !== consultant) return false;
@@ -89,6 +90,7 @@ export function BasicFlowBoard() {
   ];
   const visible = metric === "todos" ? filtered : groups.find(group => group.id === metric)?.items ?? [];
   const visibleNoShows = sortFlowLane(noShows.filter(v => visible.includes(v)), day);
+  const loadingMessage = error ? "Carregamento interrompido. Confira o aviso acima." : "Carregando veículos...";
   function metricLine(group: typeof groups[number]) {
     return <button key={group.id} className={`metric-line-btn ${metric === group.id ? "selected" : ""}`} type="button" onClick={() => setMetric(metric === group.id ? "todos" : group.id)}><span>{group.label}</span><b>{group.items.length}</b></button>;
   }
@@ -135,7 +137,7 @@ export function BasicFlowBoard() {
     </article>;
   }
   return <div className="app-shell" data-flow-mode="basic-restored">
-    <AppHeader title="Fluxo da Oficina" status={<div role="status" className={`realtime-status header-realtime-status ${error || !online ? "offline" : ""}`}><span>{online ? ready ? "Atualização em tempo real ativa" : "Aguardando conexão" : "Sem conexão · movimentações bloqueadas"}</span><strong>{lastSync ? `Atualizado ${lastSync.toLocaleTimeString("pt-BR")}` : "Conectando..."}</strong></div>}
+    <AppHeader title="Fluxo da Oficina" status={<div role="status" className={`realtime-status header-realtime-status ${error || !online ? "offline" : ""}`}><span>{!online ? "Sem conexão · movimentações bloqueadas" : error ? "Carregamento interrompido" : ready ? "Atualização em tempo real ativa" : "Carregando quadro"}</span><strong>{error ? "Confira o aviso abaixo" : lastSync ? `Atualizado ${lastSync.toLocaleTimeString("pt-BR")}` : "Aguarde..."}</strong></div>}
       flowControls={<>{canAddBasicWalkIn(profile?.role) && <button type="button" className="primary-btn" disabled={!ready || !online || day !== today} onClick={() => setWalkIn(true)}>+ Passante</button>}<label className="date-field"><span>Data</span><input type="date" value={day} onChange={e => { if (e.target.value && e.target.value !== day) { setReady(false); setVehicles([]); setDay(e.target.value); } }} /></label></>} />
     <main className={`flow-page ${styles.restored}`}>
     <section className="flow-metrics flow-day-panel">
@@ -149,8 +151,8 @@ export function BasicFlowBoard() {
     <section className="flow-board">{basicLanes.map(lane => {
       const items = sortFlowLane(visible.filter(v => v.currentLane === lane.id && !(lane.id === "preparacao_confirmada" && v.noShow)), day);
       return <section className={`flow-lane lane-${lane.id}`} key={lane.id}><div className="flow-lane-head"><h2>{lane.label}</h2><strong>{items.length}</strong></div>
-        {lane.id === "orcamento_complementar" ? <div className="budget-split">{[false, true].map(done => { const subset = items.filter(v => (v.budgetStatus === "realizado") === done); return <div className="budget-box" key={String(done)}><h3>{done ? "Orçamento realizado" : "Aguardando"}</h3>{subset.length ? subset.map(card) : <p>{done ? "Nenhum orçamento realizado" : "Sem orçamentos pendentes"}</p>}</div>; })}</div> : <div className="flow-lane-body">{items.map(card)}{!items.length && <div className="empty">{ready ? "Sem veículos nesta etapa" : "Carregando veículos..."}</div>}</div>}
-        {lane.id === "preparacao_confirmada" && <div className="lane-no-show-section"><div className="lane-no-show-head"><h3>No-show</h3><strong>{visibleNoShows.length}</strong></div><div className="lane-no-show-body">{visibleNoShows.map(card)}{!visibleNoShows.length && <div className="empty">Nenhum no-show neste dia.</div>}</div></div>}
+        {lane.id === "orcamento_complementar" ? <div className="budget-split">{[false, true].map(done => { const subset = items.filter(v => (v.budgetStatus === "realizado") === done); return <div className="budget-box" key={String(done)}><h3>{done ? "Orçamento realizado" : "Aguardando"}</h3>{subset.length ? subset.map(card) : <p>{!ready ? loadingMessage : done ? "Nenhum orçamento realizado" : "Sem orçamentos pendentes"}</p>}</div>; })}</div> : <div className="flow-lane-body">{items.map(card)}{!items.length && <div className="empty">{ready ? "Sem veículos nesta etapa" : loadingMessage}</div>}</div>}
+        {lane.id === "preparacao_confirmada" && <div className="lane-no-show-section"><div className="lane-no-show-head"><h3>No-show</h3><strong>{visibleNoShows.length}</strong></div><div className="lane-no-show-body">{visibleNoShows.map(card)}{!visibleNoShows.length && <div className="empty">{ready ? "Nenhum no-show neste dia." : loadingMessage}</div>}</div></div>}
       </section>;
     })}</section></main>
     {selected && form && <div className={styles.overlay}><section className={styles.modal} role="dialog" aria-modal="true" aria-labelledby="basic-move-title">

@@ -47,6 +47,7 @@ function setup(saved={status:'ativo',currentLane:'aguardando_servico',washType:'
     'firebase/firestore':{
       collection:(_,name)=>name,doc:(...args)=>args.length===3?args.slice(1).join('/'):args[0]+'/event',
       limit:n=>({limit:n}),where:(...args)=>({where:args}),query:(...args)=>args,
+      and:(...args)=>({and:args}),or:(...args)=>({or:args}),
       Timestamp:{fromDate:d=>d},serverTimestamp:()=> 'SERVER_TIME',
       onSnapshot:(q,cb,err)=>{const entry={q,cb,err,stopped:false};listeners.push(entry);return()=>entry.stopped=true;},
       runTransaction:async(_,cb)=>cb({get:async()=>{reads++;return{exists:()=>!!saved,id:'v1',data:()=>saved};},set:(...args)=>writes.push(args),update:(...args)=>writes.push(args)})
@@ -63,7 +64,25 @@ test('load opens exactly two bounded subscriptions and no writes; overflow block
   s.listeners[0].cb({size:1,docs:[{id:'v1',data:()=>({status:'ativo'})}]});assert.equal(emitted,0);
   s.listeners[1].cb({size:0,docs:[]});assert.equal(emitted,1);
   s.listeners[0].cb({size:301,docs:[]});assert.match(error,/300/);assert.equal(emitted,1);
+  s.listeners[0].cb({size:0,docs:[]});assert.equal(emitted,2,'recovers after relevant overflow clears');
   stop();assert.ok(s.listeners.every(x=>x.stopped));
+});
+test('server filter excludes old and future appointments before the 301 limit, retaining ongoing work',()=>{
+ const s=setup();const today='2026-10-13';let result;
+ s.service.subscribeBasicFlow(today,data=>result=data,assert.fail,today);
+ function matches(filter,v){
+  if(filter.and)return filter.and.every(f=>matches(f,v));
+  if(filter.or)return filter.or.some(f=>matches(f,v));
+  const [field,op,value]=filter.where;return op==='=='?v[field]===value:value.includes(v[field]);
+ }
+ const filter=s.listeners[0].q.find(f=>f.and);
+ const old=Array.from({length:400},(_,i)=>({id:'old'+i,status:'ativo',currentLane:'preparacao_confirmada',appointmentDate:'2026-10-12',noShow:true}));
+ const keep=[{id:'today',status:'ativo',currentLane:'preparacao_confirmada',appointmentDate:today,noShow:true},
+ ...['aguardando_servico','em_servico','orcamento_complementar','aguardando_lavagem','lavagem','preparacao_entrega'].map(currentLane=>({id:currentLane,status:'ativo',currentLane,appointmentDate:'2026-01-01',vehicleImmobilized:true}))];
+ const all=[...old,...keep,{id:'future',status:'ativo',currentLane:'preparacao_confirmada',appointmentDate:'2026-10-14'},{id:'cancelled',status:'cancelado',currentLane:'em_servico'}];
+ const selected=all.filter(v=>matches(filter,v)).slice(0,301);
+ s.listeners[0].cb({size:selected.length,docs:selected.map(v=>({id:v.id,data:()=>v}))});
+ s.listeners[1].cb({size:0,docs:[]});assert.deepEqual(result,keep);assert.equal(s.writes.length,0);
 });
 test('move reads one chip, writes vehicle and audit only',async()=>{
   const s=setup();await s.service.moveBasicVehicle(input);
@@ -101,7 +120,7 @@ test('lane permissions and existing advanced wash return are maintained',()=>{
 test('restored layout keeps one subscription effect keyed only by day and no auxiliary services',()=>{
  const source=fs.readFileSync('src/components/basic-flow-board.tsx','utf8');
  assert.equal((source.match(/subscribeBasicFlow\(day/g)||[]).length,1);
- assert.match(source,/return \(\) => \{ alive = false; stop\(\); \};\s*\}, \[day\]\)/);
+ assert.match(source,/return \(\) => \{ alive = false; stop\(\); \};\s*\}, \[day, today\]\)/);
  assert.doesNotMatch(source,/getDocs|onSnapshot|subscribePart|subscribeFlowEvents|loadHyundaiPartsCatalog/);
  assert.match(source,/data-flow-mode="basic-restored"/);
 });
