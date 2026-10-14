@@ -351,6 +351,29 @@ const channelDefinitions: Array<Omit<ChannelRevenue, "total">> = [
 ];
 
 const openServiceOrderSnapshots: Record<string, OpenServiceOrder[]> = {
+  "2026-10": [
+    { code: "A2", description: "Acessório showroom", nature: "E", category: "Acessórios", total: 8200, quantity: 4 },
+    { code: "AC", description: "Acessórios cortesia", nature: "E", category: "Acessórios", total: 20999.68, quantity: 18 },
+    { code: "DC", description: "Débito cortesia", nature: "I", category: "Interna", total: 10710.4, quantity: 17 },
+    { code: "DI", description: "Débito interno", nature: "I", category: "Interna", total: 17806.85, quantity: 6 },
+    { code: "DS", description: "Débito seminovos", nature: "I", category: "Interna", total: 0, quantity: 9 },
+    { code: "E1", description: "Revisão de entrega", nature: "I", category: "Interna", total: 17800, quantity: 2 },
+    { code: "EC", description: "Embelezamento cortesia", nature: "E", category: "Interna", total: 23479.56, quantity: 71 },
+    { code: "EN", description: "Embelezamento novos", nature: "E", category: "Embelezamento", total: 600, quantity: 4 },
+    { code: "EO", description: "Embelezamento oficina", nature: "E", category: "Embelezamento", total: 6659.72, quantity: 41 },
+    { code: "ES", description: "Embelezamento seminovos", nature: "E", category: "Embelezamento", total: 200, quantity: 1 },
+    { code: "IA", description: "Interno acessórios", nature: "I", category: "Interna", total: 1532.06, quantity: 4 },
+    { code: "IE", description: "Interno embelezamento", nature: "I", category: "Interna", total: 480, quantity: 2 },
+    { code: "S2", description: "Funilaria e pintura", nature: "E", category: "Funilaria", total: 95829.71, quantity: 14 },
+    { code: "S3", description: "Mecânica", nature: "E", category: "Outros", total: 1481.55, quantity: 2 },
+    { code: "V2", description: "Garantia", nature: "G", category: "Garantia", total: 44201.71, quantity: 31 },
+    { code: "V3", description: "1ª revisão gratuita de 10.000 km", nature: "G", category: "Revisão", total: 2099.79, quantity: 17 },
+    { code: "V4", description: "2ª revisão gratuita de 20.000 km", nature: "G", category: "Garantia", total: 0, quantity: 3 },
+    { code: "V5", description: "Revisão periódica HMB", nature: "E", category: "Revisão", total: 85901.33, quantity: 169 },
+    { code: "V6", description: "Expresso", nature: "E", category: "Outros", total: 19260.12, quantity: 126 },
+    { code: "V7", description: "Recall", nature: "G", category: "Garantia", total: 3309.23, quantity: 11 },
+    { code: "V8", description: "Campanha", nature: "G", category: "Garantia", total: 4731.8, quantity: 21 },
+  ],
   "2026-09": [
     { code: "A2", description: "Acessório showroom", nature: "E", category: "Acessórios", total: 900, quantity: 2 },
     { code: "AC", description: "Acessórios cortesia", nature: "E", category: "Acessórios", total: 20999.68, quantity: 18 },
@@ -501,6 +524,46 @@ const serviceReportSnapshots: Record<string, { revisions: number; revisionSales:
 };
 
 const consultantServicePerformance: Record<string, ConsultantServicePerformance[]> = {
+  "2026-10": [
+    {
+      id: "295",
+      name: "Eliane Ribeiro",
+      revisions: 9,
+      revisionSales: 4236.66,
+      additionalSales: 3143,
+      beautySales: 1500,
+      details: [
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 4, amount: 928 },
+        { category: "Adicionais", tmo: "DIE-HMB", service: "Descarbonização", quantity: 1, amount: 400 },
+        { category: "Adicionais", tmo: "FF-HMB", service: "Substituição e limpeza do fluido de freio", quantity: 1, amount: 265 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 5, amount: 1400 },
+        { category: "Adicionais", tmo: "SV-HMB", service: "Substituição das velas", quantity: 1, amount: 150 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 6, amount: 900 },
+        { category: "Embelezamento", tmo: "EST03", service: "Lavagem dos bancos", quantity: 1, amount: 250 },
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 5, amount: 350 },
+      ],
+    },
+    {
+      id: "1395",
+      name: "Rosangela Soares",
+      revisions: 37,
+      revisionSales: 0,
+      additionalSales: 7715.59,
+      beautySales: 6511.65,
+      details: [
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 14, amount: 3086 },
+        { category: "Adicionais", tmo: "FF-HMB", service: "Substituição e limpeza do fluido de freio", quantity: 2, amount: 553.59 },
+        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 14, amount: 2480 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 9, amount: 940 },
+        { category: "Adicionais", tmo: "PFD-HMB", service: "Substituição das pastilhas de freio dianteiras", quantity: 1, amount: 180 },
+        { category: "Adicionais", tmo: "SC-HMB", service: "Substituição das correias", quantity: 1, amount: 476 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 31, amount: 4620 },
+        { category: "Embelezamento", tmo: "EST03", service: "Lavagem dos bancos", quantity: 1, amount: 366.45 },
+        { category: "Embelezamento", tmo: "EST05", service: "Lavagem dos bancos e hidratação", quantity: 4, amount: 1350 },
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 2, amount: 175 },
+      ],
+    },
+  ],
   "2026-09": [
     {
       id: "295",
