@@ -9,6 +9,7 @@ function load(file,mocks={}) {
 const domain=load('src/lib/basic-flow.ts');
 const vehicles=domain.basicLanes.map((lane,index)=>({id:'test-'+index,status:lane.id==='entregue'?'entregue':'ativo',currentLane:lane.id,clientName:'CLIENTE DE TESTE '+(index+1),plate:'ABC1D23',model:'HB20',serviceLabel:'Revisão 01',consultantName:'Eliane',technicianName:'Wesley',appointmentDate:'2026-09-25',appointmentTime:'09:00',washType:'simples'}));
 const form={vehicleId:'test-0',from:'preparacao_confirmada',to:'aguardando_servico',actor:'Teste',actorId:'test',consultant:'Eliane',technician:'Wesley',washType:'simples',promised:'',note:'',customerWaits:false,onTime:true,pending:false,nps:''};
+Object.assign(vehicles[1],{customerWaits:true,attendanceStartedAt:'2026-09-25T10:30:00Z',appointmentTime:'10:00'});
 const output=path.resolve('output/basic-flow-qa');fs.mkdirSync(output,{recursive:true});
 function headerCss(css) {
  const globals=[];
@@ -50,6 +51,9 @@ async function main(){
    if(await page.getByRole('button',{name:'Abrir menu de páginas'}).count()!==1)throw Error('Missing original menu');
    if(await page.getByRole('button',{name:'+ Passante',exact:true}).count()!==1)throw Error('Missing restored walk-in button');
    if(await page.locator('.flow-metrics').count()!==1)throw Error('Missing original metrics');
+   if(await page.locator('.chipTimes').filter({hasText:'Recebido:'}).count()<1)throw Error('Missing received time');
+   if(await page.getByTitle('Cliente aguardando na loja').count()<1)throw Error('Missing waiting indicator');
+   if(await page.locator('.chipTimes').evaluateAll(nodes=>nodes.some(node=>node.scrollWidth>node.clientWidth+1)))throw Error('Chip time overflow');
    await page.screenshot({path:path.join(output,name+'-'+kind+'.png'),fullPage:true});
   }await page.close();
  }console.log('Desktop/mobile screenshots passed. Synthetic UI; not an authenticated end-to-end test.');}finally{await browser.close();}

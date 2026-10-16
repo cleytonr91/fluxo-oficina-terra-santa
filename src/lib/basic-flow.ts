@@ -61,14 +61,15 @@ function flowTimestamp(value: unknown): number | undefined {
 }
 
 export function flowSequenceTime(vehicle: VehicleFlow): number {
-  if (vehicle.currentLane !== "preparacao_confirmada") {
-    const received = flowTimestamp(vehicle.attendanceStartedAt)
-      ?? (vehicle.origin === "passante" ? flowTimestamp(vehicle.createdAt) : undefined);
-    if (received !== undefined) return received;
-  }
   const match = /^(\d{1,2}):(\d{2})$/.exec(vehicle.appointmentTime ?? "");
-  if (!match || Number(match[1]) > 23 || Number(match[2]) > 59 || !/^\d{4}-\d{2}-\d{2}$/.test(vehicle.appointmentDate ?? "")) return Infinity;
-  return flowTimestamp(`${vehicle.appointmentDate}T${match[1].padStart(2, "0")}:${match[2]}:00-03:00`) ?? Infinity;
+  const scheduled = match && Number(match[1]) <= 23 && Number(match[2]) <= 59 && /^\d{4}-\d{2}-\d{2}$/.test(vehicle.appointmentDate ?? "")
+    ? flowTimestamp(`${vehicle.appointmentDate}T${match[1].padStart(2, "0")}:${match[2]}:00-03:00`) : undefined;
+  if (vehicle.currentLane === "preparacao_confirmada") return scheduled ?? Infinity;
+  const received = flowTimestamp(vehicle.attendanceStartedAt)
+    ?? (vehicle.origin === "passante" ? flowTimestamp(vehicle.createdAt) : undefined);
+  if (vehicle.origin === "passante") return received ?? scheduled ?? Infinity;
+  if (received === undefined) return scheduled ?? Infinity;
+  return scheduled === undefined ? received : Math.max(scheduled, received);
 }
 
 export function sortFlowLane(vehicles: VehicleFlow[], day: string): VehicleFlow[] {

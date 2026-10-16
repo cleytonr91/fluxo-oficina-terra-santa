@@ -127,10 +127,13 @@ export function BasicFlowBoard() {
         {vehicle.noShow && vehicle.currentLane === "preparacao_confirmada" && <span className="tag bad">NO-SHOW</span>}
         {vehicle.budgetAuthorized && <span className="tag good">ORÇ Complementar 👍</span>}
         {vehicle.vehicleImmobilized && <span className="tag bad">Imobilizado · {vehicle.immobilizationReason === "aguardando_pecas" ? "Aguardando Peças" : "Aguardando Decisão"}</span>}
-        {vehicle.customerWaits && <span className="tag warn">Cliente aguarda</span>}
+        {vehicle.customerWaits && <span className="tag warn" title="Cliente aguardando na loja"><span aria-hidden="true">⌛</span> Cliente aguarda</span>}
         {vehicle.partsOrdered && <button type="button" className="tag" onDoubleClick={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); setDetail({ vehicle, parts: true }); }}>Peças</button>}
       </div>
-      <div className="chip-compact-details"><div><span>Consultor:</span> {vehicle.consultantName || "-"}</div><div><span>Técnico:</span> {vehicle.technicianName || "-"}</div><div><span>{vehicle.currentLane === "preparacao_confirmada" ? "Agenda:" : "Recebido:"}</span> {vehicle.currentLane === "preparacao_confirmada" ? vehicle.appointmentTime || "-" : received?.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) || "-"}</div></div>
+      <div className="chip-compact-details"><div><span>Consultor:</span> {vehicle.consultantName || "-"}</div><div><span>Técnico:</span> {vehicle.technicianName || "-"}</div><div className={styles.chipTimes}>
+        {vehicle.origin !== "passante" && <div title={vehicle.appointmentDate || undefined}><span>Agendado:</span> {vehicle.appointmentTime || "-"}</div>}
+        {vehicle.currentLane !== "preparacao_confirmada" && <div title={received ? time(received) : undefined}><span>Recebido:</span> {received?.toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }) || "-"}</div>}
+      </div></div>
       {vehicle.vehicleImmobilized ? <div className="immobilized-stay"><strong><b>{days}</b><small>dias</small></strong></div> : promise && <div className={`time-bar ${late ? "late" : ""}`}><div className="time-bar-top"><span>Previsão de entrega</span><strong>{time(vehicle.promisedDeliveryAt)}</strong></div><div className="time-track"><span style={{ width: `${progress}%` }} /></div></div>}
       {vehicle.currentLane === "orcamento_complementar" && profile?.role === "estoquista" && <button className="primary-btn" type="button" disabled={!ready || !online} onDoubleClick={event => event.stopPropagation()} onClick={() => setDetail({ vehicle, parts: false, budget: true })}>{vehicle.budgetStatus === "realizado" ? "Ver orçamento" : "Registrar orçamento"}</button>}
       {canMove && <button className="chip-move-btn" aria-label={`Mover ${vehicle.clientName || "veículo"}`} title="Mover para próxima etapa" disabled={!ready || !online} onDoubleClick={event => event.stopPropagation()} onClick={() => open(vehicle)}>→</button>}

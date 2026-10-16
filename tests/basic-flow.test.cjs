@@ -10,6 +10,18 @@ function load(file, mocks={}) {
 }
 const domain=load('src/lib/basic-flow.ts');
 
+test('priority uses later appointment or receipt; walk-ins use receipt only',()=>{
+ const make=(id,appointmentTime,received,extra={})=>({id,status:'ativo',currentLane:'aguardando_servico',origin:'agendado',appointmentDate:'2026-10-16',appointmentTime,attendanceStartedAt:received,...extra});
+ const early=make('early','10:00','2026-10-16T07:30:00-03:00');
+ const onTime=make('onTime','07:30','2026-10-16T07:35:00-03:00');
+ const late=make('late','07:30','2026-10-16T10:15:00-03:00');
+ assert.deepEqual(domain.sortFlowLane([early,late,onTime],'2026-10-16').map(v=>v.id),['onTime','early','late']);
+ assert.equal(domain.flowSequenceTime(early),Date.parse('2026-10-16T10:00:00-03:00'));
+ assert.equal(domain.flowSequenceTime(make('walk','10:00','2026-10-16T07:30:00-03:00',{origin:'passante'})),Date.parse('2026-10-16T07:30:00-03:00'));
+ assert.equal(domain.flowSequenceTime(make('missing','','2026-10-16T07:30:00-03:00')),Date.parse('2026-10-16T07:30:00-03:00'));
+ assert.equal(domain.flowSequenceTime(make('old','23:00','2026-10-16T01:00:00-03:00',{appointmentDate:'2026-10-15'})),Date.parse('2026-10-16T01:00:00-03:00'));
+});
+
 test('immobilized chips only appear in their filter and return to their unchanged lane on release',()=>{
  const regular={id:'normal',status:'ativo',currentLane:'em_servico'};
  const held={id:'held',status:'ativo',currentLane:'em_servico',vehicleImmobilized:true};
