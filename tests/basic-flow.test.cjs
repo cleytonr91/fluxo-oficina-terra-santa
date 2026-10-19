@@ -10,6 +10,20 @@ function load(file, mocks={}) {
 }
 const domain=load('src/lib/basic-flow.ts');
 
+test('no-show is local, after one hour, only today and never after receipt',()=>{
+ const vehicle={id:'test',status:'ativo',currentLane:'preparacao_confirmada',origin:'agendado',appointmentDate:'2026-10-19',appointmentTime:'07:30',noShow:false};
+ const at=time=>new Date('2026-10-19T'+time+':00-03:00');
+ assert.equal(domain.isBasicNoShow(vehicle,at('08:30')),false);
+ assert.equal(domain.isBasicNoShow(vehicle,at('08:31')),true);
+ assert.equal(domain.isBasicNoShow({...vehicle,noShow:true},at('07:30')),false);
+ for(const patch of [{attendanceStartedAt:at('08:00')},{currentLane:'aguardando_servico'},{status:'entregue'},{status:'cancelado'},{origin:'passante'},{vehicleImmobilized:true},{appointmentDate:'2026-10-18'},{appointmentDate:'2026-10-20'},{appointmentTime:'invalid'}])assert.equal(domain.isBasicNoShow({...vehicle,...patch},at('10:00')),false);
+ assert.equal(vehicle.noShow,false);
+ assert.deepEqual(domain.basicTargets(vehicle),['aguardando_servico']);
+ const source=fs.readFileSync('src/components/basic-flow-board.tsx','utf8');
+ assert.match(source,/filtered.filter\(v => isBasicNoShow\(v, now\)\)/);
+ assert.doesNotMatch(source,/markVehicleNoShow|vehicle\.noShow|v\.noShow/);
+});
+
 test('priority uses later appointment or receipt; walk-ins use receipt only',()=>{
  const make=(id,appointmentTime,received,extra={})=>({id,status:'ativo',currentLane:'aguardando_servico',origin:'agendado',appointmentDate:'2026-10-16',appointmentTime,attendanceStartedAt:received,...extra});
  const early=make('early','10:00','2026-10-16T07:30:00-03:00');

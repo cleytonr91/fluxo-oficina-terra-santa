@@ -47,6 +47,14 @@ export function localDay(reference = new Date()) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(reference);
 }
 
+export function isBasicNoShow(vehicle: VehicleFlow, now: Date): boolean {
+  if (vehicle.status !== "ativo" || vehicle.currentLane !== "preparacao_confirmada"
+    || vehicle.origin === "passante" || vehicle.vehicleImmobilized
+    || vehicle.appointmentDate !== localDay(now) || vehicle.attendanceStartedAt) return false;
+  const scheduled = flowSequenceTime(vehicle);
+  return Number.isFinite(scheduled) && now.getTime() - scheduled > 60 * 60 * 1000;
+}
+
 export function visibleByImmobilization(vehicles: VehicleFlow[], onlyImmobilized: boolean): VehicleFlow[] {
   return vehicles.filter(vehicle => onlyImmobilized
     ? vehicle.status === "ativo" && vehicle.vehicleImmobilized === true

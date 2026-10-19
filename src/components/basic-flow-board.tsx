@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/context/auth-context";
-import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, localDay, sortFlowLane, visibleByImmobilization } from "@/lib/basic-flow";
+import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, isBasicNoShow, localDay, sortFlowLane, visibleByImmobilization } from "@/lib/basic-flow";
 import { BasicMoveInput, moveBasicVehicle, subscribeBasicFlow } from "@/services/basic-flow";
 import { canAddBasicWalkIn } from "@/services/basic-walk-in";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
@@ -72,7 +72,7 @@ export function BasicFlowBoard() {
     if (technicianFilter && v.technicianName !== technicianFilter) return false;
     return `${v.clientName ?? ""} ${v.plate ?? ""} ${v.chassi ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
   });
-  const noShows = filtered.filter(v => v.currentLane === "preparacao_confirmada" && v.noShow);
+  const noShows = filtered.filter(v => isBasicNoShow(v, now));
   const active = filtered.filter(v => v.status === "ativo" && !noShows.includes(v));
   const attention = (v: VehicleFlow) => v.status === "ativo" && (v.customerWaits || v.priority === "alta" || v.budgetStatus === "aguardando" || v.roadTestRequired || (dateValue(v.promisedDeliveryAt)?.getTime() ?? Infinity) < now.getTime());
   const groups = [
@@ -124,7 +124,7 @@ export function BasicFlowBoard() {
         {vehicle.priority === "alta" && <span className="tag bad">Alta</span>}
         <span className={`tag ${vehicle.washDone ? "good" : vehicle.washType === "nao" ? "bad" : ""}`}>{washes[vehicle.washType] ?? "Lavagem não informada"}{vehicle.washDone ? " 👍" : vehicle.washType === "nao" ? " 👎" : ""}</span>
         {vehicle.currentLane === "orcamento_complementar" && vehicle.budgetStatus === "realizado" && vehicle.partAvailability && <span className={`tag ${vehicle.partAvailability === "sim" ? "good" : vehicle.partAvailability === "nao" ? "bad" : "warn"}`}>Peças: {{ sim: "em estoque", nao: "sem estoque", parcial: "estoque parcial" }[vehicle.partAvailability]}</span>}
-        {vehicle.noShow && vehicle.currentLane === "preparacao_confirmada" && <span className="tag bad">NO-SHOW</span>}
+        {noShows.includes(vehicle) && <span className="tag bad">NO-SHOW</span>}
         {vehicle.budgetAuthorized && <span className="tag good">ORÇ Complementar 👍</span>}
         {vehicle.vehicleImmobilized && <span className="tag bad">Imobilizado · {vehicle.immobilizationReason === "aguardando_pecas" ? "Aguardando Peças" : "Aguardando Decisão"}</span>}
         {vehicle.customerWaits && <span className="tag warn" title="Cliente aguardando na loja"><span aria-hidden="true">⌛</span> Cliente aguarda</span>}
@@ -152,7 +152,7 @@ export function BasicFlowBoard() {
     </section>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <section className="flow-board">{basicLanes.map(lane => {
-      const items = sortFlowLane(visible.filter(v => v.currentLane === lane.id && !(lane.id === "preparacao_confirmada" && v.noShow)), day);
+      const items = sortFlowLane(visible.filter(v => v.currentLane === lane.id && !noShows.includes(v)), day);
       return <section className={`flow-lane lane-${lane.id}`} key={lane.id}><div className="flow-lane-head"><h2>{lane.label}</h2><strong>{items.length}</strong></div>
         {lane.id === "orcamento_complementar" ? <div className="budget-split">{[false, true].map(done => { const subset = items.filter(v => (v.budgetStatus === "realizado") === done); return <div className="budget-box" key={String(done)}><h3>{done ? "Orçamento realizado" : "Aguardando"}</h3>{subset.length ? subset.map(card) : <p>{!ready ? loadingMessage : done ? "Nenhum orçamento realizado" : "Sem orçamentos pendentes"}</p>}</div>; })}</div> : <div className="flow-lane-body">{items.map(card)}{!items.length && <div className="empty">{ready ? "Sem veículos nesta etapa" : loadingMessage}</div>}</div>}
         {lane.id === "preparacao_confirmada" && <div className="lane-no-show-section"><div className="lane-no-show-head"><h3>No-show</h3><strong>{visibleNoShows.length}</strong></div><div className="lane-no-show-body">{visibleNoShows.map(card)}{!visibleNoShows.length && <div className="empty">{ready ? "Nenhum no-show neste dia." : loadingMessage}</div>}</div></div>}
