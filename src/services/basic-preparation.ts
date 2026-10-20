@@ -1,6 +1,7 @@
 import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase/client";
 import { collections } from "@/lib/firebase/collections";
+import { preparationId } from "@/lib/preparation-id";
 
 type BasicPreparedVehicle = {
   id: string; client: string; plate: string; chassi: string; model: string;
@@ -17,9 +18,10 @@ export async function saveBasicPreparedVehicle(vehicle: BasicPreparedVehicle) {
     throw new Error("Defina o técnico antes de adicionar o veículo ao fluxo.");
   }
   const db = getFirebaseDb();
-  // Reuse the original appointment ID; a retry must never reset an existing chip.
-  const flowRef = doc(db, collections.vehiclesFlow, vehicle.id);
-  const eventRef = doc(db, collections.flowEvents, `basic-preparation-${vehicle.id}`);
+  // The export row can change; only the source event identifies the appointment.
+  const id = preparationId(vehicle.eventId);
+  const flowRef = doc(db, collections.vehiclesFlow, id);
+  const eventRef = doc(db, collections.flowEvents, `basic-preparation-${id}`);
   return runTransaction(db, async (transaction) => {
     const existing = await transaction.get(flowRef);
     if (existing.exists()) {
@@ -30,7 +32,7 @@ export async function saveBasicPreparedVehicle(vehicle: BasicPreparedVehicle) {
       return;
     }
     transaction.set(flowRef, {
-      appointmentId: vehicle.id,
+      appointmentId: id,
       importedEventId: vehicle.eventId,
       origin: "agendado", currentLane: "preparacao_confirmada", status: "ativo",
       appointmentDate: vehicle.appointmentDate, appointmentTime: vehicle.appointmentTime,
@@ -43,7 +45,7 @@ export async function saveBasicPreparedVehicle(vehicle: BasicPreparedVehicle) {
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     });
     transaction.set(eventRef, {
-      vehicleFlowId: vehicle.id, toLane: "preparacao_confirmada",
+      vehicleFlowId: id, toLane: "preparacao_confirmada",
       actionBy: vehicle.importedBy,
       actionNote: "Veículo adicionado pela preparação básica, sem consulta de peças ou outros veículos",
       createdAt: serverTimestamp(),

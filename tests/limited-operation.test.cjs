@@ -45,6 +45,7 @@ test('suspended route component is not mounted (no page effects)', () => {
 test('basic preparation has one targeted read and two writes; retry does not overwrite', async () => {
   let saved, reads=0, writes=[];
   const { saveBasicPreparedVehicle } = load('src/services/basic-preparation.ts', {
+    '@/lib/preparation-id': load('src/lib/preparation-id.ts'),
     'firebase/firestore': {
       doc: (_, collection, id) => `${collection}/${id}`,
       serverTimestamp: () => 'SERVER_TIME',

@@ -4,6 +4,7 @@ import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "
 import { LIMITED_OPERATION } from "@/lib/limited-operation";
 import { saveBasicPreparedVehicle } from "@/services/basic-preparation";
 import styles from "./preparation-import.module.css";
+import { preparationId } from "@/lib/preparation-id";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
 import { findVehicleFlowConflict, savePreparedVehicle, subscribePartOrdersByStatuses, subscribeVehicleFlowsByIds, subscribeVehicleFlowsForPreparation } from "@/services/firestore";
@@ -201,7 +202,7 @@ function parseAgendaRows(rows: unknown[][]) {
     const eventId = eventText.split(" ")[0] || "";
 
     appointments.push({
-      id: `${eventId || plate}-${appointments.length}`,
+      id: preparationId(eventId),
       client: fieldFromRow(vehicleRow, "Cliente") || "Cliente sem nome",
       plate,
       model: fieldFromRow(vehicleRow, "Modelo") || "Modelo não informado",
