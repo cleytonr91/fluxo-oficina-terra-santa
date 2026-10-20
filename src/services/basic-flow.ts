@@ -36,7 +36,7 @@ export function subscribeBasicFlow(day: string, onData: (vehicles: VehicleFlow[]
 export type BasicMoveInput = {
   vehicleId: string; from: FlowLane; to: FlowLane; actor: string; actorId: string;
   consultant: string; technician: string; washType: WashType; promised: string;
-  note: string; customerWaits: boolean; onTime: boolean; pending: boolean; nps: string;
+  roadTestDone?: boolean; note: string; customerWaits: boolean; onTime: boolean; pending: boolean; nps: string;
 };
 export async function moveBasicVehicle(input: BasicMoveInput) {
   const db = getFirebaseDb();
@@ -51,6 +51,10 @@ export async function moveBasicVehicle(input: BasicMoveInput) {
     const patch: Record<string, unknown> = { currentLane: input.to, updatedAt: serverTimestamp(), basicFlowVersion: 1, basicUpdatedBy: input.actorId };
     if (input.from === "preparacao_confirmada") {
       if (!input.consultant.trim() || !input.promised || !Number.isFinite(new Date(input.promised).getTime())) throw new Error("Informe consultor e previsão de entrega.");
+      if (current.roadTestRequired) {
+        if (typeof input.roadTestDone !== "boolean") throw new Error("Informe se o teste de rodagem foi realizado.");
+        patch.roadTestDone = input.roadTestDone;
+      }
       Object.assign(patch, { consultantName: input.consultant, washType: input.washType, customerWaits: input.customerWaits,
         attendanceStartedAt: serverTimestamp(), attendanceStartedBy: input.actor, receiveNote: input.note,
         promisedDeliveryAt: Timestamp.fromDate(new Date(input.promised)), noShow: false });

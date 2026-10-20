@@ -53,10 +53,12 @@ test('basic preparation has one targeted read and two writes; retry does not ove
     '@/lib/firebase/client': { getFirebaseDb: () => ({}) },
     '@/lib/firebase/collections': { collections: { vehiclesFlow:'vehiclesFlow', flowEvents:'flowEvents' } },
   });
-  const v = { id:'event-1', client:'Teste', plate:'ABC1D23', chassi:'', model:'Teste', eventId:'event', phone:'', service:'Revisão', consultant:'Eliane', technician:'', appointmentDate:'2026-09-24', appointmentTime:'09:00', importedNote:'', sourceFileName:'teste.xls', importedBy:'Admin' };
+  const v = { id:'event-1', client:'Teste', plate:'ABC1D23', chassi:'', model:'Teste', eventId:'event', phone:'', service:'Revisão', consultant:'Eliane', technician:'Wesley', roadTestRequired:true, appointmentDate:'2026-09-24', appointmentTime:'09:00', importedNote:'', sourceFileName:'teste.xls', importedBy:'Admin' };
+  for(const technician of ['', 'Definir']) await assert.rejects(()=>saveBasicPreparedVehicle({...v,technician}),/Defina o técnico/);
+  assert.equal(reads,0); assert.equal(writes.length,0);
   await saveBasicPreparedVehicle(v);
   assert.equal(reads,1); assert.equal(writes.length,2);
-  assert.equal(saved.currentLane,'preparacao_confirmada');
+  assert.equal(saved.currentLane,'preparacao_confirmada'); assert.equal(saved.roadTestRequired,true);
   saved.currentLane='em_servico';
   await saveBasicPreparedVehicle(v);
   assert.equal(reads,2); assert.equal(writes.length,2); assert.equal(saved.currentLane,'em_servico');

@@ -1,0 +1,40 @@
+.page { max-width: 1440px; margin: auto; }
+.page p { margin: 0; overflow-wrap: anywhere; }
+.filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+.filters > label { flex: 1 1 180px; min-width: 0; }
+.filters input, .filters select { width: 100%; min-width: 0; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.metric { background: white; border: 1px solid #d8e1e9; border-radius: 12px; padding: 18px; display: grid; gap: 6px; }
+.metric strong { font-size: 28px; color: #002c5f; }
+.metric span { color: #4b6074; font-size: 14px; }
+.distribution { display: flex; flex-wrap: wrap; gap: 10px; }
+.tech { border: 1px solid #cad7e3; border-radius: 9px; background: #f6f9fc; padding: 12px 16px; display: flex; gap: 20px; align-items: center; cursor: pointer; }
+.tech[aria-pressed="true"] { background: #002c5f; color: white; }
+.cardHead { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+.cardHead > div { display: grid; gap: 6px; }
+.badge { background: #eef3f8; color: #234768; padding: 6px 10px; border-radius: 8px; font-size: 12px; white-space: nowrap; }
+.warning { background: #fff5df; color: #785000; padding: 10px 12px; border-radius: 8px; }
+.details { border-top: 1px solid #e3e9ee; padding-top: 12px; }
+.details summary { cursor: pointer; color: #174b77; font-weight: 600; }
+.details p { margin-top: 10px; }
+.actions { display: flex; gap: 16px; align-items: end; }
+.actions label { flex: 1; max-width: 320px; }
+.confirmed { border-left: 4px solid #27845f; }
+@media (max-width: 640px) {
+  .metrics { grid-template-columns: repeat(2, 1fr); }
+  .cardHead, .actions { flex-direction: column; align-items: stretch; }
+  .actions label { max-width: none; }
+  .badge { align-self: start; }
+  .tech { flex: 1 1 130px; justify-content: space-between; }
+}
+
+.chipGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 16px; align-items: start; }
+.chipGrid > section { min-width: 0; margin: 0; overflow: hidden; }
+.chipGrid .cardHead { flex-direction: column; gap: 10px; }
+.chipGrid .cardHead strong { font-size: 15px; }
+.chipGrid .cardHead p { font-size: 13px; line-height: 1.45; }
+.chipGrid .badge { align-self: start; }
+.chipGrid .actions { flex-direction: column; align-items: stretch; gap: 10px; }
+.chipGrid .actions label { max-width: none; }
+.chipGrid .actions button { width: 100%; }
+.chipGrid .details { font-size: 13px; }

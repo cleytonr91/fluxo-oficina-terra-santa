@@ -3,6 +3,7 @@
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LIMITED_OPERATION } from "@/lib/limited-operation";
 import { saveBasicPreparedVehicle } from "@/services/basic-preparation";
+import styles from "./preparation-import.module.css";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
 import { findVehicleFlowConflict, savePreparedVehicle, subscribePartOrdersByStatuses, subscribeVehicleFlowsByIds, subscribeVehicleFlowsForPreparation } from "@/services/firestore";
@@ -69,7 +70,7 @@ const initialState: ImportState = {
 function tomorrowDate() {
   const date = new Date();
   date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function normalize(value: unknown) {
@@ -269,6 +270,11 @@ export function PreparationImport() {
   const [orderVehicles, setOrderVehicles] = useState<VehicleFlow[]>([]);
   const [partOrders, setPartOrders] = useState<PartOrder[]>([]);
   const savingLock = useRef(false);
+  const [search, setSearch] = useState("");
+  const [technicianFilter, setTechnicianFilter] = useState("");
+  const [consultantFilter, setConsultantFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sortBy, setSortBy] = useState("time");
 
   useEffect(() => {
     if (LIMITED_OPERATION || !selectedDate) return undefined;
@@ -401,6 +407,20 @@ export function PreparationImport() {
     [appointmentsForDate, linkedPartOrders],
   );
 
+  function localIssues(item: Appointment) {
+    const issues: string[] = [];
+    if (!item.client.trim() || item.client === "Cliente sem nome") issues.push("Confira o cliente.");
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(item.time)) issues.push("Confira o horário.");
+    return issues;
+  }
+  const searchText = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const localAppointments = appointmentsForDate.filter((item) =>
+    searchText([item.client, item.plate, item.chassi, item.model, item.service, item.consultant].join(" ")).includes(searchText(search.trim()))
+    && (!technicianFilter || item.technician === technicianFilter)
+    && (!consultantFilter || item.consultant === consultantFilter)
+    && (!statusFilter || (statusFilter === "confirmed" ? item.confirmed : statusFilter === "pending" ? !item.confirmed : item.technician === "Definir"))
+  ).sort((a, b) => (sortBy === "technician" ? a.technician.localeCompare(b.technician) : sortBy === "consultant" ? a.consultant.localeCompare(b.consultant) : 0) || a.time.localeCompare(b.time) || a.client.localeCompare(b.client));
+
   async function handleFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -425,6 +445,7 @@ export function PreparationImport() {
       setSelectedDate(firstDate);
       setDateConfirmed(false);
       setMissingOnly(false);
+      setSearch(""); setTechnicianFilter(""); setConsultantFilter(""); setStatusFilter("");
     } catch (error) {
       setState({
         ...initialState,
@@ -452,11 +473,13 @@ export function PreparationImport() {
       return;
     }
 
-    if (!LIMITED_OPERATION && item.technician === "Definir") {
+    if (item.technician === "Definir" || !item.technician.trim()) {
       window.alert("Defina o técnico antes de confirmar a preparação.");
       return;
     }
 
+    if (LIMITED_OPERATION && localIssues(item).length) return;
+    if (LIMITED_OPERATION && duplicatedInDate.has(normalizeIdentifier(item.chassi)) && !window.confirm("Este chassi aparece mais de uma vez nesta data. Confira os atendimentos. Deseja adicionar mesmo assim?")) return;
     savingLock.current = true;
     setSavingId(item.id);
     localStorage.setItem("prepSession", state.fileName || "agenda-importada");
@@ -470,7 +493,7 @@ export function PreparationImport() {
           eventId: item.eventId, phone: item.phone, service: item.service,
           consultant: item.consultant, technician: item.technician === "Definir" ? "" : item.technician,
           appointmentDate: item.date || selectedDate, appointmentTime: item.time,
-          importedNote: item.note, sourceFileName: state.fileName,
+          roadTestRequired: item.roadTest, importedNote: item.note, sourceFileName: state.fileName,
           importedBy: profile?.name ?? user?.email ?? user?.uid ?? "",
         });
         updateAppointment(item.id, { confirmed: true });
@@ -524,26 +547,57 @@ export function PreparationImport() {
   }
 
   if (LIMITED_OPERATION) return (
-    <main className="page-wrap stack">
+    <main className={`page-wrap stack ${styles.page}`}>
       <section className="panel">
-        <div className="panel-head"><h2 className="panel-title">Adicionar veículos ao fluxo</h2></div>
+        <div className="panel-head"><h2 className="panel-title">Preparar agenda da oficina</h2></div>
         <div className="panel-body stack">
-          <label className="field"><span>Agenda (.xls ou .xlsx)</span><input type="file" accept=".xls,.xlsx" disabled={Boolean(savingId)} onChange={handleFile} /></label>
+          <p>Importe a agenda, confira os atendimentos e distribua os serviços antes de adicionar ao fluxo.</p>
+          <div className={styles.filters}>
+            <label className="field"><span>Agenda (.xls ou .xlsx)</span><input type="file" accept=".xls,.xlsx" disabled={Boolean(savingId)} onChange={handleFile} /></label>
+            <label className="field"><span>Data da preparação</span><input type="date" value={selectedDate} disabled={Boolean(savingId)} onChange={(event) => { setSelectedDate(event.target.value); setDateConfirmed(false); }} /></label>
+            <button type="button" className="primary-btn fit-btn" disabled={!selectedDate || Boolean(savingId)} onClick={() => setDateConfirmed(true)}>{dateConfirmed ? "Data confirmada" : "Confirmar data"}</button>
+          </div>
+          {state.fileName && <p>Arquivo: <strong>{state.fileName}</strong> · {state.appointments.length} atendimento(s).</p>}
           {state.error && <p role="alert" className="import-error">{state.error}</p>}
-          <label className="field"><span>Data da preparação</span><input type="date" value={selectedDate} disabled={Boolean(savingId)} onChange={(event) => { setSelectedDate(event.target.value); setDateConfirmed(false); }} /></label>
-          <button type="button" className="primary-btn fit-btn" disabled={!selectedDate || Boolean(savingId)} onClick={() => setDateConfirmed(true)}>{dateConfirmed ? "Data confirmada" : "Confirmar data"}</button>
-          <strong>{appointmentsForDate.length} agendamento(s) no arquivo para esta data</strong>
+          {detectedDates.length > 1 && <p>Datas no arquivo: {detectedDates.map(formatBrDate).join(" · ")}</p>}
+          {state.appointments.some((item) => !item.date) && <p role="alert">Há atendimentos sem data no arquivo. Corrija a planilha e importe novamente para incluí-los.</p>}
         </div>
       </section>
-      {appointmentsForDate.map((item) => (
-        <section className="panel" key={item.id}>
-          <div className="panel-body toolbar-grid">
-            <div><strong>{item.client}</strong><p>{item.model} · {displayIdentifier(item.plate)} · {item.time}</p><p>{item.service} · {item.consultant}</p></div>
-            <label className="field"><span>Técnico</span><select value={item.technician} disabled={item.confirmed || Boolean(savingId)} onChange={(event) => updateAppointment(item.id, { technician: event.target.value })}>{technicians.map((name) => <option key={name}>{name}</option>)}</select></label>
-            <button type="button" className="primary-btn" disabled={!dateConfirmed || item.confirmed || Boolean(savingId)} onClick={() => confirmAppointment(item)}>{item.confirmed ? "Adicionado ao fluxo" : savingId === item.id ? "Adicionando..." : "Adicionar ao fluxo"}</button>
-          </div>
-        </section>
+      <div className={styles.metrics} aria-label="Resumo da agenda importada">
+        {[["Na agenda", appointmentsForDate.length], ["Adicionados nesta sessão", appointmentsForDate.filter((item) => item.confirmed).length], ["Pendentes de envio", appointmentsForDate.filter((item) => !item.confirmed).length], ["Sem técnico", appointmentsForDate.filter((item) => item.technician === "Definir").length]].map(([label, value]) => <div key={label} className={styles.metric}><strong>{value}</strong><span>{label}</span></div>)}
+      </div>
+      {state.appointments.length > 0 && <>
+        <section className="panel"><div className="panel-head"><h2 className="panel-title">Distribuição da agenda por técnico</h2></div><div className={`panel-body ${styles.distribution}`}>
+          {technicians.map((name) => <button type="button" key={name} aria-pressed={technicianFilter === name} className={styles.tech} onClick={() => setTechnicianFilter(technicianFilter === name ? "" : name)}><span>{name === "Definir" ? "Sem técnico" : name}</span><strong>{appointmentsForDate.filter((item) => item.technician === name).length}</strong></button>)}
+        </div></section>
+        <section className="panel"><div className={`panel-body ${styles.filters}`}>
+          <label className="field"><span>Buscar atendimento</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cliente, placa, chassi ou serviço" /></label>
+          <label className="field"><span>Consultor</span><select value={consultantFilter} onChange={(event) => setConsultantFilter(event.target.value)}><option value="">Todos</option>{Array.from(new Set(appointmentsForDate.map((item) => item.consultant))).sort().map((name) => <option key={name}>{name}</option>)}</select></label>
+          <label className="field"><span>Técnico</span><select value={technicianFilter} onChange={(event) => setTechnicianFilter(event.target.value)}><option value="">Todos</option>{technicians.map((name) => <option key={name} value={name}>{name === "Definir" ? "Sem técnico" : name}</option>)}</select></label>
+          <label className="field"><span>Situação</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="">Todas</option><option value="pending">Pendentes de envio</option><option value="confirmed">Adicionados nesta sessão</option><option value="missing">Sem técnico</option></select></label>
+          <label className="field"><span>Ordenar por</span><select value={sortBy} onChange={(event) => setSortBy(event.target.value)}><option value="time">Horário</option><option value="technician">Técnico e horário</option><option value="consultant">Consultor e horário</option></select></label>
+          <button className="ghost-btn" type="button" onClick={() => { setSearch(""); setTechnicianFilter(""); setConsultantFilter(""); setStatusFilter(""); }}>Limpar filtros</button>
+        </div></section>
+        <p aria-live="polite">{localAppointments.length} de {appointmentsForDate.length} atendimento(s) da data selecionada. As confirmações exibidas são desta sessão.</p>
+      </>}
+      {!state.appointments.length && <section className="panel"><div className="panel-body">Importe uma agenda para iniciar a preparação.</div></section>}
+      {state.appointments.length > 0 && !localAppointments.length && <section className="panel"><div className="panel-body">Nenhum atendimento para esta data ou estes filtros. Confira a data ou limpe os filtros.</div></section>}
+      <div className={styles.chipGrid}>
+      {localAppointments.map((item) => (
+        <section className="panel" key={item.id}><div className={`panel-body stack ${item.confirmed ? styles.confirmed : ""}`}>
+          <div className={styles.cardHead}><div><strong>{item.time} · {item.client}</strong><p>{item.model} · {displayIdentifier(item.plate)} · {item.consultant}</p><p>{item.service}</p></div><span className={styles.badge}>{item.confirmed ? "Adicionado ao fluxo" : item.technician === "Definir" ? "Sem técnico" : "Pendente de envio"}</span></div>
+          {duplicatedInDate.has(normalizeIdentifier(item.chassi)) && <p className={styles.warning}>Chassi repetido nesta data. Confira se são atendimentos diferentes.</p>}
+          {!normalizeIdentifier(item.plate) && <p className={styles.warning}>Veículo sem placa informada. Confira o chassi nos detalhes.</p>}
+          {localIssues(item).length > 0 && <p role="alert" className="import-error">{localIssues(item).join(" ")} Corrija a planilha e importe novamente.</p>}
+          <details className={styles.details}><summary>Observações e dados do agendamento</summary><p><strong>Observação:</strong> {item.note}</p><p><strong>Chassi:</strong> {displayIdentifier(item.chassi)} · <strong>Telefone:</strong> {item.phone || "Não informado"}</p></details>
+          <label className="check-line"><input type="checkbox" checked={item.roadTest} disabled={item.confirmed || Boolean(savingId)} onChange={(event) => updateAppointment(item.id, { roadTest: event.target.checked })} />Solicitar teste de rodagem no recebimento</label>
+          {item.roadTest && <p className={styles.warning}>O consultor deverá informar no fluxo se o teste foi realizado.</p>}
+          <div className={styles.actions}><label className="field"><span>Técnico</span><select value={item.technician} disabled={item.confirmed || Boolean(savingId)} onChange={(event) => updateAppointment(item.id, { technician: event.target.value })}>{technicians.map((name) => <option key={name}>{name}</option>)}</select></label>
+          <button type="button" className="primary-btn" disabled={!dateConfirmed || item.confirmed || Boolean(savingId) || item.technician === "Definir" || !item.technician.trim() || localIssues(item).length > 0} onClick={() => confirmAppointment(item)}>{item.confirmed ? "Adicionado ao fluxo" : savingId === item.id ? "Adicionando..." : item.technician === "Definir" ? "Defina o técnico para adicionar" : "Adicionar ao fluxo"}</button></div>
+          {!dateConfirmed && <small>Confirme a data acima para habilitar o envio.</small>}
+        </div></section>
       ))}
+      </div>
     </main>
   );
 

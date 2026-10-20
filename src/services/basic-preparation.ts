@@ -5,13 +5,16 @@ import { collections } from "@/lib/firebase/collections";
 type BasicPreparedVehicle = {
   id: string; client: string; plate: string; chassi: string; model: string;
   eventId: string; phone: string; service: string; consultant: string;
-  technician: string; appointmentDate: string; appointmentTime: string;
+  roadTestRequired?: boolean; technician: string; appointmentDate: string; appointmentTime: string;
   importedNote: string; sourceFileName: string; importedBy: string;
 };
 
 export async function saveBasicPreparedVehicle(vehicle: BasicPreparedVehicle) {
   if (!vehicle.client.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(vehicle.appointmentDate) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(vehicle.appointmentTime)) {
     throw new Error("Confira cliente, data e horário do agendamento no arquivo.");
+  }
+  if (!vehicle.technician.trim() || vehicle.technician.trim() === "Definir") {
+    throw new Error("Defina o técnico antes de adicionar o veículo ao fluxo.");
   }
   const db = getFirebaseDb();
   // Reuse the original appointment ID; a retry must never reset an existing chip.
@@ -36,7 +39,7 @@ export async function saveBasicPreparedVehicle(vehicle: BasicPreparedVehicle) {
       consultantName: vehicle.consultant, technicianName: vehicle.technician,
       importedNotes: vehicle.importedNote, sourceFileName: vehicle.sourceFileName,
       preparationMode: "basic", priority: "normal", washType: "nao",
-      roadTestRequired: false, chiefPresenceRequired: false, customerWaits: false,
+      roadTestRequired: vehicle.roadTestRequired === true, chiefPresenceRequired: false, customerWaits: false,
       createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
     });
     transaction.set(eventRef, {

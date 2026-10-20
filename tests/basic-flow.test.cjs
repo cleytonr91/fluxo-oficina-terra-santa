@@ -166,3 +166,19 @@ test('restored layout keeps one subscription effect keyed only by day and no aux
  assert.doesNotMatch(source,/getDocs|onSnapshot|subscribePart|subscribeFlowEvents|loadHyundaiPartsCatalog/);
  assert.match(source,/data-flow-mode="basic-restored"/);
 });
+
+test('requested road test requires explicit answer and reuses receipt writes', async()=>{
+ const receive={...input,from:'preparacao_confirmada',to:'aguardando_servico',promised:'2026-10-20T17:00'};
+ const missing=setup({status:'ativo',currentLane:'preparacao_confirmada',roadTestRequired:true});
+ await assert.rejects(()=>missing.service.moveBasicVehicle(receive),/teste de rodagem/);
+ assert.equal(missing.writes.length,0);
+ for(const roadTestDone of [true,false]) {
+  const s=setup({status:'ativo',currentLane:'preparacao_confirmada',roadTestRequired:true});
+  await s.service.moveBasicVehicle({...receive,roadTestDone});
+  assert.equal(s.reads(),1);assert.equal(s.writes.length,2);
+  assert.equal(s.writes[0][1].roadTestDone,roadTestDone);
+ }
+ const optional=setup({status:'ativo',currentLane:'preparacao_confirmada',roadTestRequired:false});
+ await optional.service.moveBasicVehicle(receive);
+ assert.equal(Object.hasOwn(optional.writes[0][1],'roadTestDone'),false);
+});
