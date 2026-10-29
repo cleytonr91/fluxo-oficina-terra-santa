@@ -787,6 +787,17 @@ export default function PosServicoPage() {
     });
     return mapped;
   }, [monthScopedRecords]);
+  const historicalValidRecordKeys = useMemo(() => {
+    const mapped = new Set<string>();
+    matchingMonthRecords.forEach((record) => {
+      if (!record.valid) return;
+      const chassi = normalizeChassi(record.chassi);
+      const osNumber = record.osNumber?.trim();
+      if (chassi) mapped.add(chassi);
+      if (osNumber) mapped.add(osNumber);
+    });
+    return mapped;
+  }, [matchingMonthRecords]);
   const validRecords = useMemo(() => dedupeByKey(
     monthScopedRecords.filter((record) => validRecordKeys.has(recordKey(record))),
     recordKey,
@@ -817,8 +828,8 @@ export default function PosServicoPage() {
   }, [allAnsweredAnswers, monthScopedFlowItems, flowKeys]);
 
   const answeredWithoutValidRecord = useMemo(() => (
-    campaignClosed ? [] : hgsiBaseAnswers.filter((answer) => !validRecordKeys.has(answerKey(answer)))
-  ), [campaignClosed, hgsiBaseAnswers, validRecordKeys]);
+    campaignClosed ? [] : hgsiBaseAnswers.filter((answer) => !historicalValidRecordKeys.has(answerKey(answer)))
+  ), [campaignClosed, hgsiBaseAnswers, historicalValidRecordKeys]);
 
   const answersByKey = useMemo(() => {
     const mapped = new Map<string, HgsiAnswerImport>();
@@ -1092,7 +1103,7 @@ export default function PosServicoPage() {
 
       setSelectedMonth(sourceMonth);
       setHgsiRecords((current) => [
-        ...current.filter((record) => record.sourceMonth !== sourceMonth),
+        ...current,
         ...records.map((record) => ({
           ...record,
           importBatchId,
@@ -1396,7 +1407,7 @@ export default function PosServicoPage() {
                     <FunnelRow
                       key={item.id}
                       item={item}
-                      validRecord={validRecordKeys.has(itemKey(item))}
+                      validRecord={historicalValidRecordKeys.has(itemKey(item))}
                       answer={answer}
                       answerOutOfBase={answer ? !isAnswerInHgsiBase(answer) : false}
                       treatment={casesByItemKey.get(itemKey(item))}
