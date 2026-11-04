@@ -7,7 +7,7 @@ import { invalidatePartsCatalogCache, PartCatalogFields } from "@/components/par
 import { useAuth } from "@/context/auth-context";
 import { createStandalonePartOrder, replaceHyundaiPartsCatalog, updatePartOrder } from "@/services/firestore";
 import { usePartsPage } from "@/components/use-parts-page";
-import { loadPartById, loadPartsPage, type PartsScope } from "@/services/parts-pages";
+import { loadPartById, loadPartsPage, searchPartOrders, type PartsScope } from "@/services/parts-pages";
 import { parseHyundaiPartsCatalog } from "@/lib/hyundai-parts-catalog";
 import type { PartOrder, PartOrderItem, PartOrderKind, PartOrderSource, PartOrderStatus, VehicleFlow } from "@/types/domain";
 
@@ -354,6 +354,10 @@ export default function PecasPage() {
   const [statusFilter, setStatusFilter] = useState<PartsFilter>(initialFocusedOrderId ? "todos" : "pendentes");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
+  const [searchedOrders, setSearchedOrders] = useState<PartOrder[]>([]);
+  const [searchedVehicles, setSearchedVehicles] = useState<VehicleFlow[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchNotice, setSearchNotice] = useState("");
   const [focusedOrderId, setFocusedOrderId] = useState(initialFocusedOrderId);
   const [error, setError] = useState("");
   const [mobisReceipt, setMobisReceipt] = useState<MobisReceiptState>(emptyMobisReceipt);
@@ -388,14 +392,36 @@ export default function PecasPage() {
 
   }
 
-  function applySearchQuery(value: string) {
+  async function applySearchQuery(value: string) {
     window.history.replaceState(null, "", "/pecas");
     setFocusedOrderId("");
-    if (value.trim()) {
-      setStatusFilter("todos");
+    const cleaned = value.trim();
+    setSearchQuery(value);
+    setSearchedOrders([]);
+    setSearchedVehicles([]);
+    setSearchNotice("");
+
+    if (!cleaned) return;
+
+    setStatusFilter("todos");
+    setSearchLoading(true);
+    setError("");
+
+    try {
+      const result = await searchPartOrders(cleaned);
+      setSearchedOrders(result.orders);
+      setSearchedVehicles(result.vehicles);
+
+      if (result.vehiclesWithoutOrder.length) {
+        const plates = result.vehiclesWithoutOrder.map((vehicle) => vehicle.plate).filter(Boolean).join(", ");
+        setSearchNotice(`O chip ${plates || cleaned} está marcado com pedido de peças, mas não possui um pedido vinculado no módulo Peças.`);
+      }
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível consultar todos os pedidos de peças.");
+    } finally {
+      setSearchLoading(false);
 
     }
-    setSearchQuery(value);
   }
 
   async function importPartsCatalog(event: ChangeEvent<HTMLInputElement>) {
@@ -438,11 +464,15 @@ export default function PecasPage() {
 
   const loadedOrders = useMemo(() => {
     const unique = new Map<string, PartOrder>();
-    [...(linkedOrder ? [linkedOrder] : []), ...archivedOrders, ...orders].forEach((order) => unique.set(order.id, order));
+    [...(linkedOrder ? [linkedOrder] : []), ...searchedOrders, ...archivedOrders, ...orders].forEach((order) => unique.set(order.id, order));
     return [...unique.values()];
-  }, [archivedOrders, orders, linkedOrder]);
+  }, [archivedOrders, orders, linkedOrder, searchedOrders]);
 
-  const orderVehicles = useMemo(() => [...page.vehicles, ...archiveVehicles], [page.vehicles, archiveVehicles]);
+  const orderVehicles = useMemo(() => {
+    const unique = new Map<string, VehicleFlow>();
+    [...page.vehicles, ...archiveVehicles, ...searchedVehicles].forEach((vehicle) => unique.set(vehicle.id, vehicle));
+    return [...unique.values()];
+  }, [page.vehicles, archiveVehicles, searchedVehicles]);
 
   const mergedOrders = useMemo(() => {
     const vehiclesById = new Map(orderVehicles.map((vehicle) => [vehicle.id, vehicle]));
@@ -1054,7 +1084,7 @@ export default function PecasPage() {
             {archiveLoadState === "loading" ? "Carregando..." : archiveLoadState === "loaded" ? "Carregar mais 50 históricos" : "Consultar histórico"}
           </button>
         </div>
-        <p>Indicadores e pesquisa dos pedidos carregados.</p>
+        <p>A pesquisa consulta todos os pedidos por placa ou pelo início do nome do cliente.</p>
         <section className="flow-metrics">
           {metrics.map((metric) => (
             <button
@@ -1083,6 +1113,8 @@ export default function PecasPage() {
 
           <ConfirmedSearch label="Consultar chip" value={searchDraft} onChange={setSearchDraft} onSearch={applySearchQuery} placeholder="Placa ou cliente" />
         </section>
+        {searchLoading && <p>Consultando todos os pedidos de peças...</p>}
+        {searchNotice && <div className="duplicate-alert" role="alert"><strong>Vínculo incompleto</strong><span>{searchNotice}</span></div>}
 
         <div className="parts-portal-sync">
           <div>
