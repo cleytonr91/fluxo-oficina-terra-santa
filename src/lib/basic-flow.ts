@@ -10,7 +10,7 @@ export const basicLanes: { id: FlowLane; label: string }[] = [
   { id: "preparacao_entrega", label: "Preparação de Entrega" },
   { id: "entregue", label: "Entregue" },
 ];
-export const basicConsultants = ["Cleverton", "Eliane", "Rosangela", "Luan"];
+export const basicConsultants = ["Cleverton", "Eliane", "Rosangela", "Luan", "Maicon"];
 export const basicTechnicians = ["Hernando", "Elimarcos", "Wesley", "Ayslan", "Gilvan", "Nathan", "Igo"];
 export function basicTargets(vehicle: VehicleFlow): FlowLane[] {
   const finish: FlowLane = vehicle.washType !== "nao" && !vehicle.washDone ? "aguardando_lavagem" : "preparacao_entrega";

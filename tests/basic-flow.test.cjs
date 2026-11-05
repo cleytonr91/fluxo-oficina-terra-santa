@@ -10,6 +10,13 @@ function load(file, mocks={}) {
 }
 const domain=load('src/lib/basic-flow.ts');
 
+test('Maicon is available in both consultant lists without removing existing consultants',()=>{
+ assert.deepEqual(domain.basicConsultants,['Cleverton','Eliane','Rosangela','Luan','Maicon']);
+ const source=fs.readFileSync('src/app/fluxo/page.tsx','utf8');
+ const fixed=JSON.parse(source.match(/const fixedConsultants = (\[[^;]+\]);/)[1]);
+ assert.deepEqual(fixed,domain.basicConsultants);
+});
+
 test('no-show is local, after one hour, only today and never after receipt',()=>{
  const vehicle={id:'test',status:'ativo',currentLane:'preparacao_confirmada',origin:'agendado',appointmentDate:'2026-10-19',appointmentTime:'07:30',noShow:false};
  const at=time=>new Date('2026-10-19T'+time+':00-03:00');

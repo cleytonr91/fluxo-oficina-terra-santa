@@ -61,7 +61,7 @@ const partOrderKindLabels: Record<NonNullable<PartOrder["orderKind"]>, string> =
   externo: "Externo",
 };
 
-const fixedConsultants = ["Cleverton", "Eliane", "Rosangela", "Luan"];
+const fixedConsultants = ["Cleverton", "Eliane", "Rosangela", "Luan", "Maicon"];
 
 const workshopTechnicians = ["Hernando", "Elimarcos", "Wesley", "Ayslan", "Gilvan", "Nathan", "Igo"];
 
@@ -486,6 +486,7 @@ function consultantDisplayName(name?: string) {
   if (normalized.includes("rosangela")) return "Rosangela";
   if (normalized.includes("eliane")) return "Eliane";
   if (normalized.includes("luan")) return "Luan";
+  if (normalized.includes("maicon")) return "Maicon";
   return firstName(name);
 }
 
