@@ -6084,20 +6084,19 @@ textarea {
 
 .budget-split {
   display: grid;
-  grid-template-rows: 1fr 1fr;
-  gap: 10px;
-  min-height: 540px;
-  padding: 24px 10px 10px;
+  gap: 18px;
+  padding: 12px 7px;
 }
 
 .budget-box {
   display: grid;
+  min-width: 0;
   align-content: start;
-  gap: 22px;
-  border: 1px dashed #c5d0ca;
-  border-radius: 7px;
-  background: #fbfcfa;
-  padding: 12px;
+  gap: 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
 }
 
 .budget-box h3 {
