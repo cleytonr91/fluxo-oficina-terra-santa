@@ -367,6 +367,12 @@ const dailyPreviousYearResults: Record<string, Record<number, { shop: number; be
   },
 };
 
+type GoalCompositionSegment = {
+  label: string;
+  amount: number;
+  color: string;
+};
+
 const channelDefinitions: Array<Omit<ChannelRevenue, "total">> = [
   { channel: "Oficina Produtiva", key: "oficinaProdutiva" },
   { channel: "Acessórios", key: "acessorios" },
@@ -982,6 +988,14 @@ export default function FarolGerencialPage() {
   const dailyRowsByHalf = useMemo(() => [financialRows.slice(0, 13), financialRows.slice(13)], [financialRows]);
   const shop = useMemo(() => areaSummary(shopMonthlyGoal, sumRows(financialRows, "shopDone"), monthSummary.passedDays, monthSummary.businessDays), [financialRows, monthSummary, shopMonthlyGoal]);
   const beauty = useMemo(() => areaSummary(beautyMonthlyGoal, sumRows(financialRows, "beautyDone"), monthSummary.passedDays, monthSummary.businessDays), [beautyMonthlyGoal, financialRows, monthSummary]);
+  const shopComposition = useMemo<GoalCompositionSegment[]>(() => {
+    const results = dailyResults.filter((item) => item.month === selectedMonth);
+    return [
+      { label: "M.O. de revisão", amount: results.reduce((total, item) => total + item.revision, 0), color: "#65ad42" },
+      { label: "Mecânica", amount: results.reduce((total, item) => total + item.generalMechanics, 0), color: "#2e865b" },
+      { label: "Alinhamento e balanceamento", amount: results.reduce((total, item) => total + item.alignmentBalancing, 0), color: "#a6c94e" },
+    ].filter((item) => item.amount > 0);
+  }, [dailyResults, selectedMonth]);
   const productivityMetrics = useMemo<ProductivityMetric[]>(() => {
     const entries = dailyResults.filter((item) => item.month === selectedMonth);
     const manualEntry = serviceProductivityEntries.find((item) => item.month === selectedMonth);
@@ -1454,7 +1468,7 @@ export default function FarolGerencialPage() {
         </section>
 
         <section className="farol-main-grid" data-farol-pdf-report="goals">
-          <GoalCard title="M.O Oficina Produtiva" tone="shop" summary={shop} dailyGoal={monthSummary.businessDays ? shopMonthlyGoal / monthSummary.businessDays : 0} status={configuredStatus} onConfigure={openMonthlyPlanEditor} />
+          <GoalCard title="M.O Oficina Produtiva" tone="shop" summary={shop} dailyGoal={monthSummary.businessDays ? shopMonthlyGoal / monthSummary.businessDays : 0} status={configuredStatus} composition={shopComposition} onConfigure={openMonthlyPlanEditor} />
           <GoalCard title="Embelezamento Oficina" tone="beauty" summary={beauty} dailyGoal={monthSummary.businessDays ? beautyMonthlyGoal / monthSummary.businessDays : 0} status={configuredStatus} onConfigure={openMonthlyPlanEditor} />
           <aside className="farol-operation-panel">
             <div className="panel-head farol-report-head tone-operation">
@@ -2029,6 +2043,7 @@ function GoalCard({
   summary,
   dailyGoal,
   status,
+  composition = [],
   onConfigure,
 }: {
   title: string;
@@ -2036,10 +2051,18 @@ function GoalCard({
   summary: ReturnType<typeof areaSummary>;
   dailyGoal: number;
   status: FarolDataStatus;
+  composition?: GoalCompositionSegment[];
   onConfigure: () => void;
 }) {
   const color = tone === "shop" ? "#65ad42" : "#3472c7";
   const percent = Math.min(100, summary.percent);
+  const compositionTotal = composition.reduce((total, item) => total + item.amount, 0);
+  const compositionSlices = compositionTotal > 0
+    ? composition.reduce<Array<GoalCompositionSegment & { size: number; start: number }>>((slices, item) => {
+      const start = slices.reduce((total, slice) => total + slice.size, 0);
+      return [...slices, { ...item, size: percent * (item.amount / compositionTotal), start }];
+    }, [])
+    : [];
 
   return (
     <article className={`farol-goal-card ${tone}`}>
@@ -2049,9 +2072,13 @@ function GoalCard({
       </div>
       <div className="farol-goal-body">
         <div className="farol-donut">
-          <svg viewBox="0 0 120 120" aria-hidden="true">
+          <svg viewBox="0 0 120 120" role="img" aria-label={compositionSlices.length ? `Composição da M.O. realizada: ${compositionSlices.map((item) => item.label).join(", ")}.` : undefined} aria-hidden={compositionSlices.length ? undefined : true}>
             <circle className="farol-donut-track" cx="60" cy="60" r="51" pathLength="100" />
-            <circle className="farol-donut-progress" cx="60" cy="60" r="51" pathLength="100" stroke={color} strokeDasharray={`${percent} ${100 - percent}`} />
+            {compositionSlices.length ? compositionSlices.map((item) => (
+              <circle key={item.label} className="farol-donut-progress" cx="60" cy="60" r="51" pathLength="100" stroke={item.color} strokeDasharray={`${item.size} ${100 - item.size}`} strokeDashoffset={-item.start}>
+                <title>{item.label}</title>
+              </circle>
+            )) : <circle className="farol-donut-progress" cx="60" cy="60" r="51" pathLength="100" stroke={color} strokeDasharray={`${percent} ${100 - percent}`} />}
           </svg>
           <div><strong>{formatPercent(summary.percent)}</strong><span>realizado</span></div>
         </div>
