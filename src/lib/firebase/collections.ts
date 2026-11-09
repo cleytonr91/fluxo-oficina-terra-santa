@@ -27,6 +27,7 @@ export const collections = {
   farolGrossProfit: "farolGrossProfit",
   farolChannelRevenue: "farolChannelRevenue",
   farolServiceProductivity: "farolServiceProductivity",
+  farolConsultantReports: "farolConsultantReports",
   farolMonthlyPlans: "farolMonthlyPlans",
 } as const;
 

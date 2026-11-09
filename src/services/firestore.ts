@@ -539,6 +539,71 @@ export async function saveFarolServiceProductivity({
   }), { merge: true });
 }
 
+export type FarolConsultantServiceDetail = {
+  category: "Adicionais" | "Embelezamento";
+  tmo: string;
+  service: string;
+  quantity: number;
+  amount: number;
+};
+
+export type FarolConsultantReport = {
+  id: string;
+  month: string;
+  consultantId: string;
+  name: string;
+  revisions: number;
+  revisionSales: number;
+  additionalSales: number;
+  beautySales: number;
+  details: FarolConsultantServiceDetail[];
+  updatedBy?: string;
+  updatedAt?: unknown;
+};
+
+export function subscribeFarolConsultantReports(
+  month: string,
+  onData: (items: FarolConsultantReport[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const db = getFirebaseDb();
+  return onSnapshot(query(collection(db, collections.farolConsultantReports), where("month", "==", month)), (snapshot) => {
+    onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })) as FarolConsultantReport[]);
+  }, (error) => onError?.(error));
+}
+
+export async function saveFarolConsultantReport({
+  month,
+  consultantId,
+  name,
+  revisions,
+  revisionSales,
+  additionalSales,
+  beautySales,
+  details,
+  updatedBy,
+}: Omit<FarolConsultantReport, "id" | "updatedAt">) {
+  const db = getFirebaseDb();
+  await setDoc(doc(db, collections.farolConsultantReports, `${month}-${consultantId}`), withoutUndefined({
+    month,
+    consultantId: consultantId.trim(),
+    name: name.trim(),
+    revisions: Math.max(0, Math.floor(Number(revisions) || 0)),
+    revisionSales: Math.max(0, Number(revisionSales) || 0),
+    additionalSales: Math.max(0, Number(additionalSales) || 0),
+    beautySales: Math.max(0, Number(beautySales) || 0),
+    details: details.map((item) => ({
+      category: item.category,
+      tmo: item.tmo.trim(),
+      service: item.service.trim(),
+      quantity: Math.max(0, Math.floor(Number(item.quantity) || 0)),
+      amount: Math.max(0, Number(item.amount) || 0),
+    })),
+    updatedBy,
+    updatedAt: serverTimestamp(),
+  }), { merge: true });
+}
+
 function normalizeCounterItems(items: PartsCounterItem[], entryType: PartsCounterEntryType) {
   return items.map((item, index) => withoutUndefined({
     id: item.id || `item-${index + 1}`,

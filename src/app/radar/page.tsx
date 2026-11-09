@@ -5,7 +5,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { downloadFarolPdf } from "@/lib/farol-pdf";
 import { historicalSalesResults } from "@/lib/balcao-indicators";
-import { listVehicleFlowsForMonth, saveFarolChannelRevenue, saveFarolDailyResult, saveFarolGrossProfit, saveFarolMonthlyPlan, saveFarolObservation, saveFarolRevenue, saveFarolServiceProductivity, subscribeFarolChannelRevenue, subscribeFarolDailyResultsForMonth, subscribeFarolGrossProfit, subscribeFarolMonthlyPlans, subscribeFarolObservationsForMonth, subscribeFarolRevenue, subscribeFarolServiceProductivity, subscribePartsCounterEntriesForMonth, subscribePartsSalesGoals, type FarolChannelRevenue, type FarolDailyResult, type FarolGrossProfit, type FarolMonthlyPlan, type FarolObservation, type FarolOperationalDay, type FarolOperationalDayType, type FarolRevenue, type FarolServiceProductivity } from "@/services/firestore";
+import { listVehicleFlowsForMonth, saveFarolChannelRevenue, saveFarolConsultantReport, saveFarolDailyResult, saveFarolGrossProfit, saveFarolMonthlyPlan, saveFarolObservation, saveFarolRevenue, saveFarolServiceProductivity, subscribeFarolChannelRevenue, subscribeFarolConsultantReports, subscribeFarolDailyResultsForMonth, subscribeFarolGrossProfit, subscribeFarolMonthlyPlans, subscribeFarolObservationsForMonth, subscribeFarolRevenue, subscribeFarolServiceProductivity, subscribePartsCounterEntriesForMonth, subscribePartsSalesGoals, type FarolChannelRevenue, type FarolConsultantReport, type FarolDailyResult, type FarolGrossProfit, type FarolMonthlyPlan, type FarolObservation, type FarolOperationalDay, type FarolOperationalDayType, type FarolRevenue, type FarolServiceProductivity } from "@/services/firestore";
 import type { PartsCounterEntry, PartsSalesGoal, VehicleFlow } from "@/types/domain";
 
 
@@ -85,6 +85,8 @@ type ConsultantServicePerformance = {
   details: ConsultantServiceDetail[];
 };
 
+type ConsultantReportDraft = Omit<ConsultantServicePerformance, "id"> & { id: string };
+
 type BalcaoSummary = {
   sold: number;
   lost: number;
@@ -129,6 +131,30 @@ function parseCurrencyInput(value: string) {
 
 function parsePercentInput(value: string) {
   return Math.max(0, Number(value.trim().replace(",", ".")) || 0);
+}
+
+function parseDraftCurrencyInput(value: string) {
+  return value.includes(",") ? parseCurrencyInput(value) : Math.max(0, Number(value) || 0);
+}
+
+const consultantNames: Record<string, string> = { "295": "Eliane Ribeiro", "1395": "Rosangela Soares", "1959": "Cleverton Macedo", "1396": "Luan" };
+
+function ocrNumber(value: string) {
+  return Number(value.replace(/\./g, "").replace(",", ".")) || 0;
+}
+
+function ocrCategoryTotal(text: string, code: number, label: string) {
+  const match = text.match(new RegExp(`Categoria\\s*:\\s*${code}\\s*-\\s*${label}([\\s\\S]*?)Total\\s+da\\s+Categoria\\s*:\\s*(\\d+)\\s+([\\d.]+,\\d{2})`, "i"));
+  return match ? { quantity: Number(match[2]) || 0, amount: ocrNumber(match[3]) } : { quantity: 0, amount: 0 };
+}
+
+function parseConsultantImageText(text: string, month: string): ConsultantReportDraft {
+  const normalized = text.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const vendor = normalized.match(/Vendedor\(es\)\s*:\s*(\d+)/i)?.[1] ?? "295";
+  const revision = ocrCategoryTotal(normalized, 2, "REVISAO");
+  const additional = ocrCategoryTotal(normalized, 7, "ALINHAMENTO");
+  const beauty = ocrCategoryTotal(normalized, 11, "EMBELEZAMENTO");
+  return { id: vendor, name: consultantNames[vendor] ?? `Consultor ${vendor}`, revisions: revision.quantity, revisionSales: revision.amount, additionalSales: additional.amount, beautySales: beauty.amount, details: [] };
 }
 
 function normalizePercentValue(value: number) {
@@ -551,6 +577,30 @@ const serviceReportSnapshots: Record<string, { revisions: number; revisionSales:
 };
 
 const consultantServicePerformance: Record<string, ConsultantServicePerformance[]> = {
+  "2026-11": [
+    {
+      id: "295",
+      name: "Eliane Ribeiro",
+      revisions: 25,
+      revisionSales: 11894.65,
+      additionalSales: 7103.8,
+      beautySales: 4430,
+      details: [
+        { category: "Adicionais", tmo: "A-HMB", service: "Alinhamento", quantity: 1, amount: 150 },
+        { category: "Adicionais", tmo: "AB-HMB", service: "Alinhamento e balanceamento", quantity: 13, amount: 2403.8 },
+        { category: "Adicionais", tmo: "DIE-HMB", service: "Descarbonização", quantity: 1, amount: 480 },
+        { category: "Adicionais", tmo: "FF-HMB", service: "Substituição e limpeza do fluido de freio", quantity: 3, amount: 750 },
+        { category: "Adicionais", tmo: "HG-HMB", service: "Higienização / sanitização do ar", quantity: 1, amount: 260 },
+        { category: "Adicionais", tmo: "LCE-HMB", service: "Limpeza de caixa evaporadora", quantity: 10, amount: 2540 },
+        { category: "Adicionais", tmo: "LL-HMB", service: "Limpeza e lubrificação das lonas de freio", quantity: 1, amount: 320 },
+        { category: "Adicionais", tmo: "SV-HMB", service: "Substituição das velas", quantity: 1, amount: 200 },
+        { category: "Embelezamento", tmo: "EST01", service: "Lavagem de motor verniz", quantity: 12, amount: 1800 },
+        { category: "Embelezamento", tmo: "EST05", service: "Lavagem dos bancos e hidratação", quantity: 4, amount: 1580 },
+        { category: "Embelezamento", tmo: "EST06", service: "Vitrificação da pintura", quantity: 1, amount: 650 },
+        { category: "Embelezamento", tmo: "EST12", service: "Lavagem simples + aspiração", quantity: 6, amount: 400 },
+      ],
+    },
+  ],
   "2026-10": [
     {
       id: "295",
@@ -898,6 +948,7 @@ export default function FarolGerencialPage() {
   const [grossProfitEntries, setGrossProfitEntries] = useState<FarolGrossProfit[]>([]);
   const [channelRevenueEntries, setChannelRevenueEntries] = useState<FarolChannelRevenue[]>([]);
   const [serviceProductivityEntries, setServiceProductivityEntries] = useState<FarolServiceProductivity[]>([]);
+  const [consultantReportEntries, setConsultantReportEntries] = useState<FarolConsultantReport[]>([]);
   const [monthlyPlans, setMonthlyPlans] = useState<FarolMonthlyPlan[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(() => monthKey(new Date()));
   const [comparePreviousYear, setComparePreviousYear] = useState(true);
@@ -922,6 +973,11 @@ export default function FarolGerencialPage() {
   const [activeServiceProductivityEntry, setActiveServiceProductivityEntry] = useState(false);
   const [serviceProductivityDraft, setServiceProductivityDraft] = useState({ month: "", revisions: "", revisionSales: "", mechanicsSales: "", additionalSales: "", beautySales: "", beautyTotalSales: "", bodyworkSales: "", accessoriesLaborSales: "" });
   const [savingServiceProductivityEntry, setSavingServiceProductivityEntry] = useState(false);
+  const [activeConsultantImport, setActiveConsultantImport] = useState(false);
+  const [readingConsultantImage, setReadingConsultantImage] = useState(false);
+  const [savingConsultantReport, setSavingConsultantReport] = useState(false);
+  const [consultantImageName, setConsultantImageName] = useState("");
+  const [consultantReportDraft, setConsultantReportDraft] = useState<ConsultantReportDraft>({ id: "295", name: "Eliane Ribeiro", revisions: 0, revisionSales: 0, additionalSales: 0, beautySales: 0, details: [] });
   const [activeMonthlyPlan, setActiveMonthlyPlan] = useState(false);
   const [monthlyPlanDraft, setMonthlyPlanDraft] = useState<{ month: string; shopGoal: string; beautyGoal: string; status: "partial" | "closed"; operationalDays: FarolOperationalDay[] }>({ month: "", shopGoal: "", beautyGoal: "", status: "partial", operationalDays: [] });
   const [savingMonthlyPlan, setSavingMonthlyPlan] = useState(false);
@@ -977,6 +1033,7 @@ export default function FarolGerencialPage() {
   useEffect(() => subscribeFarolGrossProfit(setGrossProfitEntries, (currentError) => setError(currentError.message)), []);
   useEffect(() => subscribeFarolChannelRevenue(setChannelRevenueEntries, (currentError) => setError(currentError.message)), []);
   useEffect(() => subscribeFarolServiceProductivity(setServiceProductivityEntries, (currentError) => setError(currentError.message)), []);
+  useEffect(() => subscribeFarolConsultantReports(selectedMonth, setConsultantReportEntries, (currentError) => setError(currentError.message)), [selectedMonth]);
   useEffect(() => subscribeFarolMonthlyPlans(setMonthlyPlans, (currentError) => setError(currentError.message)), []);
 
   const selectedMonthlyPlan = monthlyPlans.find((item) => item.month === selectedMonth);
@@ -1168,6 +1225,11 @@ export default function FarolGerencialPage() {
     { key: "beauty", label: "Embelezamento Oficina" },
     ...operation.map((item) => ({ key: item.label.toLowerCase().replace(/[^a-z0-9]+/g, "-"), label: item.label })),
   ];
+  const currentConsultantReports = useMemo(() => {
+    const reports = new Map((consultantServicePerformance[selectedMonth] ?? []).map((item) => [item.id, item]));
+    consultantReportEntries.forEach((item) => reports.set(item.consultantId, { id: item.consultantId, name: item.name, revisions: item.revisions, revisionSales: item.revisionSales, additionalSales: item.additionalSales, beautySales: item.beautySales, details: item.details }));
+    return [...reports.values()];
+  }, [consultantReportEntries, selectedMonth]);
 
   function canEditReport() {
     if (canManageReports) return true;
@@ -1260,6 +1322,43 @@ export default function FarolGerencialPage() {
     const existing = dailyResults.find((item) => item.month === selectedMonth && item.day === day);
     setDailyResultDraft({ day, revision: existing ? String(existing.revision) : "", revisionCount: existing ? String(existing.revisionCount) : "", generalMechanics: existing ? String(existing.generalMechanics) : "", alignmentBalancing: existing ? String(existing.alignmentBalancing) : "", beauty: existing ? String(existing.beauty) : "" });
     setActiveDailyResult(true);
+  }
+
+  function openConsultantImport() {
+    if (!canEditReport()) return;
+    setConsultantImageName("");
+    setConsultantReportDraft({ id: "295", name: "Eliane Ribeiro", revisions: 0, revisionSales: 0, additionalSales: 0, beautySales: 0, details: [] });
+    setActiveConsultantImport(true);
+  }
+
+  async function readConsultantImage(file: File) {
+    setReadingConsultantImage(true);
+    setConsultantImageName(file.name);
+    setError("");
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("por");
+      const { data } = await worker.recognize(file);
+      await worker.terminate();
+      setConsultantReportDraft(parseConsultantImageText(data.text, selectedMonth));
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível ler a imagem do relatório.");
+    } finally {
+      setReadingConsultantImage(false);
+    }
+  }
+
+  async function saveConsultantImageReport() {
+    if (!canEditReport()) return;
+    setSavingConsultantReport(true);
+    try {
+      await saveFarolConsultantReport({ month: selectedMonth, consultantId: consultantReportDraft.id, name: consultantReportDraft.name, revisions: consultantReportDraft.revisions, revisionSales: consultantReportDraft.revisionSales, additionalSales: consultantReportDraft.additionalSales, beautySales: consultantReportDraft.beautySales, details: consultantReportDraft.details, updatedBy: profile?.name });
+      setActiveConsultantImport(false);
+    } catch (currentError) {
+      setError(currentError instanceof Error ? currentError.message : "Não foi possível salvar o resultado por consultor.");
+    } finally {
+      setSavingConsultantReport(false);
+    }
   }
 
   async function saveDailyResult() {
@@ -1651,10 +1750,10 @@ export default function FarolGerencialPage() {
 
         <section className="panel farol-table-panel" data-farol-pdf-report="consultants">
           <div className="panel-head farol-report-head tone-consultant">
-            <div><div className="farol-report-title-row"><h2 className="panel-title">Resultados por Consultor</h2><ReportAddButton onClick={() => openObservation("consultant-results", "Resultados por Consultor")} /><DataStatusTag status={reportStatus(Boolean(consultantServicePerformance[selectedMonth]?.length))} /></div><p className="comment">Serviços iguais são consolidados por descrição, mesmo quando vierem de modelos diferentes.</p></div>
+            <div><div className="farol-report-title-row"><h2 className="panel-title">Resultados por Consultor</h2><ReportAddButton onClick={openConsultantImport} /><DataStatusTag status={reportStatus(Boolean(currentConsultantReports.length))} /></div><p className="comment">Serviços iguais são consolidados por descrição, mesmo quando vierem de modelos diferentes.</p></div>
             <span className="tag">{monthLabel(selectedMonth)}</span>
           </div>
-          <ConsultantServiceReport selectedMonth={selectedMonth} />
+          <ConsultantServiceReport reports={currentConsultantReports} />
         </section>
 
         <section className="panel farol-table-panel" data-farol-pdf-report="service-ranking">
@@ -1662,7 +1761,7 @@ export default function FarolGerencialPage() {
             <div><div className="farol-report-title-row"><h2 className="panel-title">Ranking de Serviços</h2><DataStatusTag status={reportStatus(Boolean(consultantServicePerformance[selectedMonth]?.length))} /></div><p className="comment">Soma os serviços de Eliane e Rosangela, consolidando cada TMO em um único resultado.</p></div>
             <span className="tag">{monthLabel(selectedMonth)}</span>
           </div>
-          <ServiceRankingReport selectedMonth={selectedMonth} />
+          <ServiceRankingReport consultants={currentConsultantReports} />
         </section>
 
         {pdfSelectorOpen && (
@@ -1789,6 +1888,26 @@ export default function FarolGerencialPage() {
           </div>
         )}
 
+        {activeConsultantImport && (
+          <div className="farol-report-modal-backdrop" role="presentation" onClick={() => !readingConsultantImage && setActiveConsultantImport(false)}>
+            <section className="farol-report-modal farol-daily-input-modal" role="dialog" aria-modal="true" aria-labelledby="consultant-image-import-title" onClick={(event) => event.stopPropagation()}>
+              <div className="farol-report-modal-head"><div><span>Resultados por Consultor</span><h2 id="consultant-image-import-title">Ler relatório por imagem</h2></div><button type="button" onClick={() => setActiveConsultantImport(false)} aria-label="Fechar">×</button></div>
+              <p className="farol-daily-input-help">Selecione a imagem do resumo de vendas. A leitura é feita no navegador; revise os totais antes de salvar.</p>
+              <label><span>Imagem do relatório</span><input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void readConsultantImage(file); }} /></label>
+              {consultantImageName && <small className="comment">{readingConsultantImage ? "Lendo imagem..." : `Imagem lida: ${consultantImageName}`}</small>}
+              <div className="farol-daily-input-grid">
+                <label><span>Cód. consultor</span><input value={consultantReportDraft.id} onChange={(event) => setConsultantReportDraft((current) => ({ ...current, id: event.target.value, name: consultantNames[event.target.value] ?? current.name }))} /></label>
+                <label><span>Consultor</span><input value={consultantReportDraft.name} onChange={(event) => setConsultantReportDraft((current) => ({ ...current, name: event.target.value }))} /></label>
+                <label><span>Qtd. revisões</span><input type="number" min="0" value={consultantReportDraft.revisions} onChange={(event) => setConsultantReportDraft((current) => ({ ...current, revisions: Number(event.target.value) || 0 }))} /></label>
+                <label><span>Vendas de revisão</span><input inputMode="decimal" value={consultantReportDraft.revisionSales} onChange={(event) => setConsultantReportDraft((current) => ({ ...current, revisionSales: parseDraftCurrencyInput(event.target.value) }))} /></label>
+                <label><span>Serviços adicionais</span><input inputMode="decimal" value={consultantReportDraft.additionalSales} onChange={(event) => setConsultantReportDraft((current) => ({ ...current, additionalSales: parseDraftCurrencyInput(event.target.value) }))} /></label>
+                <label><span>Embelezamento</span><input inputMode="decimal" value={consultantReportDraft.beautySales} onChange={(event) => setConsultantReportDraft((current) => ({ ...current, beautySales: parseDraftCurrencyInput(event.target.value) }))} /></label>
+              </div>
+              <div className="farol-report-modal-actions"><button type="button" className="ghost-btn" onClick={() => setActiveConsultantImport(false)}>Cancelar</button><button type="button" className="primary-btn" onClick={() => void saveConsultantImageReport()} disabled={readingConsultantImage || savingConsultantReport}>{savingConsultantReport ? "Salvando..." : "Confirmar resultado"}</button></div>
+            </section>
+          </div>
+        )}
+
         {activeDailyResult && (
           <div className="farol-report-modal-backdrop" role="presentation" onClick={() => setActiveDailyResult(false)}>
             <section className="farol-report-modal farol-daily-input-modal" role="dialog" aria-modal="true" aria-labelledby="farol-daily-input-title" onClick={(event) => event.stopPropagation()}>
@@ -1876,8 +1995,7 @@ function OpenServiceOrdersReport({ selectedMonth }: { selectedMonth: string }) {
   );
 }
 
-function ConsultantServiceReport({ selectedMonth }: { selectedMonth: string }) {
-  const reports = consultantServicePerformance[selectedMonth] ?? [];
+function ConsultantServiceReport({ reports }: { reports: ConsultantServicePerformance[] }) {
   const [sortBy, setSortBy] = useState<"alphabetical" | "quantity" | "tkm">("alphabetical");
   const tkm = (value: number, revisions: number) => revisions ? value / revisions : 0;
   const sortedDetails = (details: ConsultantServiceDetail[]) => [...details].sort((left, right) => {
@@ -1918,9 +2036,9 @@ function ConsultantServiceReport({ selectedMonth }: { selectedMonth: string }) {
   );
 }
 
-function ServiceRankingReport({ selectedMonth }: { selectedMonth: string }) {
+function ServiceRankingReport({ consultants: reportConsultants }: { consultants: ConsultantServicePerformance[] }) {
   const [sortBy, setSortBy] = useState<"alphabetical" | "quantity" | "tkm">("alphabetical");
-  const consultants = (consultantServicePerformance[selectedMonth] ?? []).filter((consultant) => consultant.id === "295" || consultant.id === "1395");
+  const consultants = reportConsultants.filter((consultant) => consultant.id === "295" || consultant.id === "1395");
   const revisions = consultants.reduce((total, consultant) => total + consultant.revisions, 0);
   const revisionSales = consultants.reduce((total, consultant) => total + consultant.revisionSales, 0);
   const additionalSales = consultants.reduce((total, consultant) => total + consultant.additionalSales, 0);
