@@ -11,6 +11,11 @@ export const basicLanes: { id: FlowLane; label: string }[] = [
   { id: "entregue", label: "Entregue" },
 ];
 export const basicConsultants = ["Cleverton", "Eliane", "Rosangela", "Luan", "Maicon"];
+export function clientWhatsappUrl(phone?: string): string | undefined {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  const number = /^\d{10,11}$/.test(digits) ? `55${digits}` : digits;
+  return /^55[1-9]\d{9,10}$/.test(number) ? `https://wa.me/${number}` : undefined;
+}
 export const basicTechnicians = ["Hernando", "Elimarcos", "Wesley", "Ayslan", "Gilvan", "Nathan", "Igo"];
 export function basicTargets(vehicle: VehicleFlow): FlowLane[] {
   const finish: FlowLane = vehicle.washType !== "nao" && !vehicle.washDone ? "aguardando_lavagem" : "preparacao_entrega";

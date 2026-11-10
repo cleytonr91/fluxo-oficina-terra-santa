@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/context/auth-context";
-import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, isBasicNoShow, localDay, sortFlowLane, visibleByImmobilization } from "@/lib/basic-flow";
+import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, clientWhatsappUrl, isBasicNoShow, localDay, sortFlowLane, visibleByImmobilization } from "@/lib/basic-flow";
 import { BasicMoveInput, moveBasicVehicle, subscribeBasicFlow } from "@/services/basic-flow";
 import { canAddBasicWalkIn } from "@/services/basic-walk-in";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
@@ -117,7 +117,7 @@ export function BasicFlowBoard() {
     const days = received ? Math.max(0, Math.floor((now.getTime() - received.getTime()) / 86400000)) : "-";
     const canMove = canOperateBasic(profile?.role, vehicle.currentLane) && basicTargets(vehicle).length > 0;
     return <article className={`chip flow-chip ${/diagn/i.test(vehicle.serviceLabel ?? "") ? "diagnostico" : /reparo/i.test(vehicle.serviceLabel ?? "") ? "reparo" : ""}`} key={vehicle.id} tabIndex={0} aria-label={`Informações de ${vehicle.clientName}`} onDoubleClick={() => setDetail({ vehicle, parts: false })} onKeyDown={event => { if (event.key === "Enter" && event.target === event.currentTarget) setDetail({ vehicle, parts: false }); }}>
-      <div className="chip-top"><div><h3 className="client">{vehicle.clientName || "Sem nome"}</h3><p className="model">{vehicle.model || "Modelo não informado"}</p></div><span className={`plate ${vehicle.customerWaits ? "wait-plate" : ""}`} title={vehicle.customerWaits ? "Cliente aguardando na loja" : "Placa"}>{vehicle.plate && vehicle.plate !== "null" ? vehicle.plate : "Sem placa"}</span></div>
+      <div className="chip-top"><div><h3 className="client">{clientWhatsappUrl(vehicle.phone) ? <a className="client-link" href={clientWhatsappUrl(vehicle.phone)} target="_blank" rel="noopener noreferrer" title="Abrir WhatsApp do cliente" onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}>{vehicle.clientName || "Sem nome"}</a> : vehicle.clientName || "Sem nome"}</h3><p className="model">{vehicle.model || "Modelo não informado"}</p></div><span className={`plate ${vehicle.customerWaits ? "wait-plate" : ""}`} title={vehicle.customerWaits ? "Cliente aguardando na loja" : "Placa"}>{vehicle.plate && vehicle.plate !== "null" ? vehicle.plate : "Sem placa"}</span></div>
       <div className="tag-row"><span className="tag">{vehicle.serviceLabel || "Serviço não informado"}</span>
         {vehicle.appointmentDate && vehicle.appointmentDate < day && <span className="tag previous-day">Dia anterior</span>}
         {vehicle.origin === "passante" && <span className="tag warn">Passante</span>}

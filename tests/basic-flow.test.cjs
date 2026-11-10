@@ -10,6 +10,13 @@ function load(file, mocks={}) {
 }
 const domain=load('src/lib/basic-flow.ts');
 
+test('client WhatsApp links normalize Brazilian phones without database access',()=>{
+ assert.equal(domain.clientWhatsappUrl('(79) 99999-1234'),'https://wa.me/5579999991234');
+ assert.equal(domain.clientWhatsappUrl('+55 (79) 99999-1234'),'https://wa.me/5579999991234');
+ assert.equal(domain.clientWhatsappUrl('(55) 99999-1234'),'https://wa.me/5555999991234');
+ for(const phone of [undefined,'','null','1234','00000000000']) assert.equal(domain.clientWhatsappUrl(phone),undefined);
+});
+
 test('Maicon is available in both consultant lists without removing existing consultants',()=>{
  assert.deepEqual(domain.basicConsultants,['Cleverton','Eliane','Rosangela','Luan','Maicon']);
  const source=fs.readFileSync('src/app/fluxo/page.tsx','utf8');

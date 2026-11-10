@@ -10,6 +10,7 @@ const domain=load('src/lib/basic-flow.ts');
 const vehicles=domain.basicLanes.map((lane,index)=>({id:'test-'+index,status:lane.id==='entregue'?'entregue':'ativo',currentLane:lane.id,clientName:'CLIENTE DE TESTE '+(index+1),plate:'ABC1D23',model:'HB20',serviceLabel:'Revisão 01',consultantName:'Eliane',technicianName:'Wesley',appointmentDate:'2026-09-25',appointmentTime:'09:00',washType:'simples'}));
 const form={vehicleId:'test-0',from:'preparacao_confirmada',to:'aguardando_servico',actor:'Teste',actorId:'test',consultant:'Eliane',technician:'Wesley',washType:'simples',promised:'',note:'',customerWaits:false,onTime:true,pending:false,nps:''};
 Object.assign(vehicles[1],{customerWaits:true,attendanceStartedAt:'2026-09-25T10:30:00Z',appointmentTime:'10:00'});
+vehicles[1].phone='(79) 99999-1234';
 const output=path.resolve('output/basic-flow-qa');fs.mkdirSync(output,{recursive:true});
 function headerCss(css) {
  const globals=[];
@@ -48,6 +49,7 @@ async function main(){
    await page.goto('file:///'+path.join(output,kind+'.html').replaceAll('\\','/'));
    if(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth))throw Error('Page overflow: '+name+' '+kind);
    if(await page.locator('.flow-lane').count()!==8)throw Error('Expected the original eight lanes');
+   if(await page.locator('a.client-link[href="https://wa.me/5579999991234"][target="_blank"]').count()!==1)throw Error('Missing client WhatsApp link');
    if(await page.getByRole('button',{name:'Abrir menu de páginas'}).count()!==1)throw Error('Missing original menu');
    if(await page.getByRole('button',{name:'+ Passante',exact:true}).count()!==1)throw Error('Missing restored walk-in button');
    if(await page.locator('.flow-metrics').count()!==1)throw Error('Missing original metrics');
