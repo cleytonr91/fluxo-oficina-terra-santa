@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { FieldValue } from "firebase-admin/firestore";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import * as XLSX from "xlsx";
-import { getFirebaseAdminDb } from "@/lib/firebase/admin";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
 import { collections } from "@/lib/firebase/collections";
 
 const PORTAL_BASE_URL = "https://routepesquisa.com.br/hgsi/";
@@ -357,11 +358,11 @@ async function downloadPortalExports(user: string, password: string) {
 }
 
 async function deleteStaleDocuments(collectionName: string, sourceMonth: string, desiredIds: Set<string>) {
-  const db = getFirebaseAdminDb();
-  const snapshot = await db.collection(collectionName).where("sourceMonth", "==", sourceMonth).get();
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(query(collection(db, collectionName), where("sourceMonth", "==", sourceMonth)));
   const stale = snapshot.docs.filter((item) => !desiredIds.has(item.id));
   for (let start = 0; start < stale.length; start += 450) {
-    const batch = db.batch();
+    const batch = writeBatch(db);
     stale.slice(start, start + 450).forEach((item) => batch.delete(item.ref));
     await batch.commit();
   }
@@ -369,24 +370,24 @@ async function deleteStaleDocuments(collectionName: string, sourceMonth: string,
 }
 
 async function saveRecords(records: HgsiRecordInput[], sourceFileName: string, sourceHash: string) {
-  const db = getFirebaseAdminDb();
+  const db = getFirebaseDb();
   const importBatchId = `hgsi-records-${records[0]?.sourceMonth ?? "sem-mes"}-${sourceHash.slice(0, 16)}`;
   const desiredIds = new Set<string>();
   for (let start = 0; start < Math.max(records.length, 1); start += 450) {
-    const batch = db.batch();
-    if (start === 0) batch.set(db.collection(collections.importBatches).doc(importBatchId), withoutUndefined({
-      sourceFileName, sourceKind: "hgsi_records", importedBy: "automacao_hgsi", importedAt: FieldValue.serverTimestamp(),
+    const batch = writeBatch(db);
+    if (start === 0) batch.set(doc(collection(db, collections.importBatches), importBatchId), withoutUndefined({
+      sourceFileName, sourceKind: "hgsi_records", importedBy: "automacao_hgsi", importedAt: serverTimestamp(),
       totalRows: records.length, sourceHash, notes: "Importacao automatica de status de registros Route/HGSI",
     }), { merge: true });
     records.slice(start, start + 450).forEach((record, offset) => {
       const index = start + offset;
       const id = documentKey(record.chassi || "sem-chassi", record.osNumber || `linha-${index}`, record.sourceMonth || "sem-mes");
       desiredIds.add(id);
-      batch.set(db.collection(collections.hgsiRecords).doc(id), withoutUndefined({
+      batch.set(doc(collection(db, collections.hgsiRecords), id), withoutUndefined({
         importBatchId, chassi: record.chassi, osNumber: record.osNumber, recordStatus: record.status,
         isValidRecord: record.valid, sourceMonth: record.sourceMonth, clientName: record.clientName,
         plate: record.plate, serviceLabel: record.serviceLabel, consultantName: record.consultantName,
-        rawPayload: record.rawPayload, importedAt: FieldValue.serverTimestamp(),
+        rawPayload: record.rawPayload, importedAt: serverTimestamp(),
       }), { merge: true });
     });
     await batch.commit();
@@ -396,20 +397,20 @@ async function saveRecords(records: HgsiRecordInput[], sourceFileName: string, s
 }
 
 async function saveAnswers(answers: HgsiAnswerInput[], sourceMonth: string, sourceFileName: string, sourceHash: string) {
-  const db = getFirebaseAdminDb();
+  const db = getFirebaseDb();
   const importBatchId = `hgsi-answers-${sourceMonth}-${sourceHash.slice(0, 16)}`;
   const desiredIds = new Set<string>();
   for (let start = 0; start < Math.max(answers.length, 1); start += 450) {
-    const batch = db.batch();
-    if (start === 0) batch.set(db.collection(collections.importBatches).doc(importBatchId), withoutUndefined({
-      sourceFileName, sourceKind: "hgsi_answers", importedBy: "automacao_hgsi", importedAt: FieldValue.serverTimestamp(),
+    const batch = writeBatch(db);
+    if (start === 0) batch.set(doc(collection(db, collections.importBatches), importBatchId), withoutUndefined({
+      sourceFileName, sourceKind: "hgsi_answers", importedBy: "automacao_hgsi", importedAt: serverTimestamp(),
       totalRows: answers.length, sourceHash, notes: "Importacao automatica de respostas HGSI",
     }), { merge: true });
     answers.slice(start, start + 450).forEach((answer, offset) => {
       const index = start + offset;
       const id = documentKey(answer.chassi || "sem-chassi", answer.osNumber || answer.questionnaireId || `linha-${index}`, answer.sourceMonth || "sem-mes", answer.answerDate || `linha-${index}`);
       desiredIds.add(id);
-      batch.set(db.collection(collections.hgsiAnswers).doc(id), withoutUndefined({
+      batch.set(doc(collection(db, collections.hgsiAnswers), id), withoutUndefined({
         importBatchId, questionnaireId: answer.questionnaireId, chassi: answer.chassi, osNumber: answer.osNumber,
         responseStatus: answer.responseStatus, sourceMonth: answer.sourceMonth, clientName: answer.clientName,
         plate: answer.plate, serviceLabel: answer.serviceLabel, consultantName: answer.consultantName,
@@ -418,7 +419,7 @@ async function saveAnswers(answers: HgsiAnswerInput[], sourceMonth: string, sour
         consultantScore: answer.consultantScore, deadlineScore: answer.deadlineScore,
         serviceQualityScore: answer.serviceQualityScore, priceAlignmentScore: answer.priceAlignmentScore,
         washScore: answer.washScore, correctServiceScore: answer.correctServiceScore,
-        correctService: answer.correctService, rawPayload: answer.rawPayload, importedAt: FieldValue.serverTimestamp(),
+        correctService: answer.correctService, rawPayload: answer.rawPayload, importedAt: serverTimestamp(),
       }), { merge: true });
     });
     await batch.commit();
@@ -430,7 +431,11 @@ async function saveAnswers(answers: HgsiAnswerInput[], sourceMonth: string, sour
 export async function runAutomaticHgsiImport() {
   const user = process.env.HGSI_PORTAL_USER;
   const password = process.env.HGSI_PORTAL_PASSWORD;
+  const firebaseEmail = process.env.FIREBASE_AUTOMATION_EMAIL;
+  const firebasePassword = process.env.FIREBASE_AUTOMATION_PASSWORD;
   if (!user || !password) throw new Error("As credenciais protegidas do portal HGSI não estão configuradas.");
+  if (!firebaseEmail || !firebasePassword) throw new Error("As credenciais protegidas da automação do Firebase não estão configuradas.");
+  await signInWithEmailAndPassword(getFirebaseAuth(), firebaseEmail, firebasePassword);
   const exported = await downloadPortalExports(user, password);
   const parsedRecords = parseHgsiWorkbook(exported.records.buffer);
   const parsedAnswers = parseHgsiWorkbook(exported.answers.buffer);
