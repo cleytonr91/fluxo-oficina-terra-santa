@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/hgsi-import",
+      "schedule": "0 11 * * 1-6"
+    }
+  ]
+}
