@@ -334,7 +334,7 @@ async function downloadPortalExports(user: string, password: string) {
     body: filterBody,
   });
   const filteredHtml = await filteredResponse.text();
-  if (!filteredResponse.ok || !normalizeText(filteredHtml).includes("pos-vendas")) {
+  if (!filteredResponse.ok || !/pos[\s\-–—]*vendas/.test(normalizeText(filteredHtml))) {
     throw new Error("O filtro Pós-Vendas não foi confirmado pelo portal HGSI.");
   }
 
