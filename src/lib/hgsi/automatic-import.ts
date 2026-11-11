@@ -334,8 +334,8 @@ async function downloadPortalExports(user: string, password: string) {
     body: filterBody,
   });
   const filteredHtml = await filteredResponse.text();
-  if (!filteredResponse.ok || !/pos[\s\-–—]*vendas/.test(normalizeText(filteredHtml))) {
-    throw new Error("O filtro Pós-Vendas não foi confirmado pelo portal HGSI.");
+  if (!filteredResponse.ok || /name=["']Usuario["']/i.test(filteredHtml)) {
+    throw new Error("O portal HGSI não manteve a sessão ao aplicar o filtro Pós-Vendas.");
   }
 
   const [recordsResponse, answersResponse] = await Promise.all([
