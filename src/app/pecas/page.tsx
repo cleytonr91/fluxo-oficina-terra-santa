@@ -181,6 +181,16 @@ function formatDateTime(value: unknown) {
   }).format(date);
 }
 
+function formatTimestampDate(value: unknown) {
+  const date = toDate(value);
+  if (!date) return "-";
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
 function formatActionSignature(actionBy: string | undefined, value: unknown, fallback = "Operador") {
   const operator = actionBy || fallback;
   const date = toDate(value);
@@ -1552,7 +1562,10 @@ export default function PecasPage() {
                     <div><span>Consultor</span><strong>{order.consultantName || "-"}</strong></div>
                     <div><span>Técnico</span><strong>{order.technicianName || "-"}</strong></div>
                   </div>
-                  <div className="parts-cell"><span>Atualizado</span><strong>{formatActionSignature(order.updatedBy || order.requestedBy, order.updatedAt, "-")}</strong></div>
+                  <div className="parts-cell parts-duo-cell">
+                    <div><span>Início solicitação</span><strong>{formatTimestampDate(order.createdAt)}</strong></div>
+                    <div><span>Atualizado</span><strong>{formatActionSignature(order.updatedBy || order.requestedBy, order.updatedAt, "-")}</strong></div>
+                  </div>
                 </div>
 
                 {isOrderVehicleImmobilized(order) && <span className="tag bad">Veículo imobilizado</span>}
@@ -1568,7 +1581,7 @@ export default function PecasPage() {
 
                 {openSection === "info" && (
                   <div className="parts-audit-box">
-                    <div><span>Solicitado por</span><strong>{formatActionSignature(order.requestedBy, order.createdAt, "-")}</strong></div>
+                    <div><span>Início solicitação</span><strong>{formatActionSignature(order.requestedBy, order.createdAt, "-")}</strong></div>
                     <div><span>Atualizado por</span><strong>{formatActionSignature(order.updatedBy || order.requestedBy, order.updatedAt, "-")}</strong></div>
                     <div><span>Status atual</span><strong>{statusLabels[effectiveOrderStatus(order)]}</strong></div>
                     <div><span>Pedido</span><strong>{order.orderNumber || "-"}</strong><small>{sourceLabel(order.orderSource)}</small></div>
