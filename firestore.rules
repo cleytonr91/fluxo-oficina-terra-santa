@@ -22,8 +22,18 @@ service cloud.firestore {
       return hasRole(['admin', 'gerente']);
     }
 
+    function admin() {
+      return hasRole(['admin']);
+    }
+
     function operations() {
       return hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'tecnico', 'lider_lavagem', 'consultor_funilaria', 'estoquista', 'qualidade', 'agendamento']);
+    }
+
+    function hasCustomPath(path) {
+      return activeUser()
+        && userProfile().data.keys().hasAny(['allowedPaths'])
+        && path in userProfile().data.allowedPaths;
     }
 
     function prepRole(roles) {
@@ -84,10 +94,17 @@ service cloud.firestore {
     }
 
     match /agendaItems/{document} {
-      allow read: if operations() && (manager() || resource.data.ownerId == request.auth.uid || (resource.data.keys().hasAny(['participantIds']) && request.auth.uid in resource.data.participantIds));
-      allow create: if operations() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if operations() && (resource.data.ownerId == request.auth.uid || manager());
-      allow delete: if operations() && (resource.data.ownerId == request.auth.uid || manager());
+      allow read: if operations() && (resource.data.kind == 'holiday' || manager() || resource.data.ownerId == request.auth.uid || (resource.data.keys().hasAny(['participantIds']) && request.auth.uid in resource.data.participantIds));
+      allow create: if operations() && request.resource.data.ownerId == request.auth.uid && (request.resource.data.kind != 'time_off' && request.resource.data.kind != 'holiday' || admin());
+      allow update: if operations() && (resource.data.kind != 'time_off' && resource.data.kind != 'holiday' || admin()) && (resource.data.ownerId == request.auth.uid || manager());
+      allow delete: if operations() && ((resource.data.kind == 'time_off' || resource.data.kind == 'holiday') ? admin() : (resource.data.ownerId == request.auth.uid || manager()));
+    }
+
+    match /actionPlans/{document} {
+      allow read: if operations() && (manager() || resource.data.createdBy == request.auth.uid || (resource.data.keys().hasAny(['responsibleIds']) && request.auth.uid in resource.data.responsibleIds));
+      allow create: if operations() && request.resource.data.createdBy == request.auth.uid;
+      allow update: if operations() && (manager() || resource.data.createdBy == request.auth.uid || (resource.data.keys().hasAny(['responsibleIds']) && request.auth.uid in resource.data.responsibleIds));
+      allow delete: if operations() && (manager() || resource.data.createdBy == request.auth.uid);
     }
 
     match /importBatches/{document} {
@@ -194,11 +211,6 @@ service cloud.firestore {
       allow write: if hasRole(['admin']);
     }
 
-    match /farolConsultantReports/{document} {
-      allow read: if activeUser();
-      allow write: if hasRole(['admin']);
-    }
-
     match /farolMonthlyPlans/{document} {
       allow read: if activeUser();
       allow write: if hasRole(['admin']);
@@ -207,6 +219,16 @@ service cloud.firestore {
     match /partsCatalog/{document} {
       allow read: if operations();
       allow write: if hasRole(['admin']);
+    }
+
+    match /inventoryItems/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'estoquista']) || hasCustomPath('/estoque');
+    }
+
+    match /inventorySuppliers/{document} {
+      allow read: if operations();
+      allow write: if hasRole(['admin', 'gerente', 'chefe_oficina', 'estoquista']) || hasCustomPath('/estoque');
     }
 
     match /publicPartLookups/{document} {
