@@ -30,3 +30,11 @@ Novo perfil garantista: Preparação. Estoquista ganha Preparação. Cada seçã
 Não publicado nesta implementação. Aplicar somente os dois novos blocos de coleções à versão corrente das regras, preservando alterações publicadas por outros trabalhos. Validar permissões sintéticas e build antes de liberar. Publicar o código integrado ao main, sem sobrescrever funcionalidades posteriores. Comparar métricas do Firebase após a publicação.
 
 Campos ausentes do arquivo podem ser completados na etapa de Peças; código Apolo nunca é inferido a partir do número do evento. A origem real dos campos de código do cliente e ano deve ser conferida com uma exportação de exemplo antes da homologação operacional.
+
+## Ajustes da preparação — catálogo, garantia e PDF
+
+Código Apolo removido da interface, busca, validação e PDF; dados históricos não são apagados. Garantia aceita Ainda não conferido, Conferido sem Pendência, Garantia e Recall, preservando leitura de registros antigos. Peças avulsas de garantia/recall são somadas à separação.
+
+O plano é sugerido localmente por modelo, motorização e ano, sem substituir escolhas salvas. Versões ambíguas exigem escolha. Sem ano, o usuário completa o campo antes de receber sugestões.
+
+O preenchimento de peças reutiliza PartCatalogFields e loadCachedCatalog. Abrir a página não carrega o catálogo. O primeiro foco em um campo pode ler 1 metadado e até 100 blocos (limite existente de 70.000 itens); cache local da mesma versão evita os blocos e cache em memória compartilha a carga entre campos. Digitação e seleção são locais, sem gravações. Nenhum listener, temporizador de consulta ou escrita automática adicionado. Garantista recebe leitura do catálogo, sem permissão de alterá-lo.

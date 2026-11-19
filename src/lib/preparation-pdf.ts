@@ -34,9 +34,8 @@ export async function createPickingPdf(preparations: Preparation[]) {
       throw new Error(`${p.appointment.client}: conclua e salve a conferência de peças antes do PDF. ${issues.join(" ")}`);
     }
     const a = p.appointment;
-    const name = wrap(a.client, 388, 14, bold);
-    const apolo = wrap(p.parts.apoloCode, 103, 14, bold);
-    const identityHeight = 25 + Math.max(name.length, apolo.length) * 16;
+    const name = wrap(a.client, 523, 14, bold);
+    const identityHeight = 25 + name.length * 16;
     const plate = wrap(p.parts.plate ?? a.plate, 145, 16, bold);
     const vin = wrap(p.parts.chassi ?? a.chassi, 346, 13, bold);
     const vehicleHeight = 25 + Math.max(plate.length * 18, vin.length * 15);
@@ -83,10 +82,7 @@ export async function createPickingPdf(preparations: Preparation[]) {
         let offset = 29;
         box(offset, identityHeight, true);
         text("CLIENTE", 35, offset + 7, 7, true, muted);
-        text("CÓDIGO APOLO", 457, offset + 7, 7, true, muted);
         lines(name, 35, offset + 20, 14, 16, true);
-        lines(apolo, 457, offset + 20, 14, 16, true);
-        vertical(445, offset + 8, identityHeight - 16);
         offset += identityHeight;
         text("PLACA", 35, offset + 7, 7, true, muted);
         text("CHASSI", 203, offset + 7, 7, true, muted);

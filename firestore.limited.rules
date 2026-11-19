@@ -103,7 +103,7 @@ service cloud.firestore {
           || (prepRole(['admin', 'gerente', 'garantista'])
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['warranty','warrantyVersion','warrantyBy','updatedBy','updatedAt'])
             && request.resource.data.warrantyVersion == resource.data.warrantyVersion + 1
-            && request.resource.data.warranty.status in ['pendente','sem_pendencias','com_pendencias'])
+            && request.resource.data.warranty.status in ['pendente','sem_pendencias','com_pendencias','garantia','recall'])
           || (prepRole(['admin', 'gerente', 'estoquista'])
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['parts','partsVersion','partsBy','updatedBy','updatedAt'])
             && request.resource.data.partsVersion == resource.data.partsVersion + 1)
@@ -220,7 +220,7 @@ service cloud.firestore {
         'vehicleFlowId', 'plate', 'chassi', 'phone', 'clientName', 'consultantName', 'technicianName', 'orderKind', 'parts', 'partReference', 'partDescription', 'updatedBy', 'updatedAt', 'chipDetailVersion', 'chipActor']);
     }
     match /partsCatalog/{id} {
-      allow get: if (flow() || scheduling()) && (id == 'meta' || id.matches('chunk-[0-9]{3}'));
+      allow get: if (flow() || scheduling() || prepRole(['garantista'])) && (id == 'meta' || id.matches('chunk-[0-9]{3}'));
       allow create, update: if role(['admin']) && (id == 'meta' || id.matches('chunk-0[0-9]{2}'));
     }
     match /deliveries/{id} {

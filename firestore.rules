@@ -60,7 +60,7 @@ service cloud.firestore {
           || (prepRole(['admin', 'gerente', 'garantista'])
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['warranty','warrantyVersion','warrantyBy','updatedBy','updatedAt'])
             && request.resource.data.warrantyVersion == resource.data.warrantyVersion + 1
-            && request.resource.data.warranty.status in ['pendente','sem_pendencias','com_pendencias'])
+            && request.resource.data.warranty.status in ['pendente','sem_pendencias','com_pendencias','garantia','recall'])
           || (prepRole(['admin', 'gerente', 'estoquista'])
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['parts','partsVersion','partsBy','updatedBy','updatedAt'])
             && request.resource.data.partsVersion == resource.data.partsVersion + 1)
@@ -217,7 +217,7 @@ service cloud.firestore {
     }
 
     match /partsCatalog/{document} {
-      allow read: if operations();
+      allow read: if operations() || prepRole(['garantista']);
       allow write: if hasRole(['admin']);
     }
 
