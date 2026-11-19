@@ -26,6 +26,54 @@ service cloud.firestore {
       return hasRole(['admin', 'gerente', 'chefe_oficina', 'consultor', 'tecnico', 'lider_lavagem', 'consultor_funilaria', 'estoquista', 'qualidade', 'agendamento']);
     }
 
+    function prepRole(roles) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
+    }
+    function prepRead() { return prepRole(['admin', 'gerente', 'chefe_oficina', 'garantista', 'estoquista']); }
+    match /preparationPlans/{id} {
+      allow get: if prepRead();
+      allow list: if prepRead() && request.query.limit <= 201;
+      allow create: if prepRole(['admin', 'gerente', 'chefe_oficina'])
+        && request.resource.data.id == id && request.resource.data.date is string
+        && request.resource.data.workshopVersion == 0 && request.resource.data.warrantyVersion == 0 && request.resource.data.partsVersion == 0
+        && request.resource.data.sent == false && request.resource.data.warranty.status == 'pendente'
+        && request.resource.data.warranty.campaigns.size() == 0 && request.resource.data.parts.ready == false
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow update: if request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && (
+          (prepRole(['admin', 'gerente', 'chefe_oficina']) && resource.data.sent == false
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['workshop','workshopVersion','workshopBy','updatedBy','updatedAt'])
+            && request.resource.data.workshopVersion == resource.data.workshopVersion + 1)
+          || (prepRole(['admin', 'gerente', 'garantista'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['warranty','warrantyVersion','warrantyBy','updatedBy','updatedAt'])
+            && request.resource.data.warrantyVersion == resource.data.warrantyVersion + 1
+            && request.resource.data.warranty.status in ['pendente','sem_pendencias','com_pendencias'])
+          || (prepRole(['admin', 'gerente', 'estoquista'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['parts','partsVersion','partsBy','updatedBy','updatedAt'])
+            && request.resource.data.partsVersion == resource.data.partsVersion + 1)
+          || (prepRole(['admin', 'gerente', 'chefe_oficina'])
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sent','updatedBy','updatedAt'])
+            && request.resource.data.sent == true
+            && resource.data.workshop.technician is string && resource.data.workshop.technician.size() > 0
+            && getAfter(/databases/$(database)/documents/vehiclesFlow/$(id)).data.appointmentId == id)
+        );
+    }
+    match /preparationCampaigns/{id} {
+      allow get: if prepRead();
+      allow list: if prepRead() && request.query.limit <= 101;
+      allow create: if prepRole(['admin', 'gerente', 'garantista'])
+        && request.resource.data.id == id && request.resource.data.version == 1
+        && request.resource.data.kind in ['campanha','recall'] && request.resource.data.parts is list
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow update: if prepRole(['admin', 'gerente', 'garantista'])
+        && request.resource.data.id == id && request.resource.data.version == resource.data.version + 1
+        && request.resource.data.code == resource.data.code && request.resource.data.kind == resource.data.kind
+        && request.resource.data.updatedBy == request.auth.uid && request.resource.data.updatedAt == request.time;
+    }
+
     match /users/{userId} {
       allow read: if activeUser() || (signedIn() && request.auth.uid == userId);
       allow create: if signedIn()

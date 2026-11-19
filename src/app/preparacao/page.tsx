@@ -1,14 +1,14 @@
 import { ProtectedPage } from "@/components/protected-page";
-import { PreparationImport } from "@/components/preparation-import";
+import { PreparationWorkspace } from "@/components/preparation-workspace";
 
 
 export default function PreparacaoPage() {
   return (
     <ProtectedPage
       title="Preparação"
-      subtitle="Agenda e inclusão de veículos no fluxo."
+      subtitle="Oficina, garantia e separação de peças para o próximo dia."
     >
-      <PreparationImport />
+      <PreparationWorkspace />
     </ProtectedPage>
   );
 }

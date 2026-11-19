@@ -2,6 +2,7 @@ export type UserRole =
   | "admin"
   | "gerente"
   | "chefe_oficina"
+  | "garantista"
   | "consultor"
   | "tecnico"
   | "lider_lavagem"

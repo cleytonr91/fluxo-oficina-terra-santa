@@ -3,6 +3,7 @@ import { LIMITED_OPERATION, isOperationalPathEnabled } from "@/lib/limited-opera
 
 export const roleOptions: Array<{ value: UserRole; label: string }> = [
   { value: "admin", label: "Administrador" },
+  { value: "garantista", label: "Garantista" },
   { value: "chefe_oficina", label: "Chefe de oficina" },
   { value: "consultor", label: "Consultor técnico" },
   { value: "tecnico", label: "Mecânico" },
@@ -16,12 +17,13 @@ export const roleOptions: Array<{ value: UserRole; label: string }> = [
 const rolePaths: Record<UserRole, string[]> = {
   admin: ["/preparacao", "/fluxo", "/agendamento", "/agenda", "/pecas", "/estoque", "/balcao", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
   gerente: ["/preparacao", "/fluxo", "/agendamento", "/agenda", "/pecas", "/estoque", "/balcao", "/funilaria", "/pos-servico", "/radar", "/admin", "/cardapio"],
+  garantista: ["/preparacao", "/cardapio"],
   chefe_oficina: ["/preparacao", "/pecas", "/fluxo", "/agenda", "/cardapio"],
   consultor: ["/fluxo", "/balcao", "/pos-servico", "/agenda", "/cardapio"],
   tecnico: ["/fluxo", "/agenda", "/cardapio"],
   lider_lavagem: ["/fluxo", "/agenda", "/cardapio"],
   consultor_funilaria: ["/pecas", "/balcao", "/funilaria", "/fluxo", "/agenda", "/cardapio"],
-  estoquista: ["/pecas", "/estoque", "/balcao", "/fluxo", "/funilaria", "/agenda", "/cardapio"],
+  estoquista: ["/pecas", "/preparacao", "/estoque", "/balcao", "/fluxo", "/funilaria", "/agenda", "/cardapio"],
   qualidade: ["/pos-servico", "/agenda", "/cardapio"],
   agendamento: ["/agendamento", "/agenda", "/cardapio"],
 };

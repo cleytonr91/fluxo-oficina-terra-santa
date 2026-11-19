@@ -34,7 +34,9 @@ const laneLabels: Record<FlowLane, string> = {
   entregue: "Entregue",
 };
 
-type Appointment = {
+export type Appointment = {
+  apoloCode?: string;
+  modelYear?: string;
   id: string;
   client: string;
   plate: string;
@@ -169,7 +171,7 @@ function isMissingPlate(plate: string) {
   return !plate.trim() || plate.toUpperCase().startsWith("SEMPLACA");
 }
 
-function parseAgendaRows(rows: unknown[][]) {
+export function parseAgendaRows(rows: unknown[][]) {
   const appointments: Appointment[] = [];
   let currentConsultant = "";
 
@@ -203,6 +205,8 @@ function parseAgendaRows(rows: unknown[][]) {
 
     appointments.push({
       id: preparationId(eventId),
+      apoloCode: fieldFromRow(vehicleRow, "Código Cliente") || fieldFromRow(vehicleRow, "Codigo Cliente") || fieldFromRow(serviceRow, "Código Cliente"),
+      modelYear: fieldFromRow(vehicleRow, "Ano Modelo") || fieldFromRow(serviceRow, "Ano Modelo"),
       client: fieldFromRow(vehicleRow, "Cliente") || "Cliente sem nome",
       plate,
       model: fieldFromRow(vehicleRow, "Modelo") || "Modelo não informado",
