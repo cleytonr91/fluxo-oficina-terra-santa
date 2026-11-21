@@ -19,6 +19,8 @@ export async function importPreparation(p: Preparation, actor: string): Promise<
   });
 }
 export async function savePreparationSection(p: Preparation, section: Section, actor: string): Promise<Preparation> {
+  // Pending warranty must not prevent saving the parts draft.
+  if(section === "parts" && p.warranty.status === "pendente") p = {...p, parts: {...p.parts, ready: false}};
   validateSection(p,section);
   const ref=doc(getFirebaseDb(),collectionName,p.id);
   return runTransaction(getFirebaseDb(),async tx=>{
