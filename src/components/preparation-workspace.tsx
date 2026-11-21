@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
 import { parseAgendaRows } from "./preparation-import";
 import { basicTechnicians } from "@/lib/basic-flow";
-import { canPrepare, canWarranty, canPick, createPreparation, plans, planKey, suggestedPlans, separationParts, pickingIssues, sourceVersion, type Preparation, type PickPart, type Campaign, type Section } from "@/lib/preparation-planning";
+import { canPrepare, canWarranty, canPick, createPreparation, plans, planKey, suggestedPlans, preparationProgress, separationParts, pickingIssues, sourceVersion, type Preparation, type PickPart, type Campaign, type Section } from "@/lib/preparation-planning";
 import { loadPreparationDay, importPreparation, savePreparationSection, sendPreparation, loadCampaigns, saveCampaign } from "@/services/preparation-planning";
 import { PartCatalogFields } from "./part-catalog-fields";
 import { loadCachedCatalog } from "@/services/parts-catalog-cache";
@@ -25,11 +25,15 @@ function PreparationCard({value,role,campaigns,busy,onSave,onSend,onDirty,onSele
   const [draft,setDraft]=useState(value),[section,setSection]=useState<Section>(canWarranty(role)?"warranty":canPick(role)?"parts":"workshop"),[dirty,setDirty]=useState(false);
   function update(next:Preparation){setDraft(next);setDirty(true);onDirty(value.id,true);}
   const suggestions=suggestedPlans(draft.appointment.model,draft.parts.modelYear);
-  const ready=draft.parts.ready&&draft.parts.sourceVersion===sourceVersion(draft);
+  const progress=preparationProgress(value);
   const allowed=section==="workshop"?canPrepare(role)&&!value.sent:section==="warranty"?canWarranty(role):canPick(role);
-  return <article className={styles.card}>
+  return <article className={`${styles.card} ${progress.complete?styles.completedCard:''}`}>
     <header><label className={styles.check}><input type="checkbox" checked={selected} onChange={onSelect}/><strong>{value.appointment.time} · {value.appointment.client}</strong></label><b className={styles.plate}>{value.appointment.plate}</b><span>{value.appointment.model} · {value.appointment.service}</span><small>{value.appointment.chassi} · Consultor: {value.appointment.consultant}</small></header>
-    <div className={styles.status}><span>Oficina: {value.workshop.technician||"sem técnico"}</span><span>Garantia: {{pendente:"a conferir",sem_pendencias:"sem pendências",com_pendencias:"com pendências (anterior)",garantia:"Garantia",recall:"Recall"}[value.warranty.status]}</span><span>Peças: {ready?"lista conferida":"a conferir"}</span>{value.sent&&<span>No fluxo</span>}</div>
+    <div className={styles.status} aria-label="Andamento salvo da preparação">
+      {([['workshop','Oficina'],['warranty','Garantia'],['parts','Peças']] as const).map(([key,label])=><span key={key} className={progress[key]?styles.done:styles.pending}>{progress[key]?'✓':'○'} {label}: {progress[key]?'concluída':key==='parts'&&value.partsVersion>0?'salva · falta conferir':key==='workshop'&&value.workshopVersion>0?'salva · falta técnico':'pendente'}</span>)}
+      {progress.complete&&<strong className={styles.completeBadge}>✓ Preparação concluída</strong>}
+      {dirty&&<span>Alterações ainda não salvas</span>}{value.sent&&<span>No fluxo</span>}
+    </div>
     <details><summary>Observação do agendamento</summary><p>{value.appointment.note}</p></details>
     <nav aria-label="Etapas da preparação">{([['workshop','Oficina'],['warranty','Garantia'],['parts','Peças']] as const).map(([key,label])=><button type="button" key={key} aria-pressed={section===key} disabled={dirty&&section!==key} onClick={()=>setSection(key)}>{label}</button>)}</nav>
     {section==='workshop'&&<fieldset disabled={!allowed||busy}>

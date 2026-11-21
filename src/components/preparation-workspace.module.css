@@ -3,3 +3,7 @@
 .partRow :global(.catalog-part-fields):focus-within{z-index:5}
 .partRow :global(.catalog-suggestions) button{grid-template-columns:minmax(0,1fr);justify-self:stretch;overflow-wrap:anywhere}
 .partRow :global(.catalog-part-fields) label{grid-column:auto}
+.completedCard{border:2px solid #34805b}
+.status .done{background:#e7f5ec;color:#175536;border:1px solid #9dccaf}
+.status .pending{background:#fff6e5;color:#755017;border:1px solid #e4c791}
+.completeBadge{display:block;width:100%;padding:9px 10px;border-radius:7px;background:#175536;color:#fff;font-size:14px}

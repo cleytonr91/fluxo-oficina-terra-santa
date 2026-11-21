@@ -80,3 +80,10 @@ export function suggestedPlans(model: string, year: string) {
   const exact = candidates.filter(p => normalize(p.model) === input);
   return exact.length ? exact : candidates;
 }
+
+export function preparationProgress(p: Preparation) {
+  const workshop = p.workshopVersion > 0 && Boolean(p.workshop.technician.trim()) && p.workshop.technician !== "Definir";
+  const warranty = p.warrantyVersion > 0 && p.warranty.status !== "pendente";
+  const parts = p.partsVersion > 0 && p.parts.ready && p.parts.sourceVersion === sourceVersion(p) && pickingIssues(p).length === 0;
+  return { workshop, warranty, parts, complete: workshop && warranty && parts };
+}
