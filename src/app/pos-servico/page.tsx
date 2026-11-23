@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { listDeliveredVehicleFlowsForMonth, listDeliveredVehicleFlowsForPeriod, listHgsiAnswersForMonth, listHgsiRecordsForMonth, listPostServiceCasesForMonth, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
+import { listDeliveredVehicleFlowsForMonth, listDeliveredVehicleFlowsForPeriod, listHgsiAnswersForMonth, listHgsiRecords, listHgsiRecordsForMonth, listPostServiceCasesForMonth, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
 import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from "@/types/domain";
 
 const consultants = ["Luan", "Rosangela", "Eliane"];
@@ -601,6 +601,7 @@ export default function PosServicoPage() {
   const { profile, user } = useAuth();
   const [vehicles, setVehicles] = useState<VehicleFlow[]>([]);
   const [hgsiRecords, setHgsiRecords] = useState<HgsiRecordImport[]>([]);
+  const [hgsiRecordHistory, setHgsiRecordHistory] = useState<HgsiRecordImport[]>([]);
   const [hgsiAnswers, setHgsiAnswers] = useState<HgsiAnswerImport[]>([]);
   const [postCases, setPostCases] = useState<PostServiceCase[]>([]);
   const [treatmentItem, setTreatmentItem] = useState<FunnelItem | null>(null);
@@ -639,17 +640,18 @@ export default function PosServicoPage() {
 
       try {
         const selectedPeriod = campaignPeriods.find((period) => period.month === selectedMonth);
-        const [flowData, savedRecords, savedAnswers, savedCases] = await Promise.all([
+        const [flowData, savedRecords, savedRecordHistory, savedAnswers, savedCases] = await Promise.all([
           selectedPeriod
             ? listDeliveredVehicleFlowsForPeriod(selectedPeriod.start, selectedPeriod.end)
             : listDeliveredVehicleFlowsForMonth(selectedMonth),
           listHgsiRecordsForMonth(selectedMonth),
+          listHgsiRecords(),
           listHgsiAnswersForMonth(selectedMonth),
           listPostServiceCasesForMonth(selectedMonth),
         ]);
         if (!active) return;
         setVehicles(flowData);
-        const nextRecords = savedRecords.map((record) => ({
+        const mapHgsiRecord = (record: Awaited<ReturnType<typeof listHgsiRecords>>[number]): HgsiRecordImport => ({
           chassi: normalizeChassi(record.chassi),
           osNumber: record.osNumber,
           importBatchId: record.importBatchId,
@@ -662,7 +664,9 @@ export default function PosServicoPage() {
           raw: record.rawPayload ?? {},
           sourceMonth: record.sourceMonth || monthFromValue(record.importedAt),
           importedAt: record.importedAt,
-        }));
+        });
+        const nextRecords = savedRecords.map(mapHgsiRecord);
+        const nextRecordHistory = savedRecordHistory.map(mapHgsiRecord);
         const nextAnswers = savedAnswers.map((answer) => ({
           questionnaireId: answer.questionnaireId || textFrom(answer.rawPayload ?? {}, ["questionario"]),
           chassi: normalizeChassi(answer.chassi),
@@ -690,6 +694,7 @@ export default function PosServicoPage() {
           importedAt: answer.importedAt,
         })).filter((answer) => answer.chassi || answer.osNumber || answer.questionnaireId);
         setHgsiRecords(nextRecords);
+        setHgsiRecordHistory(nextRecordHistory);
         setHgsiAnswers(nextAnswers);
         setPostCases(savedCases);
       } catch (currentError) {
@@ -798,6 +803,17 @@ export default function PosServicoPage() {
     });
     return mapped;
   }, [matchingMonthRecords]);
+  const knownValidRecordKeys = useMemo(() => {
+    const mapped = new Set<string>();
+    hgsiRecordHistory.forEach((record) => {
+      if (!record.valid) return;
+      const chassi = normalizeChassi(record.chassi);
+      const osNumber = record.osNumber?.trim();
+      if (chassi) mapped.add(chassi);
+      if (osNumber) mapped.add(osNumber);
+    });
+    return mapped;
+  }, [hgsiRecordHistory]);
   const validRecords = useMemo(() => dedupeByKey(
     monthScopedRecords.filter((record) => validRecordKeys.has(recordKey(record))),
     recordKey,
@@ -828,8 +844,11 @@ export default function PosServicoPage() {
   }, [allAnsweredAnswers, monthScopedFlowItems, flowKeys]);
 
   const answeredWithoutValidRecord = useMemo(() => (
-    campaignClosed ? [] : hgsiBaseAnswers.filter((answer) => !historicalValidRecordKeys.has(answerKey(answer)))
-  ), [campaignClosed, hgsiBaseAnswers, historicalValidRecordKeys]);
+    campaignClosed ? [] : hgsiBaseAnswers.filter((answer) => (
+      !historicalValidRecordKeys.has(answerKey(answer))
+      && !knownValidRecordKeys.has(answerKey(answer))
+    ))
+  ), [campaignClosed, hgsiBaseAnswers, historicalValidRecordKeys, knownValidRecordKeys]);
 
   const answersByKey = useMemo(() => {
     const mapped = new Map<string, HgsiAnswerImport>();
