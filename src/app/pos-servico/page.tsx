@@ -6,6 +6,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { listDeliveredVehicleFlowsForMonth, listDeliveredVehicleFlowsForPeriod, listHgsiAnswersForMonth, listHgsiRecords, listHgsiRecordsForMonth, listPostServiceCasesForMonth, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
 import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from "@/types/domain";
+import { hasSharedIdentity, itemIdentityKeys, postCaseIdentityKeys } from "./identity";
 
 const consultants = ["Luan", "Rosangela", "Eliane"];
 const surveyGoal = 15;
@@ -348,7 +349,7 @@ function whatsappUrl(phone?: string) {
 }
 
 function itemKey(item: Pick<FunnelItem, "chassi" | "osNumber" | "id">) {
-  return normalizeChassi(item.chassi) || item.osNumber || item.id;
+  return normalizeChassi(item.chassi) || item.osNumber?.trim() || item.id;
 }
 
 function recordKey(record: Pick<HgsiRecordImport, "chassi" | "osNumber">) {
@@ -752,16 +753,16 @@ export default function PosServicoPage() {
     ...matchingMonthRecords.map(recordToItem),
     ...monthScopedAnswers.map(answerToItem),
   ];
-  const selectedSourceKeys = new Set(selectedSourceItems.map(itemKey));
+  const selectedSourceKeys = new Set(selectedSourceItems.flatMap(itemIdentityKeys));
   const currentPostCases = postCases.filter((postCase) => (
     postCase.sourceMonth === selectedMonth
-    || (!postCase.sourceMonth && selectedSourceKeys.has(postCase.vehicleFlowId))
+    || (!postCase.sourceMonth && postCaseIdentityKeys(postCase).some((key) => selectedSourceKeys.has(key)))
   ));
 
   const casesByItemKey = useMemo(() => {
     const mapped = new Map<string, PostServiceCase>();
     currentPostCases.forEach((postCase) => {
-      mapped.set(postCase.vehicleFlowId, postCase);
+      postCaseIdentityKeys(postCase).forEach((key) => mapped.set(key, postCase));
     });
     return mapped;
   }, [currentPostCases]);
@@ -899,20 +900,16 @@ export default function PosServicoPage() {
   ];
   const treatedItemsByKey = new Map<string, FunnelItem>();
   allTreatmentSources.forEach((item) => {
-    const keys = [itemKey(item), item.id, normalizeChassi(item.chassi), item.osNumber].filter(Boolean) as string[];
-    keys.forEach((key) => {
+    itemIdentityKeys(item).forEach((key) => {
       const current = treatedItemsByKey.get(key);
       if (!current || (!current.clientName && item.clientName)) treatedItemsByKey.set(key, item);
     });
   });
   const treatedItems = currentPostCases
     .filter((postCase) => postCase.treatmentStatus === "tratado")
-    .map((postCase) => (
-      treatedItemsByKey.get(postCase.vehicleFlowId)
-      ?? treatedItemsByKey.get(normalizeChassi(postCase.chassi))
-      ?? treatedItemsByKey.get(postCase.osNumber || "")
-      ?? postCaseToItem(postCase)
-    ))
+    .map((postCase) => postCaseIdentityKeys(postCase)
+      .map((key) => treatedItemsByKey.get(key))
+      .find(Boolean) ?? postCaseToItem(postCase))
     .filter(filterBySearch)
     .filter((item) => filterByConsultant(item, treatedConsultantFilter))
     .filter((item) => filterByTreatmentOwner(item, treatedByFilter));
@@ -1077,8 +1074,12 @@ export default function PosServicoPage() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
+        const nextKeys = postCaseIdentityKeys(nextCase);
         return [
-          ...current.filter((item) => !(item.vehicleFlowId === key && item.sourceMonth === selectedMonth)),
+          ...current.filter((item) => (
+            item.sourceMonth !== selectedMonth
+            || !hasSharedIdentity(postCaseIdentityKeys(item), nextKeys)
+          )),
           nextCase,
         ];
       });
