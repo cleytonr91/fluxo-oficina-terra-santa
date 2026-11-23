@@ -56,7 +56,7 @@ export function prepareChipPatch(current: VehicleFlow, action: ChipAction, actor
       break;
     }
     case "wash":
-      if (!["nao", "simples", "motor", "motor_bancos"].includes(action.value)) throw new Error("Lavagem inválida.");
+      if (!["nao", "simples", "ducha", "motor", "motor_bancos"].includes(action.value)) throw new Error("Lavagem inválida.");
       if (current.washType === action.value) throw new Error("Nenhuma alteração para salvar.");
       patch.washType = action.value;
       if (action.value === "nao") Object.assign(patch, { washDone: false, washingAdvanced: false });

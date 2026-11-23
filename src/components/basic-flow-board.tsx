@@ -13,7 +13,7 @@ import styles from "./basic-flow-board.module.css";
 const ChipDetailsModal = dynamic(() => import("@/components/chip-details-modal").then(module => module.ChipDetailsModal));
 const BasicWalkInModal = dynamic(() => import("@/components/basic-walk-in-modal").then(module => module.BasicWalkInModal));
 
-const washes: Record<WashType, string> = { nao: "Sem lavagem", simples: "Lavagem simples", motor: "Lavagem de motor", motor_bancos: "Motor + bancos" };
+const washes: Record<WashType, string> = { nao: "Sem lavagem", simples: "Lavagem simples", ducha: "Ducha", motor: "Lavagem de motor", motor_bancos: "Motor + bancos" };
 function time(value: unknown) {
   if (!value) return "-";
   const date: Date = value instanceof Date ? value : typeof value === "string" ? new Date(value)

@@ -40,7 +40,7 @@ export type FlowLane =
   | "entregue";
 
 export type VehicleOrigin = "agendado" | "passante";
-export type WashType = "simples" | "motor" | "motor_bancos" | "nao";
+export type WashType = "simples" | "ducha" | "motor" | "motor_bancos" | "nao";
 export type PartAvailability = "sim" | "nao" | "parcial";
 
 export type PartOrderStatus =

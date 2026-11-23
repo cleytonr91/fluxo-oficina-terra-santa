@@ -3316,6 +3316,7 @@ export async function updateVehicleWashType({
   const flowEventRef = doc(collection(db, collections.flowEvents));
   const washTypeLabels: Record<WashType, string> = {
     simples: "Lavagem Simples",
+    ducha: "Ducha",
     motor: "Lavagem de Motor",
     motor_bancos: "Lavagem Motor + Bancos",
     nao: "Não",

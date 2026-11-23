@@ -29,7 +29,7 @@ export async function createBasicWalkIn(input: BasicWalkInInput, actor: { uid: s
   if (!input.client.trim() || !basicConsultants.includes(input.consultant) || !basicTechnicians.includes(input.technician)) throw new Error("Informe cliente, consultor e técnico.");
   const chassi = vehicleIdentity(input.chassi), plate = vehicleIdentity(input.plate);
   if (!chassi && !plate) throw new Error("Informe a placa ou o chassi do veículo.");
-  if (!input.service.trim() || !['nao','simples','motor','motor_bancos'].includes(input.washType)) throw new Error("Informe serviço e lavagem.");
+  if (!input.service.trim() || !['nao','simples','ducha','motor','motor_bancos'].includes(input.washType)) throw new Error("Informe serviço e lavagem.");
   if (!input.promised || !Number.isFinite(new Date(input.promised).getTime())) throw new Error("Informe a previsão de entrega.");
   if (input.day !== localDay()) throw new Error("Cadastre o recebimento na data de hoje. Ajuste a data do quadro.");
   const washOnly = /embelez|lavagem/i.test(input.service);

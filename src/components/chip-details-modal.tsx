@@ -9,7 +9,7 @@ import { canEditChip, chipDate, loadChipCatalog, loadChipHistory, loadChipOrders
 import type { FlowLane, PartAvailability, PartOrder, PartOrderItem, PartOrderKind, VehicleFlow, WashType } from "@/types/domain";
 import styles from "./chip-details-modal.module.css";
 
-const washNames = { nao: "Não", simples: "Lavagem Simples", motor: "Lavagem de Motor", motor_bancos: "Lavagem Motor + Bancos" };
+const washNames = { nao: "Não", simples: "Lavagem Simples", ducha: "Ducha", motor: "Lavagem de Motor", motor_bancos: "Lavagem Motor + Bancos" };
 const services = [...Array.from({ length: 10 }, (_, i) => `Revisão ${String(i+1).padStart(2, "0")}`), "Diagnóstico", "Reparo Geral", "Recall", "Combinado", "Embelezamento"];
 const statusNames: Record<string, string> = { solicitado_oficina: "Solicitado à oficina", necessidade_identificada: "Solicitado à oficina", aguardando_pecas: "Solicitado à oficina", pedido_realizado: "Pedido realizado", back_order: "Back order", em_transito: "Em trânsito", recebido: "Recebido", disponivel: "Disponível para agendamento", disponivel_execucao: "Disponível para execução", cancelado: "Cancelado" };
 function format(value: unknown) { return chipDate(value)?.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) ?? "-"; }

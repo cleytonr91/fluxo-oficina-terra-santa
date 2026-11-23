@@ -36,6 +36,13 @@ test('role restrictions remain independent from the visible controls',()=>{
  assert.equal(s.canEditChip('qualidade','plate'),false);
  assert.throws(()=>s.prepareChipPatch(vehicle,{kind:'cancel',note:'test'},{...actor,role:'tecnico'},new Date()));
 });
+test('Ducha saves with existing write budget and stays in the wash workflow',async()=>{
+ const s=setup();await s.service.saveChipAction(vehicle,{kind:'wash',value:'ducha'},actor);
+ assert.equal(s.writes[0][1].washType,'ducha');
+ assert.equal(s.reads.length,1);assert.equal(s.writes.length,2);assert.equal(s.queries.length,0);
+ assert.deepEqual(domain.basicTargets({...vehicle,currentLane:'em_servico',washType:'ducha'}),['aguardando_lavagem','orcamento_complementar']);
+});
+
 test('detail changes read one chip and write only chip plus audit',async()=>{
  const s=setup();await s.service.saveChipAction(vehicle,{kind:'plate',value:'def4g56'},actor);
  assert.deepEqual(s.reads,['vehiclesFlow/v1']);assert.equal(s.writes.length,2);assert.equal(s.queries.length,0);

@@ -27,6 +27,7 @@ const correctionLaneOptions = laneLabels.filter((lane) => lane.id !== "entregue"
 
 const washOptions: Array<{ value: WashType; label: string }> = [
   { value: "simples", label: "Lavagem Simples" },
+  { value: "ducha", label: "Ducha" },
   { value: "motor", label: "Lavagem de Motor" },
   { value: "motor_bancos", label: "Lavagem Motor + Bancos" },
   { value: "nao", label: "Não" },
