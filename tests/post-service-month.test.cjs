@@ -31,13 +31,16 @@ test('open campaign retains its operational date window and month queries', asyn
   const s = setup();
   await s.load('2026-10', false, { start: '2026-10-08', end: '2026-11-07' });
   assert.deepEqual(s.calls[0], ['listDeliveredVehicleFlowsForPeriod', '2026-10-08', '2026-11-07']);
-  assert.equal(s.calls.length, 5);
-  assert.ok(s.calls.some(call => call[0] === 'listHgsiRecords'));
+  assert.equal(s.calls.length, 4);
+  assert.ok(s.calls.every(call => call[0] !== 'listHgsiRecords'));
 });
 
 test('open month without configured campaign retains monthly vehicle query', async () => {
-  const s = setup(); await s.load('2026-11', false);
+  const s = setup(); const result = await s.load('2026-11', false);
   assert.deepEqual(s.calls[0], ['listDeliveredVehicleFlowsForMonth', '2026-11']);
+  assert.equal(result.history, result.records);
+  assert.equal(s.calls.length, 4);
+  assert.ok(s.calls.every(call => call[0] !== 'listHgsiRecords'));
 });
 
 test('closed campaign UI hides operational funnel and old customer lists', () => {

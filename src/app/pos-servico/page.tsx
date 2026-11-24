@@ -992,7 +992,7 @@ export default function PosServicoPage() {
     { label: "Registro válido Route", value: filteredValidRecordItems.length },
     { label: "Solicitar resposta HGSI", value: requestReadyItems.length },
     { label: "Tratar antes", value: treatmentItems.length },
-    { label: "Respondidos sem registro válido", value: answeredWithoutValidRecord.length },
+    { label: "Sem registro válido no mês", value: answeredWithoutValidRecord.length },
   ];
   const metrics = campaignClosed ? [
     { label: "Pesquisas válidas", value: hgsiBaseAnswers.length },
@@ -1260,9 +1260,9 @@ export default function PosServicoPage() {
 
         {!campaignClosed && answeredWithoutValidRecord.length > 0 && (
           <section className="duplicate-alert">
-            <strong>Respondidos sem registro válido</strong>
+            <strong>Respondidos sem registro válido no mês</strong>
             <span>
-              {answeredWithoutValidRecord.length} cliente(s) responderam HGSI, mas não foram encontrados na base de registros válidos por chassi/O.S.
+              {answeredWithoutValidRecord.length} cliente(s) responderam HGSI, mas não foram encontrados na base de registros válidos do mês selecionado por chassi/O.S. Outros meses não foram consultados.
             </span>
             <div className="post-exception-list">
               {answeredWithoutValidRecord.map((answer) => (
