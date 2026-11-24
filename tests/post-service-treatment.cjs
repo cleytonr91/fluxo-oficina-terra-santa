@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const ts = require("typescript");
 
 const source = fs.readFileSync("src/app/pos-servico/identity.ts", "utf8");
+const pageSource = fs.readFileSync("src/app/pos-servico/page.tsx", "utf8");
 const mod = { exports: {} };
 new Function(
   "require",
@@ -29,4 +30,12 @@ test("does not mix treatments belonging to different customers", () => {
   const second = postCaseIdentityKeys({ vehicleFlowId: "BBB222", chassi: "BBB222", osNumber: "200" });
 
   assert.equal(hasSharedIdentity(first, second), false);
+});
+
+test("saving a treatment completes it and moves the customer to treated", () => {
+  const treatedAssignments = pageSource.match(/treatmentStatus:\s*"tratado"/g) ?? [];
+
+  assert.equal(treatedAssignments.length >= 2, true);
+  assert.doesNotMatch(pageSource, /treatmentStatus:\s*treatmentForm\.treatmentStatus/);
+  assert.match(pageSource, /Salvar e mover para tratados/);
 });

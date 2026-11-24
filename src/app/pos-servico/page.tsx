@@ -6,7 +6,7 @@ import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
 import { listHgsiRecords, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
 import { loadPostServiceMonth } from "@/services/post-service-month";
-import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from "@/types/domain";
+import type { PostCaseType, PostServiceCase, VehicleFlow } from "@/types/domain";
 import { hasSharedIdentity, itemIdentityKeys, postCaseIdentityKeys } from "./identity";
 
 const consultants = ["Luan", "Rosangela", "Eliane"];
@@ -91,7 +91,6 @@ type TreatmentForm = {
   treatmentBy: string;
   customerObservation: string;
   gpvRequired: boolean;
-  treatmentStatus: TreatmentStatus;
   caseType: PostCaseType;
 };
 
@@ -612,7 +611,6 @@ export default function PosServicoPage() {
     treatmentBy: "",
     customerObservation: "",
     gpvRequired: false,
-    treatmentStatus: "em_tratativa",
     caseType: "tratar_antes_pesquisa",
   });
   const [searchTerm, setSearchTerm] = useState("");
@@ -1015,7 +1013,6 @@ export default function PosServicoPage() {
       treatmentBy: existing?.treatmentBy ?? profile?.name ?? "",
       customerObservation: existing?.customerObservation ?? existing?.pendingDescription ?? "",
       gpvRequired: existing?.gpvRequired ?? false,
-      treatmentStatus: existing?.treatmentStatus ?? "em_tratativa",
       caseType: existing?.caseType ?? (needsTreatment(item) ? "tratar_antes_pesquisa" : "solicitar_hgsi"),
     });
   }
@@ -1042,7 +1039,7 @@ export default function PosServicoPage() {
         serviceLabel: treatmentItem.serviceLabel,
         consultantName: treatmentItem.consultantName,
         caseType: treatmentForm.caseType,
-        treatmentStatus: treatmentForm.treatmentStatus,
+        treatmentStatus: "tratado",
         treatmentBy: treatmentForm.treatmentBy.trim(),
         customerObservation: treatmentForm.customerObservation.trim(),
         gpvRequired: treatmentForm.gpvRequired,
@@ -1067,7 +1064,7 @@ export default function PosServicoPage() {
           treatmentBy: treatmentForm.treatmentBy.trim(),
           customerObservation: treatmentForm.customerObservation.trim(),
           gpvRequired: treatmentForm.gpvRequired,
-          treatmentStatus: treatmentForm.treatmentStatus,
+          treatmentStatus: "tratado",
           hgsiRequestAllowed: treatmentForm.caseType !== "nao_solicitar",
           hgsiRequestStatus: treatmentForm.caseType === "nao_solicitar" ? "bloqueada" : "nao_solicitada",
           assignedTo: treatmentForm.gpvRequired ? "GPV" : undefined,
@@ -1631,19 +1628,6 @@ export default function PosServicoPage() {
               </label>
 
               <label className="field">
-                <span>Status da tratativa</span>
-                <select
-                  value={treatmentForm.treatmentStatus}
-                  onChange={(event) => setTreatmentForm((current) => ({ ...current, treatmentStatus: event.target.value as TreatmentStatus }))}
-                >
-                  <option value="aberto">Aberto</option>
-                  <option value="em_tratativa">Em tratativa</option>
-                  <option value="tratado">Tratado</option>
-                  <option value="sem_acao">Sem ação</option>
-                </select>
-              </label>
-
-              <label className="field">
                 <span>Observação do cliente</span>
                 <textarea
                   value={treatmentForm.customerObservation}
@@ -1665,7 +1649,7 @@ export default function PosServicoPage() {
                   Cancelar
                 </button>
                 <button type="submit" className="primary-btn">
-                  Salvar tratativa
+                  Salvar e mover para tratados
                 </button>
               </div>
             </form>
