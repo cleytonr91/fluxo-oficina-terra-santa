@@ -5,32 +5,48 @@ import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
 
 // Two bounded, non-overlapping subscriptions; no auxiliary collections or writes on load.
 export function subscribeBasicFlow(day: string, onData: (vehicles: VehicleFlow[]) => void, onError: (error: Error) => void, today = localDay()) {
+  return createBasicFlowSubscription(day, onData, onError, today).stop;
+}
+
+export function createBasicFlowSubscription(day: string, onData: (vehicles: VehicleFlow[]) => void, onError: (error: Error) => void, today = localDay()) {
   const ref = collection(getFirebaseDb(), "vehiclesFlow");
   let active: VehicleFlow[] = [], delivered: VehicleFlow[] = [];
   let activeReady = false, deliveredReady = false, blocked = false;
   let activeOverflow = false, deliveredOverflow = false;
   const emit = () => { if (activeReady && deliveredReady && !blocked && !activeOverflow && !deliveredOverflow) onData([...active, ...delivered]); };
-  const start = new Date(`${day}T00:00:00-03:00`);
-  const end = new Date(start.getTime() + 86400000);
-  const fail = (error: Error) => { blocked = true; onError(error); };
+  let stopped = false, selectedDay = "", generation = 0;
+  let stopDelivered: (() => void) | undefined;
+  const fail = (error: Error) => { if (!stopped) { blocked = true; onError(error); } };
   const stopActive = onSnapshot(query(ref, and(where("status", "==", "ativo"), or(
     and(where("currentLane", "==", "preparacao_confirmada"), where("appointmentDate", "==", today)),
     where("currentLane", "in", ["aguardando_servico", "em_servico", "orcamento_complementar", "aguardando_lavagem", "lavagem", "preparacao_entrega"]),
   )), limit(301)), (snapshot) => {
+    if (stopped) return;
     activeOverflow = snapshot.size > 300;
     if (activeOverflow) return onError(new Error("Mais de 300 veículos entre agendamentos de hoje e atendimentos em aberto. Revise os atendimentos pendentes; a lista foi bloqueada para não ficar incompleta."));
     active = snapshot.docs.map(item => ({ ...item.data(), id: item.id }) as VehicleFlow);
     activeReady = true;
     emit();
   }, fail);
-  const stopDelivered = onSnapshot(query(ref, where("deliveredAt", ">=", Timestamp.fromDate(start)), where("deliveredAt", "<", Timestamp.fromDate(end)), limit(101)), (snapshot) => {
-    deliveredOverflow = snapshot.size > 100;
-    if (deliveredOverflow) return onError(new Error("Mais de 100 entregas no dia. Solicite revisão antes de continuar."));
-    delivered = snapshot.docs.map(item => ({ ...item.data(), id: item.id }) as VehicleFlow).filter(v => v.status === "entregue");
-    deliveredReady = true;
-    emit();
-  }, fail);
-  return () => { stopActive(); stopDelivered(); };
+  function setDay(nextDay: string) {
+    if (stopped || blocked || nextDay === selectedDay) return;
+    selectedDay = nextDay;
+    const request = ++generation;
+    stopDelivered?.();
+    delivered = []; deliveredReady = false; deliveredOverflow = false;
+    const start = new Date(`${nextDay}T00:00:00-03:00`);
+    const end = new Date(start.getTime() + 86400000);
+    stopDelivered = onSnapshot(query(ref, where("deliveredAt", ">=", Timestamp.fromDate(start)), where("deliveredAt", "<", Timestamp.fromDate(end)), limit(101)), (snapshot) => {
+      if (stopped || request !== generation) return;
+      deliveredOverflow = snapshot.size > 100;
+      if (deliveredOverflow) return onError(new Error("Mais de 100 entregas no dia. Solicite revisão antes de continuar."));
+      delivered = snapshot.docs.map(item => ({ ...item.data(), id: item.id }) as VehicleFlow).filter(v => v.status === "entregue");
+      deliveredReady = true;
+      emit();
+    }, error => { if (!stopped && request === generation) fail(error); });
+  }
+  setDay(day);
+  return { setDay, stop: () => { stopped = true; generation++; stopActive(); stopDelivered?.(); } };
 }
 
 export type BasicMoveInput = {

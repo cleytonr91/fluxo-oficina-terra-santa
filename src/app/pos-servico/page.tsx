@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
-import { listDeliveredVehicleFlowsForMonth, listDeliveredVehicleFlowsForPeriod, listHgsiAnswersForMonth, listHgsiRecords, listHgsiRecordsForMonth, listPostServiceCasesForMonth, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
+import { listHgsiRecords, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
+import { loadPostServiceMonth } from "@/services/post-service-month";
 import type { PostCaseType, PostServiceCase, TreatmentStatus, VehicleFlow } from "@/types/domain";
 import { hasSharedIdentity, itemIdentityKeys, postCaseIdentityKeys } from "./identity";
 
@@ -638,18 +639,13 @@ export default function PosServicoPage() {
       setLoading(true);
       setError("");
       setSuccessMessage("");
+      setVehicles([]); setHgsiRecords([]); setHgsiRecordHistory([]); setHgsiAnswers([]); setPostCases([]);
+      setIndicatorItem(null); setTreatmentItem(null);
 
       try {
         const selectedPeriod = campaignPeriods.find((period) => period.month === selectedMonth);
-        const [flowData, savedRecords, savedRecordHistory, savedAnswers, savedCases] = await Promise.all([
-          selectedPeriod
-            ? listDeliveredVehicleFlowsForPeriod(selectedPeriod.start, selectedPeriod.end)
-            : listDeliveredVehicleFlowsForMonth(selectedMonth),
-          listHgsiRecordsForMonth(selectedMonth),
-          listHgsiRecords(),
-          listHgsiAnswersForMonth(selectedMonth),
-          listPostServiceCasesForMonth(selectedMonth),
-        ]);
+        const { vehicles: flowData, records: savedRecords, history: savedRecordHistory, answers: savedAnswers, cases: savedCases } =
+          await loadPostServiceMonth(selectedMonth, isCampaignClosed(selectedMonth), selectedPeriod);
         if (!active) return;
         setVehicles(flowData);
         const mapHgsiRecord = (record: Awaited<ReturnType<typeof listHgsiRecords>>[number]): HgsiRecordImport => ({
@@ -706,9 +702,10 @@ export default function PosServicoPage() {
       }
     }
 
-    loadPostServiceData();
+    const timer = window.setTimeout(() => { void loadPostServiceData(); }, 0);
     return () => {
       active = false;
+      window.clearTimeout(timer);
     };
   }, [selectedMonth]);
 
@@ -999,7 +996,10 @@ export default function PosServicoPage() {
     { label: "Tratar antes", value: treatmentItems.length },
     { label: "Respondidos sem registro válido", value: answeredWithoutValidRecord.length },
   ];
-  const metrics = [
+  const metrics = campaignClosed ? [
+    { label: "Pesquisas válidas", value: hgsiBaseAnswers.length },
+    { label: "Sem autorização", value: unauthorizedAnswers.length },
+  ] : [
     { label: "Veículos entregues", value: deliveredItems.length },
     ...activeCampaignMetrics,
     { label: "Clientes tratados", value: treatedItems.length },
@@ -1215,21 +1215,21 @@ export default function PosServicoPage() {
           <div className="metrics-grid post-metrics">
             {metrics.map((metric) => (
               <div key={metric.label} className="metric">
-                <strong>{metric.value}</strong>
+                <strong>{loading ? "-" : metric.value}</strong>
                 <span>{metric.label}</span>
               </div>
             ))}
           </div>
 
           <div className="post-controls">
-            <label className="flow-filter">
+            {!campaignClosed && <label className="flow-filter">
               <span>Pesquisa</span>
               <input
                 placeholder="Nome, placa ou chassi"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
               />
-            </label>
+            </label>}
 
             <label className="flow-filter">
               <span>Mês da base</span>
@@ -1247,7 +1247,7 @@ export default function PosServicoPage() {
             )}
 
             <label className="file-button compact-file">
-              <input accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiAnswers(event.target.files?.[0])} />
+              <input disabled={campaignClosed} accept=".xls,.xlsx" type="file" onChange={(event) => importHgsiAnswers(event.target.files?.[0])} />
               <strong>Respostas HGSI</strong>
               <span>
                 {hgsiBaseAnswers.length} na base
@@ -1261,7 +1261,7 @@ export default function PosServicoPage() {
         {error && <div className="duplicate-alert"><strong>Erro no pós-serviço</strong><span>{error}</span></div>}
         {successMessage && <div className="success-alert" role="status"><strong>Importação concluída</strong><span>{successMessage}</span></div>}
 
-        {answeredWithoutValidRecord.length > 0 && (
+        {!campaignClosed && answeredWithoutValidRecord.length > 0 && (
           <section className="duplicate-alert">
             <strong>Respondidos sem registro válido</strong>
             <span>
@@ -1279,7 +1279,7 @@ export default function PosServicoPage() {
           </section>
         )}
 
-        <section className="post-funnel-vertical" aria-label="Funil pós-venda HGSI">
+        {!campaignClosed && <section className="post-funnel-vertical" aria-label="Funil pós-venda HGSI">
           <section className="post-funnel-block">
             <div className="post-funnel-block-head">
               <button type="button" className="ghost-btn" onClick={() => toggleStage("delivered")}>
@@ -1442,9 +1442,9 @@ export default function PosServicoPage() {
             )}
           </section>
 
-        </section>
+        </section>}
 
-        <section className="panel consultant-scoreboard">
+        {loading ? <p role="status">Carregando resultados...</p> : error ? null : <section className="panel consultant-scoreboard">
           <div className="panel-head">
             <div>
               <h2 className="panel-title">Indicadores por consultor</h2>
@@ -1532,7 +1532,7 @@ export default function PosServicoPage() {
                   )}
                 </div>
 
-                <div className="answered-client-list">
+                {!campaignClosed && <div className="answered-client-list">
                   <div className="answered-client-head">
                     <strong>Clientes que responderam</strong>
                     <span>{item.answeredClients.length}</span>
@@ -1545,11 +1545,11 @@ export default function PosServicoPage() {
                   )) : (
                     <p className="empty answered-empty">Nenhum cliente respondeu ainda.</p>
                   )}
-                </div>
+                </div>}
               </article>
             ))}
           </div>
-        </section>
+        </section>}
 
         {indicatorItem && (
           <div className="modal-backdrop" role="presentation">

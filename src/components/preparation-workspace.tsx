@@ -5,7 +5,7 @@ import * as XLSX from "xlsx";
 import { useAuth } from "@/context/auth-context";
 import { parseAgendaRows } from "./preparation-import";
 import { basicTechnicians } from "@/lib/basic-flow";
-import { canPrepare, canWarranty, canPick, createPreparation, plans, planKey, suggestedPlans, preparationProgress, separationParts, pickingIssues, sourceVersion, type Preparation, type PickPart, type Campaign, type Section } from "@/lib/preparation-planning";
+import { canPrepare, canWarranty, canPick, createPreparation, plans, planKey, preparationProgress, separationParts, pickingIssues, sourceVersion, type Preparation, type PickPart, type Campaign, type Section } from "@/lib/preparation-planning";
 import { loadPreparationDay, importPreparation, savePreparationSection, sendPreparation, loadCampaigns, saveCampaign } from "@/services/preparation-planning";
 import { PartCatalogFields } from "./part-catalog-fields";
 import { loadCachedCatalog } from "@/services/parts-catalog-cache";
@@ -24,7 +24,6 @@ function PartsEditor({rows,onChange,disabled=false}:{rows:PickPart[];onChange:(r
 function PreparationCard({value,role,campaigns,busy,onSave,onSend,onDirty,onSelect,selected}:{value:Preparation;role?:string;campaigns:Campaign[];busy:boolean;onSave:(p:Preparation,s:Section)=>Promise<void>;onSend:(p:Preparation)=>Promise<void>;onDirty:(id:string,dirty:boolean)=>void;onSelect:()=>void;selected:boolean}) {
   const [draft,setDraft]=useState(value),[section,setSection]=useState<Section>(canWarranty(role)?"warranty":canPick(role)?"parts":"workshop"),[dirty,setDirty]=useState(false);
   function update(next:Preparation){setDraft(next);setDirty(true);onDirty(value.id,true);}
-  const suggestions=suggestedPlans(draft.appointment.model,draft.parts.modelYear);
   const progress=preparationProgress(value);
   const allowed=section==="workshop"?canPrepare(role)&&!value.sent:section==="warranty"?canWarranty(role):canPick(role);
   return <article className={`${styles.card} ${progress.complete?styles.completedCard:''}`}>
@@ -54,7 +53,6 @@ function PreparationCard({value,role,campaigns,busy,onSave,onSend,onDirty,onSele
     {section==='parts'&&<fieldset disabled={!allowed||busy}>
       <label>Ano/modelo<input placeholder="Ex.: 2023" value={draft.parts.modelYear} onChange={e=>update({...draft,parts:{...draft.parts,modelYear:e.target.value,ready:false}})}/></label>
       <label>Plano do cardápio<select value={draft.parts.planId} onChange={e=>update({...draft,parts:{...draft.parts,planId:e.target.value,revision:e.target.value?1:0,revisionParts:reviewParts(e.target.value,1),ready:false}})}><option value="">Sem revisão / selecionar plano</option>{plans.map(p=><option key={planKey(p)} value={planKey(p)}>{p.model} · {p.years.join(', ')}</option>)}</select></label>
-      {!draft.parts.planId&&suggestions.length>0&&<div><small>{suggestions.length===1?'Plano sugerido pelo modelo e ano:':'Planos compatíveis — confirme a versão do veículo:'}</small>{suggestions.map(plan=><button type="button" key={planKey(plan)} onClick={()=>update({...draft,parts:{...draft.parts,planId:planKey(plan),revision:1,revisionParts:reviewParts(planKey(plan),1),ready:false}})}>Usar {plan.model} · {plan.years.join(', ')}</button>)}</div>}
       {draft.parts.planId&&<label>Revisão<select value={draft.parts.revision} onChange={e=>update({...draft,parts:{...draft.parts,revision:Number(e.target.value),revisionParts:reviewParts(draft.parts.planId,Number(e.target.value)),ready:false}})}>{(plans.find(p=>planKey(p)===draft.parts.planId)?.operationTimes??[]).map((_,i)=><option key={i} value={i+1}>{i+1}ª revisão · {(i+1)*10000} km</option>)}</select></label>}
       <label>Placa para a ficha<input value={draft.parts.plate ?? (draft.appointment.plate.startsWith("SEMPLACA")?"":draft.appointment.plate)} onChange={e=>update({...draft,parts:{...draft.parts,plate:e.target.value.toUpperCase(),ready:false}})}/></label>
       <label>Chassi para a ficha<input value={draft.parts.chassi ?? draft.appointment.chassi} onChange={e=>update({...draft,parts:{...draft.parts,chassi:e.target.value.toUpperCase(),ready:false}})}/></label>

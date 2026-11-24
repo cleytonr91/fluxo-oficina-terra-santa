@@ -112,6 +112,36 @@ function setup(saved={status:'ativo',currentLane:'aguardando_servico',washType:'
   return {service,writes,listeners,reads:()=>reads};
 }
 const input={vehicleId:'v1',from:'aguardando_servico',to:'em_servico',actor:'Teste',actorId:'uid',technician:'Wesley',consultant:'Eliane',washType:'simples',promised:'',note:'',customerWaits:false,onTime:true,pending:false,nps:''};
+test('date changes reuse active listener, reject stale callbacks and clean up',()=>{
+ const s=setup(), results=[], errors=[];
+ const connection=s.service.createBasicFlowSubscription('2026-11-23',v=>results.push(v),e=>errors.push(e));
+ const snapshot=(id,status='ativo')=>({size:1,docs:[{id,data:()=>({status})}]});
+ s.listeners[0].cb(snapshot('active'));
+ s.listeners[1].cb(snapshot('old','entregue'));
+ connection.setDay('2026-11-23'); assert.equal(s.listeners.length,2);
+ connection.setDay('2026-11-22'); assert.equal(s.listeners.length,3);
+ assert.equal(s.listeners[0].stopped,false); assert.equal(s.listeners[1].stopped,true);
+ s.listeners[0].cb(snapshot('updated')); assert.equal(results.length,1);
+ s.listeners[1].cb(snapshot('stale','entregue')); s.listeners[1].err(new Error('stale'));
+ assert.equal(results.length,1); assert.equal(errors.length,0);
+ s.listeners[2].cb(snapshot('new','entregue'));
+ assert.deepEqual(results.at(-1).map(v=>v.id),['updated','new']);
+ connection.stop(); assert.ok(s.listeners.every(l=>l.stopped));
+ s.listeners[0].cb(snapshot('late')); s.listeners[2].cb(snapshot('late','entregue'));
+ connection.setDay('2026-11-21'); assert.equal(s.listeners.length,3); assert.equal(results.length,2);
+ assert.equal(s.writes.length,0);
+});
+
+test('terminal listener errors never trigger automatic retries or new date queries',()=>{
+ const s=setup(); let emissions=0;
+ const connection=s.service.createBasicFlowSubscription('2026-11-23',()=>emissions++,()=>{});
+ s.listeners[0].err(new Error('permission-denied'));
+ connection.setDay('2026-11-22');
+ s.listeners[1].cb({size:0,docs:[]});
+ assert.equal(s.listeners.length,2); assert.equal(emissions,0);
+ connection.stop(); assert.ok(s.listeners.every(l=>l.stopped));
+});
+
 test('load opens exactly two bounded subscriptions and no writes; overflow blocks partial data',()=>{
   const s=setup();let emitted=0,error='';
   const stop=s.service.subscribeBasicFlow('2026-09-25',()=>emitted++,e=>error=e.message);
@@ -173,10 +203,12 @@ test('lane permissions and existing advanced wash return are maintained',()=>{
   assert.deepEqual(domain.basicTargets({currentLane:'lavagem',washingAdvanced:true,serviceCompleted:false}),['aguardando_servico']);
 });
 
-test('restored layout keeps one subscription effect keyed only by day and no auxiliary services',()=>{
+test('restored layout keeps active subscription across selected dates and defers startup',()=>{
  const source=fs.readFileSync('src/components/basic-flow-board.tsx','utf8');
- assert.equal((source.match(/subscribeBasicFlow\(day/g)||[]).length,1);
- assert.match(source,/return \(\) => \{ alive = false; stop\(\); \};\s*\}, \[day, today\]\)/);
+ assert.equal((source.match(/createBasicFlowSubscription\(selectedDay.current/g)||[]).length,1);
+ assert.match(source,/\[today, user\?\.uid\]/);
+ assert.match(source,/connection.current\?\.setDay\(day\)/);
+ assert.match(source,/window.clearTimeout\(timer\); connection.current\?\.stop\(\)/);
  assert.doesNotMatch(source,/getDocs|onSnapshot|subscribePart|subscribeFlowEvents|loadHyundaiPartsCatalog/);
  assert.match(source,/data-flow-mode="basic-restored"/);
 });

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/context/auth-context";
 import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, clientWhatsappUrl, isBasicNoShow, localDay, sortFlowLane, visibleByImmobilization } from "@/lib/basic-flow";
-import { BasicMoveInput, moveBasicVehicle, subscribeBasicFlow } from "@/services/basic-flow";
+import { BasicMoveInput, moveBasicVehicle, createBasicFlowSubscription } from "@/services/basic-flow";
 import { canAddBasicWalkIn } from "@/services/basic-walk-in";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
 import styles from "./basic-flow-board.module.css";
@@ -50,12 +50,22 @@ export function BasicFlowBoard() {
   const [walkIn, setWalkIn] = useState(false);
   const lock = useRef(false);
   const today = localDay(now);
+  const selectedDay = useRef(day);
+  selectedDay.current = day;
+  const connection = useRef<ReturnType<typeof createBasicFlowSubscription> | null>(null);
   useEffect(() => {
     let alive = true;
     setReady(false); setVehicles([]); setError(""); setLastSync(null);
-    const stop = subscribeBasicFlow(day, data => { if (alive) { setVehicles(data); setReady(true); setError(""); setLastSync(new Date()); } }, failure => { if (alive) { setError(failure.message); setReady(false); } }, today);
-    return () => { alive = false; stop(); };
-  }, [day, today]);
+    // Defer startup so a discarded Strict Mode mount never opens a listener.
+    const timer = window.setTimeout(() => {
+      if (!user?.uid) return;
+      connection.current = createBasicFlowSubscription(selectedDay.current, data => { if (alive) { setVehicles(data); setReady(true); setError(""); setLastSync(new Date()); } }, failure => { if (alive) { setError(failure.message); setReady(false); } }, today);
+    }, 0);
+    return () => { alive = false; window.clearTimeout(timer); connection.current?.stop(); connection.current = null; };
+  }, [today, user?.uid]);
+  useEffect(() => {
+    connection.current?.setDay(day);
+  }, [day]);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
     update();
