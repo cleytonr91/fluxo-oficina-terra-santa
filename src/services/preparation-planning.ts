@@ -67,3 +67,19 @@ export async function sendPreparation(p: Preparation, actor: string): Promise<Pr
     if(!current.sent)tx.update(ref,{sent:true,updatedBy:actor,updatedAt:serverTimestamp()});return {...current,sent:true};
   });
 }
+
+export async function importPreparationBatch(batch: Preparation[], actor: string, onSaved?: (p: Preparation) => void) {
+  if(batch.length > 200) throw new Error("Importe até 200 agendamentos por dia.");
+  const saved: Preparation[] = [];
+  const failed: { preparation: Preparation; message: string }[] = [];
+  for (const preparation of batch) {
+    try {
+      const result = await importPreparation(preparation, actor);
+      saved.push(result);
+      onSaved?.(result);
+    } catch (error) {
+      failed.push({ preparation, message: error instanceof Error ? error.message : "Não foi possível salvar este evento." });
+    }
+  }
+  return { saved, failed };
+}
