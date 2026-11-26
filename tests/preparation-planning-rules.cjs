@@ -9,4 +9,14 @@ const campaign={id:'test',version:1,kind:'recall',code:'R1',parts:[],updatedBy:'
 for(const status of ['garantia','recall'])add('new warranty status '+status,'garantista','update','preparationPlans',base,{...base,warranty:{status,campaigns:[],parts:[{code:'A',name:'Peça',quantity:1}]},warrantyVersion:1,warrantyBy:'u'},'ALLOW');
 add('warranty reads catalog metadata','garantista','get','partsCatalog',{},null,'ALLOW');cases[cases.length-1].request.path='/databases/(default)/documents/partsCatalog/meta';
 add('warranty cannot edit catalog','garantista','update','partsCatalog',{},base,'DENY');cases[cases.length-1].request.path='/databases/(default)/documents/partsCatalog/meta';
+for(const [name,method,collection,data,expected,active] of [
+ ['delegated warranty read','get','preparationPlans',null,'ALLOW',true],
+ ['delegated warranty save','update','preparationPlans',{...base,warranty:{status:'sem_pendencias',campaigns:[]},warrantyVersion:1,warrantyBy:'u'},'ALLOW',true],
+ ['delegated warranty campaign','create','preparationCampaigns',campaign,'ALLOW',true],
+ ['delegation cannot import','create','preparationPlans',base,'DENY',true],
+ ['delegation cannot edit parts','update','preparationPlans',{...base,partsVersion:1,partsBy:'u',parts:{ready:true}},'DENY',true],
+ ['inactive delegation denied','get','preparationPlans',null,'DENY',false]]) {
+ add(name,'consultor',method,collection,base,data,expected);
+ cases[cases.length-1].functionMocks[0].result.value.data={role:'consultor',active,preparationWarranty:true};
+}
 (async()=>{const account=require(path.join(lib,'auth')).getProjectDefaultAccount(process.cwd());await require(path.join(lib,'requireAuth')).requireAuth({project,...account});const {Client}=require(path.join(lib,'apiv2'));const api=new Client({urlPrefix:'https://firebaserules.googleapis.com',apiVersion:'v1'});for(const file of ['firestore.rules','firestore.limited.rules']){const result=await api.post(`/projects/${project}:test`,{source:{files:[{name:'firestore.rules',content:fs.readFileSync(file,'utf8')}]},testSuite:{testCases:cases}});const results=result.body.testResults??[];assert.equal(results.length,cases.length,JSON.stringify(result.body));const failures=results.flatMap((r,i)=>r.state==='SUCCESS'?[]:[{name:names[i],...r}]);if(failures.length)console.log(JSON.stringify(failures));assert.equal(failures.length,0);console.log(file+': '+results.length+' synthetic permission cases passed');}})().then(()=>process.exit()).catch(e=>{console.error(e.message);process.exit(1)});

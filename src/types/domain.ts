@@ -216,6 +216,7 @@ export interface UserProfile {
   email?: string;
   role: UserRole;
   allowedPaths?: string[];
+  preparationWarranty?: boolean;
   active: boolean;
   mustChangePassword?: boolean;
   createdAt: FirestoreTimestamp;

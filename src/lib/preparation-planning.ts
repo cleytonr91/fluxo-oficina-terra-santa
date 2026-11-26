@@ -17,7 +17,7 @@ export const plans = maintenance.plans;
 export const planKey = (plan: (typeof plans)[number]) => `${plan.model}-${plan.years.join("-")}`;
 export const sourceVersion = (p: Preparation) => `${p.workshopVersion}:${p.warrantyVersion}`;
 export const canPrepare = (role?: string) => ["admin", "gerente", "chefe_oficina"].includes(role ?? "");
-export const canWarranty = (role?: string) => ["admin", "gerente", "garantista"].includes(role ?? "");
+export const canWarranty = (role?: string, preparationWarranty = false) => Boolean(role) && (preparationWarranty || ["admin", "gerente", "garantista"].includes(role ?? ""));
 export const canPick = (role?: string) => ["admin", "gerente", "estoquista"].includes(role ?? "");
 export function createPreparation(appointment: Appointment, sourceFile: string): Preparation {
   return { id: appointment.id, date: appointment.date, appointment, sourceFile,
