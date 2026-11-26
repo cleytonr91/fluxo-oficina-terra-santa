@@ -73,6 +73,24 @@ function flowTimestamp(value: unknown): number | undefined {
   return date instanceof Date && Number.isFinite(date.getTime()) ? date.getTime() : undefined;
 }
 
+export function deliveryIndicators(vehicles: VehicleFlow[], day: string) {
+  vehicles = [...new Map(vehicles.map(v => [v.id, v])).values()];
+  const pending = vehicles.filter(v => v.status === "ativo" && v.currentLane === "preparacao_entrega");
+  const readyDay = (v: VehicleFlow) => {
+    const timestamp = flowTimestamp(v.readyForDeliveryAt);
+    return timestamp === undefined ? "" : localDay(new Date(timestamp));
+  };
+  return {
+    previous: pending.filter(v => readyDay(v) && readyDay(v) < day),
+    today: pending.filter(v => readyDay(v) === day),
+    unknown: pending.filter(v => !readyDay(v)),
+    delivered: vehicles.filter(v => {
+      const timestamp = flowTimestamp(v.deliveredAt);
+      return v.status === "entregue" && timestamp !== undefined && localDay(new Date(timestamp)) === day;
+    }),
+  };
+}
+
 export function flowSequenceTime(vehicle: VehicleFlow): number {
   const match = /^(\d{1,2}):(\d{2})$/.exec(vehicle.appointmentTime ?? "");
   const scheduled = match && Number(match[1]) <= 23 && Number(match[2]) <= 59 && /^\d{4}-\d{2}-\d{2}$/.test(vehicle.appointmentDate ?? "")

@@ -65,6 +65,7 @@ export async function moveBasicVehicle(input: BasicMoveInput) {
     if (current.status !== "ativo" || current.currentLane !== input.from) throw new Error("Este chip foi alterado por outra pessoa. Feche e confira a etapa atual.");
     if (!basicTargets(current).includes(input.to)) throw new Error("Transição não permitida.");
     const patch: Record<string, unknown> = { currentLane: input.to, updatedAt: serverTimestamp(), basicFlowVersion: 1, basicUpdatedBy: input.actorId };
+    if (input.to === "preparacao_entrega") patch.readyForDeliveryAt = serverTimestamp();
     if (input.from === "preparacao_confirmada") {
       if (!input.consultant.trim() || !input.promised || !Number.isFinite(new Date(input.promised).getTime())) throw new Error("Informe consultor e previsão de entrega.");
       if (current.roadTestRequired) {

@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/context/auth-context";
-import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, clientWhatsappUrl, isBasicNoShow, localDay, sortFlowLane, visibleByImmobilization } from "@/lib/basic-flow";
+import { basicConsultants, basicFlowDayVehicles, basicLanes, basicTargets, basicTechnicians, canOperateBasic, clientWhatsappUrl, deliveryIndicators, isBasicNoShow, localDay, sortFlowLane, visibleByImmobilization } from "@/lib/basic-flow";
 import { BasicMoveInput, moveBasicVehicle, createBasicFlowSubscription } from "@/services/basic-flow";
 import { canAddBasicWalkIn } from "@/services/basic-walk-in";
 import type { FlowLane, VehicleFlow, WashType } from "@/types/domain";
@@ -83,7 +83,8 @@ export function BasicFlowBoard() {
     return `${v.clientName ?? ""} ${v.plate ?? ""} ${v.chassi ?? ""}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase());
   });
   const noShows = filtered.filter(v => isBasicNoShow(v, now));
-  const active = filtered.filter(v => v.status === "ativo" && !noShows.includes(v));
+  const active = filtered.filter(v => v.status === "ativo" && v.currentLane !== "preparacao_entrega" && !noShows.includes(v));
+  const deliveries = deliveryIndicators(filtered, day);
   const attention = (v: VehicleFlow) => v.status === "ativo" && (v.customerWaits || v.priority === "alta" || v.budgetStatus === "aguardando" || v.roadTestRequired || (dateValue(v.promisedDeliveryAt)?.getTime() ?? Infinity) < now.getTime());
   const groups = [
     { id: "agendados", label: "Agendados", items: active.filter(v => v.origin !== "passante" && v.appointmentDate === day) },
@@ -96,9 +97,11 @@ export function BasicFlowBoard() {
     { id: "noShow", label: "No-show", items: noShows },
     { id: "attention", label: "Em atenção", items: active.filter(attention) },
     { id: "immobilized", label: "Imobilizados", items: visibleByImmobilization(filtered, true) },
-    { id: "delivered", label: "Entregues do dia", items: filtered.filter(v => v.status === "entregue") },
+    { id: "readyPrevious", label: "Prontos — dias anteriores", items: deliveries.previous },
+    { id: "readyToday", label: "Prontos — hoje", items: deliveries.today },
+    { id: "delivered", label: "Entregues aos clientes", items: deliveries.delivered },
   ];
-  const visible = visibleByImmobilization(metric === "todos" ? filtered : groups.find(group => group.id === metric)?.items ?? [], metric === "immobilized");
+  const visible = visibleByImmobilization(metric === "todos" ? filtered : metric === "readyUnknown" ? deliveries.unknown : groups.find(group => group.id === metric)?.items ?? [], metric === "immobilized");
   const visibleNoShows = sortFlowLane(noShows.filter(v => visible.includes(v)), day);
   const loadingMessage = error ? "Carregamento interrompido. Confira o aviso acima." : "Carregando veículos...";
   function metricLine(group: typeof groups[number]) {
@@ -126,8 +129,14 @@ export function BasicFlowBoard() {
     const progress = promise && received && promise > received ? Math.min(100, Math.max(0, (now.getTime() - received.getTime()) / (promise.getTime() - received.getTime()) * 100)) : 0;
     const days = received ? Math.max(0, Math.floor((now.getTime() - received.getTime()) / 86400000)) : "-";
     const canMove = canOperateBasic(profile?.role, vehicle.currentLane) && basicTargets(vehicle).length > 0;
-    return <article className={`chip flow-chip ${/diagn/i.test(vehicle.serviceLabel ?? "") ? "diagnostico" : /reparo/i.test(vehicle.serviceLabel ?? "") ? "reparo" : ""}`} key={vehicle.id} tabIndex={0} aria-label={`Informações de ${vehicle.clientName}`} onDoubleClick={() => setDetail({ vehicle, parts: false })} onKeyDown={event => { if (event.key === "Enter" && event.target === event.currentTarget) setDetail({ vehicle, parts: false }); }}>
-      <div className="chip-top"><div><h3 className="client">{clientWhatsappUrl(vehicle.phone) ? <a className="client-link" href={clientWhatsappUrl(vehicle.phone)} target="_blank" rel="noopener noreferrer" title="Abrir WhatsApp do cliente" onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}>{vehicle.clientName || "Sem nome"}</a> : vehicle.clientName || "Sem nome"}</h3><p className="model">{vehicle.model || "Modelo não informado"}</p></div><span className={`plate ${vehicle.customerWaits ? "wait-plate" : ""}`} title={vehicle.customerWaits ? "Cliente aguardando na loja" : "Placa"}>{vehicle.plate && vehicle.plate !== "null" ? vehicle.plate : "Sem placa"}</span></div>
+    const serviceClass = /embelez/i.test(vehicle.serviceLabel ?? "") ? "embelezamento" : /diagn/i.test(vehicle.serviceLabel ?? "") ? "diagnostico" : /reparo/i.test(vehicle.serviceLabel ?? "") ? "reparo" : /revis/i.test(vehicle.serviceLabel ?? "") ? "revisao" : "";
+    const plate = vehicle.plate && !/^(null|undefined)$/i.test(vehicle.plate.trim()) ? vehicle.plate.trim().toUpperCase() : "";
+    const compactPlate = plate.replace(/[\s-]/g, "");
+    const plateContent = /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(compactPlate)
+      ? <><span>{compactPlate.slice(0, 3)}</span><span>{compactPlate.slice(3)}</span></>
+      : <span className={styles.otherPlate}>{plate}</span>;
+    return <article className={`chip flow-chip ${serviceClass}`} key={vehicle.id} tabIndex={0} aria-label={`Informações de ${vehicle.clientName}`} onDoubleClick={() => setDetail({ vehicle, parts: false })} onKeyDown={event => { if (event.key === "Enter" && event.target === event.currentTarget) setDetail({ vehicle, parts: false }); }}>
+<div className="chip-top"><div><h3 className="client">{clientWhatsappUrl(vehicle.phone) ? <a className="client-link" href={clientWhatsappUrl(vehicle.phone)} target="_blank" rel="noopener noreferrer" title="Abrir WhatsApp do cliente" onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}>{vehicle.clientName || "Sem nome"}</a> : vehicle.clientName || "Sem nome"}</h3><p className="model">{vehicle.model || "Modelo não informado"}</p></div><span className={plate ? styles.mercosulPlate : styles.missingPlate} aria-label={plate ? `Placa ${plate}` : "Sem placa"}>{plate ? <><span className={styles.plateHeader} aria-hidden="true"><small>MERCOSUL</small><b>BRASIL</b><i className={styles.brazilFlag} /></span><strong className={styles.plateNumber}>{plateContent}</strong></> : "Sem placa"}</span></div>
       <div className="tag-row"><span className="tag">{vehicle.serviceLabel || "Serviço não informado"}</span>
         {vehicle.appointmentDate && vehicle.appointmentDate < day && <span className="tag previous-day">Dia anterior</span>}
         {vehicle.origin === "passante" && <span className="tag warn">Passante</span>}
@@ -151,7 +160,7 @@ export function BasicFlowBoard() {
     </article>;
   }
   return <div className="app-shell" data-flow-mode="basic-restored">
-    <AppHeader title="Fluxo da Oficina" status={<div role="status" className={`realtime-status header-realtime-status ${error || !online ? "offline" : ""}`}><span>{!online ? "Sem conexão · movimentações bloqueadas" : error ? "Carregamento interrompido" : ready ? "Atualização em tempo real ativa" : "Carregando quadro"}</span><strong>{error ? "Confira o aviso abaixo" : lastSync ? `Atualizado ${lastSync.toLocaleTimeString("pt-BR")}` : "Aguarde..."}</strong></div>}
+    <AppHeader title="Fluxo da Oficina" status={<div role="status" className={`realtime-status header-realtime-status ${error || !online ? "offline" : ""}`}>{(!online || error || !ready) && <span>{!online ? "Sem conexão · movimentações bloqueadas" : error ? "Carregamento interrompido" : "Carregando quadro"}</span>}<strong>{error ? "Confira o aviso abaixo" : lastSync ? `Atualizado ${lastSync.toLocaleTimeString("pt-BR")}` : "Aguarde..."}</strong></div>}
       flowControls={<>{canAddBasicWalkIn(profile?.role) && <button type="button" className="primary-btn" disabled={!ready || !online || day !== today} onClick={() => setWalkIn(true)}>+ Passante</button>}<label className="date-field"><span>Data</span><input type="date" value={day} onChange={e => { if (e.target.value && e.target.value !== day) { setReady(false); setVehicles([]); setDay(e.target.value); } }} /></label></>} />
     <main className={`flow-page ${styles.restored}`}>
     <section className="flow-metrics flow-day-panel">
@@ -161,6 +170,7 @@ export function BasicFlowBoard() {
       <div className="flow-status-strip">{groups.slice(7).map(group => <button key={group.id} className={`flow-metric mini ${["noShow", "immobilized"].includes(group.id) ? "danger" : ""} ${metric === group.id ? "selected" : ""}`} onClick={() => setMetric(metric === group.id ? "todos" : group.id)}><strong>{group.items.length}</strong><span>{group.label}</span></button>)}</div>
       <div className="flow-filter-stack"><strong>Filtros</strong><label className="flow-filter compact"><span>Consultor</span><select value={consultant} onChange={e => setConsultant(e.target.value)}><option value="">Todos</option>{basicConsultants.map(name => <option key={name}>{name}</option>)}</select></label><label className="flow-filter compact"><span>Técnico</span><select value={technicianFilter} onChange={e => setTechnicianFilter(e.target.value)}><option value="">Todos</option>{basicTechnicians.map(name => <option key={name}>{name}</option>)}</select></label><label className="flow-filter compact flow-plate-filter"><span>Pesquisa</span><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Nome, placa ou chassi" /></label></div>
     </section>
+    {deliveries.unknown.length > 0 && <button type="button" className={styles.unknownReady} onClick={() => setMetric(metric === "readyUnknown" ? "todos" : "readyUnknown")}>{deliveries.unknown.length} pronto(s) com data não identificada · pendentes de entrega</button>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <section className="flow-board">{basicLanes.map(lane => {
       const items = sortFlowLane(visible.filter(v => v.currentLane === lane.id && !noShows.includes(v)), day);

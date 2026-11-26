@@ -400,6 +400,7 @@ export interface VehicleFlow {
   partAvailability?: PartAvailability;
   partsNote?: string;
   deliveredAt?: FirestoreTimestamp;
+  readyForDeliveryAt?: FirestoreTimestamp;
   deliveredOnTime?: boolean;
   partsOrdered?: boolean;
   internalNps?: number;

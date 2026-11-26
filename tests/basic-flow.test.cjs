@@ -10,6 +10,25 @@ function load(file, mocks={}) {
 }
 const domain=load('src/lib/basic-flow.ts');
 
+test('ready indicators separate pending dates from actual deliveries in Sao Paulo',()=>{
+ const day='2026-11-26';
+ const ready=(id,date)=>({id,status:'ativo',currentLane:'preparacao_entrega',readyForDeliveryAt:date});
+ const yesterday=ready('old','2026-11-26T02:59:00Z');
+ const today=ready('new','2026-11-26T03:00:00Z');
+ const unknown=ready('unknown',undefined);
+ const delivered={...ready('delivered','2026-11-25T12:00:00Z'),status:'entregue',currentLane:'entregue',deliveredAt:'2026-11-26T12:00:00Z'};
+ const list=[yesterday,today,unknown,delivered,{...today,id:'cancelled',status:'cancelado'},{...today,id:'back',currentLane:'em_servico'},today];
+ const result=domain.deliveryIndicators(list,day);
+ assert.deepEqual(result.previous.map(v=>v.id),['old']);
+ assert.deepEqual(result.today.map(v=>v.id),['new']);
+ assert.deepEqual(result.unknown.map(v=>v.id),['unknown']);
+ assert.deepEqual(result.delivered.map(v=>v.id),['delivered']);
+ const next=domain.deliveryIndicators(list,'2026-11-27');
+ assert.deepEqual(next.previous.map(v=>v.id),['old','new']);
+ assert.equal(next.today.length,0); assert.equal(next.delivered.length,0);
+ assert.equal(domain.deliveryIndicators([{...today,status:'entregue',currentLane:'entregue',deliveredAt:'2026-11-26T12:00:00Z'}],day).today.length,0);
+});
+
 test('client WhatsApp links normalize Brazilian phones without database access',()=>{
  assert.equal(domain.clientWhatsappUrl('(79) 99999-1234'),'https://wa.me/5579999991234');
  assert.equal(domain.clientWhatsappUrl('+55 (79) 99999-1234'),'https://wa.me/5579999991234');
@@ -112,6 +131,16 @@ function setup(saved={status:'ativo',currentLane:'aguardando_servico',washType:'
   return {service,writes,listeners,reads:()=>reads};
 }
 const input={vehicleId:'v1',from:'aguardando_servico',to:'em_servico',actor:'Teste',actorId:'uid',technician:'Wesley',consultant:'Eliane',washType:'simples',promised:'',note:'',customerWaits:false,onTime:true,pending:false,nps:''};
+test('ready timestamp shares the existing movement write budget for service and wash',async()=>{
+ for(const lane of ['em_servico','lavagem']) {
+  const s=setup({status:'ativo',currentLane:lane,washType:'nao',readyForDeliveryAt:'old'});
+  await s.service.moveBasicVehicle({...input,from:lane,to:'preparacao_entrega'});
+  assert.equal(s.reads(),1);assert.equal(s.writes.length,2);
+  assert.equal(s.writes[0][1].readyForDeliveryAt,'SERVER_TIME');
+ }
+ const source=fs.readFileSync('src/components/basic-flow-board.tsx','utf8');
+ assert.match(source,/v.currentLane !== "preparacao_entrega" && !noShows.includes/);
+});
 test('date changes reuse active listener, reject stale callbacks and clean up',()=>{
  const s=setup(), results=[], errors=[];
  const connection=s.service.createBasicFlowSubscription('2026-11-23',v=>results.push(v),e=>errors.push(e));

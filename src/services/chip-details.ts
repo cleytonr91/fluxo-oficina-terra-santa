@@ -83,6 +83,7 @@ export function prepareChipPatch(current: VehicleFlow, action: ChipAction, actor
       Object.assign(patch, { currentLane: action.value, status: "ativo", noShow: false, noShowAt: null, washingAdvanced: false, advancedWashReturnLane: null });
       if (["preparacao_confirmada", "aguardando_servico", "em_servico"].includes(action.value)) Object.assign(patch, { serviceCompleted: false, washDone: false });
       if (["aguardando_lavagem", "lavagem", "preparacao_entrega"].includes(action.value)) patch.serviceCompleted = true;
+      patch.readyForDeliveryAt = action.value === "preparacao_entrega" ? now : null;
       if (current.status === "entregue") patch.deliveredAt = null;
       note = `Correção de etapa: ${action.note.trim()}`; break;
     case "cancel":
@@ -135,6 +136,7 @@ export async function saveChipAction(vehicle: VehicleFlow, action: ChipAction, a
       event.actionNote = `Pedido de peças (${existing?.orderStatus ?? "solicitado_oficina"}): ${parts.map(p => p.partReference || p.partDescription).join(", ")}`;
     }
     const writePatch: Record<string, unknown> = { ...patch, chipDetailVersion: 1, chipActor: actor.uid, chipAction: action.kind, chipMutationId: mutationId, updatedAt: serverTimestamp() };
+    if (action.kind === "stage" && action.value === "preparacao_entrega") writePatch.readyForDeliveryAt = serverTimestamp();
     if (action.kind === "promise") {
       writePatch.promisedDeliveryAt = Timestamp.fromDate(patch.promisedDeliveryAt as Date);
       writePatch.promiseHistory = arrayUnion({ promisedDeliveryAt: (patch.promisedDeliveryAt as Date).toISOString(), changedAt: now.toISOString(), changedBy: actor.name, note: action.note, chipDetailVersion: 1 });
