@@ -14,12 +14,14 @@ const { isValidHgsiRecordStatus } = mod.exports;
 test("respondido is a valid Route registration status", () => {
   assert.equal(isValidHgsiRecordStatus("Respondido"), true);
   assert.equal(isValidHgsiRecordStatus("Registro respondido"), true);
+  assert.equal(isValidHgsiRecordStatus("Entrevista Realizada"), true);
 });
 
 test("invalid and unanswered statuses remain excluded", () => {
   assert.equal(isValidHgsiRecordStatus("Inválido"), false);
   assert.equal(isValidHgsiRecordStatus("Não válido"), false);
   assert.equal(isValidHgsiRecordStatus("Não respondido"), false);
+  assert.equal(isValidHgsiRecordStatus("Realizada sem autorização"), false);
 });
 
 test("existing valid status labels remain accepted", () => {

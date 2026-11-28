@@ -12,9 +12,11 @@ export function isValidHgsiRecordStatus(status?: string) {
   if (!normalized) return false;
   if (normalized.includes("invalido") || normalized.includes("nao valido")) return false;
   if (normalized.includes("nao respondido")) return false;
+  if (normalized.includes("sem autorizacao")) return false;
 
   return normalized.includes("registro valido")
     || normalized === "valido"
     || normalized.includes(" valido")
-    || /(^| )respondido( |$)/.test(normalized);
+    || /(^| )respondido( |$)/.test(normalized)
+    || normalized.includes("entrevista realizada");
 }
