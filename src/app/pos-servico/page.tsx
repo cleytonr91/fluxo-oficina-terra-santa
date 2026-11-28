@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import { ProtectedPage } from "@/components/protected-page";
 import { useAuth } from "@/context/auth-context";
+import { isValidHgsiRecordStatus } from "@/lib/hgsi/record-status";
 import { listHgsiRecords, saveHgsiAnswers, saveHgsiRecords, savePostServiceTreatment } from "@/services/firestore";
 import { loadPostServiceMonth } from "@/services/post-service-month";
 import type { PostCaseType, PostServiceCase, VehicleFlow } from "@/types/domain";
@@ -191,13 +192,6 @@ function boolFrom(row: Record<string, unknown>, terms: string[]) {
   if (["nao", "n", "no", "incorreto", "0"].some((term) => value === term || value.includes(term))) return false;
   if (["sim", "s", "yes", "correto", "1"].some((term) => value === term || value.includes(term))) return true;
   return undefined;
-}
-
-function isValidHgsiRecordStatus(status?: string) {
-  const normalized = normalizeText(status);
-  if (!normalized) return false;
-  if (normalized.includes("invalido") || normalized.includes("nao valido") || normalized.includes("não valido")) return false;
-  return normalized.includes("registro valido") || normalized === "valido" || normalized.includes(" valido");
 }
 
 function isUnauthorizedAnswerStatus(status?: string) {
@@ -651,7 +645,9 @@ export default function PosServicoPage() {
           osNumber: record.osNumber,
           importBatchId: record.importBatchId,
           status: record.recordStatus,
-          valid: Boolean(record.isValidRecord) && isValidHgsiRecordStatus(record.recordStatus),
+          valid: record.recordStatus
+            ? isValidHgsiRecordStatus(record.recordStatus)
+            : Boolean(record.isValidRecord),
           clientName: (record as { clientName?: string }).clientName,
           plate: (record as { plate?: string }).plate,
           serviceLabel: (record as { serviceLabel?: string }).serviceLabel,

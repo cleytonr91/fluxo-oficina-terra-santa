@@ -4,6 +4,7 @@ import { collection, doc, getDocs, query, serverTimestamp, where, writeBatch } f
 import * as XLSX from "xlsx";
 import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase/client";
 import { collections } from "@/lib/firebase/collections";
+import { isValidHgsiRecordStatus } from "@/lib/hgsi/record-status";
 
 const PORTAL_BASE_URL = "https://routepesquisa.com.br/hgsi/";
 const POST_SALES_QUESTIONNAIRE = "6";
@@ -144,12 +145,6 @@ function consultantDisplayName(name?: string) {
   if (normalized.includes("rosangela")) return "Rosangela";
   if (normalized.includes("eliane")) return "Eliane";
   return name?.trim().split(/\s+/)[0] || "Sem consultor";
-}
-
-function isValidHgsiRecordStatus(status?: string) {
-  const normalized = normalizeText(status);
-  if (!normalized || normalized.includes("invalido") || normalized.includes("nao valido")) return false;
-  return normalized.includes("registro valido") || normalized === "valido" || normalized.includes(" valido");
 }
 
 function campaignMonthFromLabel(value: string) {

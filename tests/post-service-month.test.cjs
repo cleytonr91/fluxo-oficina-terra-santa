@@ -70,6 +70,7 @@ test('closed month renders results without operational counts or funnel', () => 
     } },
     '@/components/protected-page': { ProtectedPage: ({ children }) => children },
     '@/context/auth-context': { useAuth: () => ({ profile: { name: 'Teste', role: 'admin' }, user: { uid: 'test' } }) },
+    '@/lib/hgsi/record-status': compile('src/lib/hgsi/record-status.ts', {}),
     '@/services/firestore': {}, '@/services/post-service-month': {},
     './identity': compile('src/app/pos-servico/identity.ts', {}),
   }).default;
